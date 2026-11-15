@@ -1,15 +1,14 @@
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { isLocalDate } from '../../core/src/dates';
 import {
   buildExport,
   exportFileName,
   parseExport,
+  type ParseResult,
 } from '../../core/src/export';
 import type { Deps } from '../../core/src/types';
-import { browserDeps } from '../../shell/deps';
 import { convert, type Report, type ReportItem } from './convert';
 import { parseCsv } from './csv';
 import { STATUS_RULES } from './mapping';
@@ -17,6 +16,13 @@ import { STATUS_RULES } from './mapping';
 export interface Io {
   stdout(text: string): void;
   stderr(text: string): void;
+}
+
+/** Seams for tests; the defaults are the real thing. */
+export interface Ports {
+  validate?: (text: string) => ParseResult;
+  writeFile?: (file: string, data: string) => void;
+  removeFile?: (file: string) => void;
 }
 
 const USAGE =
@@ -53,7 +59,13 @@ export async function runImportSheet(
   argv: string[],
   io: Io,
   deps: Deps,
+  ports: Ports = {},
 ): Promise<number> {
+  const validate = ports.validate ?? parseExport;
+  const write =
+    ports.writeFile ??
+    ((file: string, data: string) => writeFileSync(file, data, { flag: 'wx' }));
+  const remove = ports.removeFile ?? ((file: string) => rmSync(file));
   let values;
   try {
     ({ values } = parseArgs({
@@ -120,7 +132,7 @@ export async function runImportSheet(
   const at = deps.now();
   const file = buildExport(result.snapshot, {}, { now: () => at });
   const text = JSON.stringify(file, null, 2);
-  const check = parseExport(text);
+  const check = validate(text);
   if (!check.ok) {
     io.stderr(
       `The generated file failed validation, nothing was written:\n${check.errors.join('\n')}\n`,
@@ -129,28 +141,19 @@ export async function runImportSheet(
   }
   const target = path.join(out, exportFileName('export', at));
   try {
-    writeFileSync(target, text, { flag: 'wx' });
+    write(target, text);
   } catch (error) {
+    // Never leave a truncated export behind (but never touch an existing file).
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+      try {
+        remove(target);
+      } catch {
+        // best effort
+      }
+    }
     io.stderr(`Could not write ${target}: ${message(error)}\n`);
     return 1;
   }
   io.stdout(`Wrote ${target}\n`);
   return 0;
-}
-
-// Run only when started as a script, not when a test imports this module.
-const entry = process.argv[1];
-if (
-  entry !== undefined &&
-  path.basename(entry).startsWith('cli') &&
-  import.meta.url === pathToFileURL(entry).href
-) {
-  process.exitCode = await runImportSheet(
-    process.argv.slice(2),
-    {
-      stdout: (t) => process.stdout.write(t),
-      stderr: (t) => process.stderr.write(t),
-    },
-    browserDeps(),
-  );
 }

@@ -53,6 +53,8 @@ npm run import-sheet -- --applications <csv> --history <csv> --out <folder> [--u
 6. Export from Countersign straight away and keep the file somewhere safe.
 7. Keep the sheet as a read-only archive. Until automatic backup ships, export after every session: uninstalling the extension deletes its data.
 
+The report prints cell values from your sheet, so do not paste it into public issues or pull requests.
+
 Sheet status values map to Countersign statuses like this (matching ignores case and extra spaces):
 
 | Sheet value          | Countersign status                                                |

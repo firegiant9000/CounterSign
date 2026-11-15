@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -86,6 +87,61 @@ describe('import-sheet', () => {
     expect(r.code).toBe(1);
     expect(r.stderr).not.toBe('');
     expect(readFileSync(file, 'utf8')).toBe(before);
+  });
+
+  it('dry run with a nonexistent --out exits 0 and creates nothing', async () => {
+    const missing = path.join(out, 'nope');
+    const r = await run([...base, '--out', missing, '--dry-run']);
+    expect(r.code).toBe(0);
+    expect(existsSync(missing)).toBe(false);
+    expect(readdirSync(out)).toEqual([]);
+  });
+
+  it('writes nothing and exits 1 when validation fails', async () => {
+    const stderr: string[] = [];
+    const code = await runImportSheet(
+      [...base, '--out', out],
+      { stdout: () => undefined, stderr: (t) => stderr.push(t) },
+      fixedDeps(),
+      { validate: () => ({ ok: false, errors: ['boom'] }) },
+    );
+    expect(code).toBe(1);
+    expect(stderr.join('')).toContain('boom');
+    expect(readdirSync(out)).toEqual([]);
+  });
+
+  it('removes a partial file when the write fails, and exits 1', async () => {
+    const removed: string[] = [];
+    const stderr: string[] = [];
+    const code = await runImportSheet(
+      [...base, '--out', out],
+      { stdout: () => undefined, stderr: (t) => stderr.push(t) },
+      fixedDeps(),
+      {
+        writeFile: () => {
+          throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+        },
+        removeFile: (p) => removed.push(p),
+      },
+    );
+    expect(code).toBe(1);
+    expect(removed).toEqual([
+      path.join(out, exportFileName('export', FIRST_NOW)),
+    ]);
+    expect(stderr.join('')).toContain('disk full');
+  });
+
+  it('does not remove the existing file when the target already exists', async () => {
+    const removed: string[] = [];
+    await run([...base, '--out', out]);
+    const code = await runImportSheet(
+      [...base, '--out', out],
+      { stdout: () => undefined, stderr: () => undefined },
+      fixedDeps(),
+      { removeFile: (p) => removed.push(p) },
+    );
+    expect(code).toBe(1);
+    expect(removed).toEqual([]);
   });
 
   it('exits 2 when --history is missing', async () => {
