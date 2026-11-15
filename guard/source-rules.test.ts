@@ -183,6 +183,18 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     "location.href = 'https://example.com';",
     "window.location.href = 'https://example.com';",
     "document.location.href = 'https://example.com';",
+    "location['href'] = 'https://example.com';",
+    "window.location['href'] = 'https://example.com';",
+    "location['assign']('https://example.com');",
+    "location['replace']('https://example.com');",
+    "location['reload']();",
+    "window.location['assign']('https://example.com');",
+    "globalThis.open('https://example.com');",
+    "self.open('https://example.com');",
+    "top.location = 'https://example.com';",
+    "parent.location = 'https://example.com';",
+    "globalThis.location = 'https://example.com';",
+    "self.location = 'https://example.com';",
   ])('rejects navigation %s', async (code) => {
     const found = await syntaxMessages(code, 'shell/ui/x.tsx');
     expect(found.some((m) => m.message === navMessage)).toBe(true);
@@ -192,6 +204,7 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     "job.location = 'Remote';",
     "indexedDB.open('db', 1);",
     'window.close();',
+    "location['hash'] = '#/data';",
   ])('allows %s', async (code) => {
     const found = await syntaxMessages(code, 'shell/ui/x.tsx');
     expect(found.some((m) => m.message === navMessage)).toBe(false);

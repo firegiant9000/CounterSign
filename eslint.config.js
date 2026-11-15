@@ -46,18 +46,24 @@ const downloadSyntax = [
 const NAVIGATION_MESSAGE = 'Countersign never navigates away or opens windows.';
 // Only these objects count as the page, so assigning a data field that happens
 // to be named location (job.location = ...) stays legal.
-const GLOBAL_OBJECTS = '/^(window|document|globalThis|self)$/';
+const GLOBAL_OBJECTS = '/^(window|document|globalThis|self|top|parent)$/';
 const navigationSyntax = [
   "MemberExpression[object.name='window'][property.name='open']",
   "MemberExpression[object.name='window'][property.value='open']",
+  "MemberExpression[object.name=/^(globalThis|self)$/][property.name='open']",
+  "MemberExpression[object.name=/^(globalThis|self)$/][property.value='open']",
   "CallExpression[callee.type='Identifier'][callee.name='open']",
   "CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.name='location']",
+  "CallExpression[callee.property.value=/^(assign|replace|reload)$/][callee.object.name='location']",
   `CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.property.name='location'][callee.object.object.name=${GLOBAL_OBJECTS}]`,
+  `CallExpression[callee.property.value=/^(assign|replace|reload)$/][callee.object.property.name='location'][callee.object.object.name=${GLOBAL_OBJECTS}]`,
   "AssignmentExpression[left.type='Identifier'][left.name='location']",
   `AssignmentExpression[left.property.name='location'][left.object.name=${GLOBAL_OBJECTS}]`,
   `AssignmentExpression[left.property.value='location'][left.object.name=${GLOBAL_OBJECTS}]`,
   "AssignmentExpression[left.property.name='href'][left.object.name='location']",
+  "AssignmentExpression[left.property.value='href'][left.object.name='location']",
   `AssignmentExpression[left.property.name='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
+  `AssignmentExpression[left.property.value='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
 ].map((selector) => ({ selector, message: NAVIGATION_MESSAGE }));
 // Reading tabs and injecting scripts are confined to two shell files.
 const TABS_MESSAGE = 'Use tabs only in open-dashboard.ts or capture/inject.ts.';

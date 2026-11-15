@@ -64,6 +64,8 @@ export function Popup(): VNode {
   const [pasteText, setPasteText] = useState('');
   const [pasteTitle, setPasteTitle] = useState('');
   const [pasteCompany, setPasteCompany] = useState('');
+  // undefined until the user edits the field; then the prefill no longer applies.
+  const [pasteLink, setPasteLink] = useState<string | undefined>(undefined);
 
   const [facts, setFacts] = useState<Facts | undefined>(undefined);
   const [saving, setSaving] = useState(false);
@@ -113,7 +115,10 @@ export function Popup(): VNode {
     app
       .apply((d) => {
         const job = d.jobs.find((j) => j.id === jobId);
-        return job ? createApplicationFromJobOps(job, d, deps).ops : [];
+        if (!job) {
+          throw new Error('The saved job is no longer there. Save it again.');
+        }
+        return createApplicationFromJobOps(job, d, deps).ops;
       })
       .then(
         () => {
@@ -151,7 +156,10 @@ export function Popup(): VNode {
     outcome.ok && outcome.capture.source !== 'none'
       ? outcome.capture
       : undefined;
-  const capturedUrl = outcome.ok ? outcome.capture.url : undefined;
+  const isHttp = (u: string | undefined): u is string =>
+    u !== undefined && /^https?:\/\//i.test(u.trim());
+  const outcomeUrl = outcome.ok ? outcome.capture.url : outcome.url;
+  const linkValue = pasteLink ?? (isHttp(outcomeUrl) ? outcomeUrl.trim() : '');
 
   let body: VNode;
   if (captured) {
@@ -166,7 +174,7 @@ export function Popup(): VNode {
     };
     body = (
       <section class="popup-capture">
-        <h2>{captured.title ?? 'Untitled posting'}</h2>
+        <h2>{captured.title || 'Untitled posting'}</h2>
         {captured.companyName ? <p>{captured.companyName}</p> : null}
         {captured.location ? <p>{captured.location}</p> : null}
         {captured.text ? (
@@ -196,8 +204,7 @@ export function Popup(): VNode {
       pasteCompany.trim() !== '';
     const input: JobInput = {
       source: 'paste',
-      url: capturedUrl,
-      relCanonical: outcome.ok ? outcome.capture.relCanonical : undefined,
+      url: linkValue.trim() === '' ? undefined : linkValue.trim(),
       title: pasteTitle,
       companyName: pasteCompany,
       text: pasteText,
@@ -210,6 +217,15 @@ export function Popup(): VNode {
             {capture.message}
           </p>
         ) : null}
+        <label>
+          Link
+          <input
+            type="text"
+            value={linkValue}
+            disabled={facts !== undefined}
+            onInput={(e) => setPasteLink(e.currentTarget.value)}
+          />
+        </label>
         <label>
           Title
           <input
