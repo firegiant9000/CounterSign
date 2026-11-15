@@ -1,5 +1,6 @@
 import type { VNode } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
+import { AnswersPage } from './AnswersPage';
 import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
 import { parseRoute, routeHref } from './route';
@@ -13,7 +14,7 @@ function Page(props: { route: Route }): VNode {
     case 'application':
       return <ApplicationDetail id={route.id} />;
     case 'answers':
-      return <h1>Answers</h1>;
+      return <AnswersPage />;
     case 'data':
       return <h1>Data</h1>;
   }

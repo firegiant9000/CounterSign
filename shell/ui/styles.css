@@ -125,6 +125,34 @@ h1 {
   opacity: 0.6;
 }
 
+.answer {
+  max-width: 36rem;
+  margin-bottom: 1.5rem;
+}
+
+.answer h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.4rem;
+}
+
+.answer-form,
+.answer-choices,
+.answer-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.answer-form textarea {
+  min-height: 4rem;
+  width: 100%;
+}
+
+.answer-saved {
+  opacity: 0.8;
+}
+
 .field-error {
   color: #b00020;
   margin-left: 0.5rem;
