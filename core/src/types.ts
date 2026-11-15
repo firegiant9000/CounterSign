@@ -69,6 +69,7 @@ export interface Job extends BaseRecord {
   location?: string;
   url?: string;
   canonicalUrl?: string;
+  relCanonical?: string;
   text?: string;
   source?: CaptureSource;
 }

@@ -83,18 +83,30 @@ describe('saveJobOps', () => {
     expect(job?.text).toHaveLength(MAX_POSTING_TEXT);
   });
 
-  it('uses relCanonical for the canonical URL but does not store it', () => {
+  it('uses relCanonical for the canonical URL and stores it trimmed', () => {
     const { ops } = saveJobOps(
       {
         source: 'jsonld',
         url: 'https://example.com/jobs/1?utm_source=x',
-        relCanonical: 'https://example.com/jobs/42',
+        relCanonical: '  https://example.com/jobs/42  ',
       },
       fixedDeps(),
     );
     const job = putRecord(ops, 'jobs');
     expect(job?.canonicalUrl).toBe('https://example.com/jobs/42');
-    expect(job).not.toHaveProperty('relCanonical');
+    expect(job?.relCanonical).toBe('https://example.com/jobs/42');
+  });
+
+  it('omits a blank relCanonical', () => {
+    const { ops } = saveJobOps(
+      {
+        source: 'jsonld',
+        url: 'https://example.com/jobs/1',
+        relCanonical: '  ',
+      },
+      fixedDeps(),
+    );
+    expect(putRecord(ops, 'jobs')).not.toHaveProperty('relCanonical');
   });
 });
 

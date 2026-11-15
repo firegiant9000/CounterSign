@@ -33,10 +33,37 @@ describe('canonicalizeUrl', () => {
     ).toBe('https://example.com/j');
   });
 
-  it('keeps the order of the remaining parameters', () => {
+  it('sorts the remaining parameters so their order does not matter', () => {
     expect(canonicalizeUrl('https://example.com/jobs?b=2&gclid=z&a=1')).toBe(
-      'https://example.com/jobs?b=2&a=1',
+      'https://example.com/jobs?a=1&b=2',
     );
+    expect(canonicalizeUrl('https://example.com/jobs?a=1&b=2')).toBe(
+      canonicalizeUrl('https://example.com/jobs?b=2&a=1'),
+    );
+  });
+
+  it('keeps the page URL when the canonical drops a page parameter', () => {
+    expect(
+      canonicalizeUrl('https://example.com/careers?gh_jid=123', '/careers'),
+    ).toBe('https://example.com/careers?gh_jid=123');
+  });
+
+  it('ignores a cross-origin rel=canonical', () => {
+    expect(
+      canonicalizeUrl(
+        'https://example.com/jobs/1?x=1',
+        'https://other.example.org/jobs/1?x=1',
+      ),
+    ).toBe('https://example.com/jobs/1?x=1');
+  });
+
+  it('uses a same-origin canonical that keeps the page parameters and only adds or drops tracking ones', () => {
+    expect(
+      canonicalizeUrl(
+        'https://example.com/a?gh_jid=5&utm_source=x',
+        'https://example.com/jobs/5?gh_jid=5&ref=y',
+      ),
+    ).toBe('https://example.com/jobs/5?gh_jid=5');
   });
 
   it('keeps gh_jid while removing gh_src', () => {
@@ -55,9 +82,9 @@ describe('canonicalizeUrl', () => {
   });
 
   it('resolves a relative rel=canonical against the url and drops its fragment', () => {
-    expect(canonicalizeUrl('https://example.com/a/b?x=1', '/jobs/9#top')).toBe(
-      'https://example.com/jobs/9',
-    );
+    expect(
+      canonicalizeUrl('https://example.com/a/b?ref=1', '/jobs/9#top'),
+    ).toBe('https://example.com/jobs/9');
   });
 
   it.each(['javascript:void(0)', '', '   '])(

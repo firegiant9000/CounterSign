@@ -38,6 +38,8 @@ export function saveJobOps(
   if (location !== undefined) job.location = location;
   const text = clean(input.text);
   if (text !== undefined) job.text = text.slice(0, MAX_POSTING_TEXT);
+  const relCanonical = clean(input.relCanonical);
+  if (relCanonical !== undefined) job.relCanonical = relCanonical;
   const url = clean(input.url);
   if (url !== undefined) {
     job.url = url;
