@@ -11,6 +11,7 @@ export default defineConfig({
             'core/**/*.test.ts',
             'shell/**/*.test.ts',
             'guard/source-rules.test.ts',
+            'tools/**/*.test.ts',
           ],
         },
       },
