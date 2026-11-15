@@ -58,8 +58,11 @@ export const UNCONFIRMED_NOTE = 'Submission not confirmed in the sheet.';
 export const UNDATED_NOTE = 'Date applied not recorded in the sheet.';
 
 /** Trimmed, whitespace-collapsed, lower-cased lookup. Unknown or blank → undefined. */
-export function statusRuleFor(value: string): StatusRule | undefined {
+export function statusRuleFor(
+  value: string,
+  rules: Readonly<Record<string, StatusRule>> = STATUS_RULES,
+): StatusRule | undefined {
   const key = value.trim().replace(/\s+/g, ' ').toLowerCase();
-  if (key === '' || !Object.hasOwn(STATUS_RULES, key)) return undefined;
-  return STATUS_RULES[key];
+  if (key === '' || !Object.hasOwn(rules, key)) return undefined;
+  return rules[key];
 }
