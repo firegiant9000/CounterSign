@@ -214,7 +214,16 @@ export function ApplicationDetail(props: { id: Id }): VNode {
             key={`next-${nextDate}`}
             type="date"
             defaultValue={nextDate}
-            onChange={(e) => onNextActionDate(e.currentTarget.value)}
+            onChange={(e) => {
+              // A half-typed date reads as '' with badInput set; do not clear.
+              if (
+                e.currentTarget.value === '' &&
+                e.currentTarget.validity.badInput
+              ) {
+                return;
+              }
+              onNextActionDate(e.currentTarget.value);
+            }}
           />
           {nextError ? <span class="field-error">{nextError}</span> : null}
         </label>

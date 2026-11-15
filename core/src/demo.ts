@@ -17,9 +17,9 @@ function daysAfter(today: LocalDate, days: number): LocalDate {
 
 const COMPANIES: readonly { id: Id; name: string }[] = [
   { id: 'demo-company-1', name: 'Example Robotics' },
-  { id: 'demo-company-2', name: 'Northwind Analytics' },
-  { id: 'demo-company-3', name: 'Fabrikam Sample Labs' },
-  { id: 'demo-company-4', name: 'Contoso Demo Works' },
+  { id: 'demo-company-2', name: 'Brightfold Analytics' },
+  { id: 'demo-company-3', name: 'Quillmere Labs' },
+  { id: 'demo-company-4', name: 'Tarnwick Works' },
 ];
 
 const DOCUMENTS: readonly {
@@ -269,21 +269,44 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
       if (typeof ref === 'string') kept.add(ref);
     }
   }
-  const ops: WriteOp[] = [];
-  const collect = (
-    store: 'companies' | 'applications' | 'statusEvents' | 'documents',
-    protect: boolean,
-  ): void => {
-    for (const raw of list(data[store])) {
-      const id = (raw as { id?: unknown } | null)?.id;
-      if (!isDemoId(id)) continue;
-      if (protect && kept.has(id)) continue;
-      ops.push({ kind: 'delete', store, id });
+  // Demo applications being removed, and the documents they reference.
+  const removedApps = new Set<string>();
+  const removedDocRefs = new Set<string>();
+  for (const raw of list(data.applications)) {
+    const app = raw as Record<string, unknown> | null;
+    if (!app || !isDemoId(app['id'])) continue;
+    removedApps.add(app['id']);
+    for (const field of ['resumeDocumentId', 'coverLetterDocumentId']) {
+      const ref = app[field];
+      if (typeof ref === 'string') removedDocRefs.add(ref);
     }
-  };
-  collect('companies', true);
-  collect('applications', false);
-  collect('statusEvents', false);
-  collect('documents', true);
+  }
+  const ops: WriteOp[] = [];
+  const idOf = (raw: unknown): unknown => (raw as { id?: unknown } | null)?.id;
+  for (const raw of list(data.companies)) {
+    const id = idOf(raw);
+    if (isDemoId(id) && !kept.has(id)) {
+      ops.push({ kind: 'delete', store: 'companies', id });
+    }
+  }
+  for (const raw of list(data.applications)) {
+    const id = idOf(raw);
+    if (isDemoId(id)) ops.push({ kind: 'delete', store: 'applications', id });
+  }
+  for (const raw of list(data.statusEvents)) {
+    const id = idOf(raw);
+    if (typeof id !== 'string') continue;
+    const appId = (raw as { applicationId?: unknown }).applicationId;
+    if (isDemoId(id) || (typeof appId === 'string' && removedApps.has(appId))) {
+      ops.push({ kind: 'delete', store: 'statusEvents', id });
+    }
+  }
+  for (const raw of list(data.documents)) {
+    const id = idOf(raw);
+    if (typeof id !== 'string' || kept.has(id)) continue;
+    if (isDemoId(id) || removedDocRefs.has(id)) {
+      ops.push({ kind: 'delete', store: 'documents', id });
+    }
+  }
   return ops;
 }
