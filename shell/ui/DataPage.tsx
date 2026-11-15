@@ -1,5 +1,5 @@
 import type { VNode } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { toLocalDate } from '../../core/src/dates';
 import {
   buildDemoOps,
@@ -27,6 +27,14 @@ const STORAGE_LINE: Record<PersistenceState, string> = {
   unknown: 'Storage status is unknown; keep exports.',
 };
 
+const STORE_LABELS: Record<StoreName, string> = {
+  companies: 'Companies',
+  applications: 'Applications',
+  statusEvents: 'Status events',
+  documents: 'Documents',
+  canonicalAnswers: 'Canonical answers',
+};
+
 function reasonOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -41,7 +49,9 @@ function exportDateOf(file: ExportFile): string {
 
 export function DataPage(): VNode {
   const app = useAppData();
-  const { data, deps, service } = app;
+  const { data, settings, deps, service } = app;
+  const busyRef = useRef(false);
+  const fileToken = useRef(0);
   const [storage, setStorage] = useState<PersistenceState | undefined>(
     undefined,
   );
@@ -69,18 +79,37 @@ export function DataPage(): VNode {
     };
   }, []);
 
+  // One shared flag: export, restore and demo changes never overlap. The ref
+  // closes the gap before the state update re-renders.
+  const startAction = (): boolean => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    return true;
+  };
+  const endAction = (): void => {
+    busyRef.current = false;
+    setBusy(false);
+  };
+
   const exportNow = async (): Promise<void> => {
+    if (!startAction()) return;
     setExportError(undefined);
     try {
       await service.exportNow();
     } catch (err) {
       setExportError(reasonOf(err));
+    } finally {
+      endAction();
     }
   };
 
   const chooseFile = async (event: Event): Promise<void> => {
     const input = event.currentTarget as HTMLInputElement;
     const file = input.files?.[0];
+    const token = ++fileToken.current;
+    // Clear the selection so the same file can be chosen again.
+    input.value = '';
     setPending(undefined);
     setParseErrors([]);
     setRestoreError(undefined);
@@ -90,9 +119,11 @@ export function DataPage(): VNode {
     try {
       text = await file.text();
     } catch (err) {
+      if (token !== fileToken.current) return;
       setParseErrors([`The file could not be read: ${reasonOf(err)}`]);
       return;
     }
+    if (token !== fileToken.current) return;
     const result = parseExport(text);
     if (!result.ok) {
       setParseErrors(result.errors);
@@ -105,13 +136,19 @@ export function DataPage(): VNode {
     });
   };
 
+  const hasCurrentData =
+    STORES.some(({ name }) => data[name].length > 0) ||
+    Object.keys(settings).length > 0;
+
   const replaceAll = async (): Promise<void> => {
-    if (!pending || busy) return;
+    if (!pending || busyRef.current) return;
     const ok = confirm(
-      'Replace all current data with the contents of this file? A copy of your current data is saved first.',
+      hasCurrentData
+        ? 'Replace all current data with the contents of this file? A copy of your current data is saved first.'
+        : 'Replace all current data with the contents of this file? You have no data to copy first.',
     );
     if (!ok) return;
-    setBusy(true);
+    if (!startAction()) return;
     setRestoreError(undefined);
     setRestored(false);
     let failure: string | undefined;
@@ -135,10 +172,11 @@ export function DataPage(): VNode {
       if (!failure) setRestored(true);
     }
     setRestoreError(failure);
-    setBusy(false);
+    endAction();
   };
 
   const demo = async (action: 'load' | 'remove'): Promise<void> => {
+    if (!startAction()) return;
     setDemoError(undefined);
     try {
       await app.apply((d) =>
@@ -150,11 +188,12 @@ export function DataPage(): VNode {
       );
     } catch (err) {
       setDemoError(reasonOf(err));
+    } finally {
+      endAction();
     }
   };
 
   const emptied = pending ? emptiedStores(data, pending.counts) : [];
-  const storeLabel = (name: StoreName): string => name;
 
   return (
     <div class="data-page">
@@ -165,6 +204,7 @@ export function DataPage(): VNode {
         <p>Save all your data as a JSON file.</p>
         <button
           type="button"
+          disabled={busy}
           onClick={() => {
             void exportNow();
           }}
@@ -202,15 +242,16 @@ export function DataPage(): VNode {
             <ul>
               {STORES.map(({ name }) => (
                 <li key={name}>
-                  {storeLabel(name)}: {pending.counts[name]}
+                  {STORE_LABELS[name]}:{pending.counts[name]}
                 </li>
               ))}
             </ul>
             {emptied.length > 0 ? (
               <p class="field-error">
-                Warning: this file has no records for {emptied.join(', ')}, so
-                restoring will empty {emptied.length === 1 ? 'it' : 'them'}{' '}
-                although you currently have records there.
+                Warning: this file has no records for{' '}
+                {emptied.map((n) => STORE_LABELS[n]).join(', ')}, so restoring
+                will empty {emptied.length === 1 ? 'it' : 'them'} although you
+                currently have records there.
               </p>
             ) : null}
             <button
@@ -239,6 +280,7 @@ export function DataPage(): VNode {
         {canLoadDemo(data) ? (
           <button
             type="button"
+            disabled={busy}
             onClick={() => {
               void demo('load');
             }}
@@ -249,6 +291,7 @@ export function DataPage(): VNode {
         {hasDemoData(data) ? (
           <button
             type="button"
+            disabled={busy}
             onClick={() => {
               void demo('remove');
             }}
