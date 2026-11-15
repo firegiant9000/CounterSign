@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { AnswersPage } from './AnswersPage';
 import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
+import { DataPage } from './DataPage';
 import { parseRoute, routeHref } from './route';
 import type { Route } from './route';
 
@@ -16,7 +17,7 @@ function Page(props: { route: Route }): VNode {
     case 'answers':
       return <AnswersPage />;
     case 'data':
-      return <h1>Data</h1>;
+      return <DataPage />;
   }
 }
 
