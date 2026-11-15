@@ -24,6 +24,10 @@ interface BuiltManifest {
   host_permissions?: string[];
   optional_host_permissions?: string[];
   optional_permissions?: string[];
+  action?: { default_popup?: string };
+  commands?: {
+    _execute_action?: { suggested_key?: { default?: string } };
+  };
   content_scripts?: unknown[];
   web_accessible_resources?: unknown[];
   content_security_policy?: { extension_pages?: string };
@@ -71,6 +75,20 @@ describe('built extension', () => {
     expect(manifest.optional_permissions).toBeUndefined();
   });
   it('declares no content scripts or web-accessible resources', () => {
+    expect(manifest.content_scripts).toBeUndefined();
+    expect(manifest.web_accessible_resources).toBeUndefined();
+  });
+  it('opens a popup from the toolbar', () => {
+    expect(typeof manifest.action?.default_popup).toBe('string');
+    expect(manifest.action?.default_popup).toMatch(/popup\.html$/);
+  });
+  it('binds Alt+Shift+S to the toolbar action', () => {
+    expect(manifest.commands?._execute_action?.suggested_key?.default).toBe(
+      'Alt+Shift+S',
+    );
+  });
+  it('ships the capture script only as a file', () => {
+    expect(existsSync(join(OUT, 'capture.js'))).toBe(true);
     expect(manifest.content_scripts).toBeUndefined();
     expect(manifest.web_accessible_resources).toBeUndefined();
   });
