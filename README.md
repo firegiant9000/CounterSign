@@ -14,11 +14,11 @@ A local-only Firefox extension that records your job applications, what you sent
 
 Each claim is checked by the gate (`npm run gate`), which CI also runs.
 
-| Claim                        | How it is enforced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local only                   | [`guard/build.test.ts`](guard/build.test.ts) scans every built file for network APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `WebTransport`, `RTCPeerConnection`), checks that no built page loads a remote `src` or `href`, and asserts the manifest has no host permissions. [`eslint.config.js`](eslint.config.js) bans the same APIs in source (`no-restricted-globals`, `no-restricted-properties`, `no-restricted-syntax`). The Content Security Policy in [`wxt.config.ts`](wxt.config.ts) sets `default-src 'self'; ... connect-src 'none'`. |
-| Nothing runs until you click | [`guard/build.test.ts`](guard/build.test.ts) asserts the built manifest declares no content scripts and no web-accessible resources, and that only the permissions listed below are requested. The background event page only registers a toolbar-click listener ([`entrypoints/background.ts`](entrypoints/background.ts)).                                                                                                                                                                                                                                                       |
-| It never submits anything    | There is no code path that sends a request (see the first row), the manifest has no host access, and the CSP sets `form-action 'none'`, so a form on an extension page cannot post anywhere. The test asserts the exact CSP in the built manifest.                                                                                                                                                                                                                                                                                                                                 |
+| Claim                        | How it is enforced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local only                   | [`guard/build.test.ts`](guard/build.test.ts) scans every built `.js` and `.html` file for network APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `WebTransport`, `RTCPeerConnection`), checks that no built page loads a remote `src` or `href`, and asserts the manifest has no host permissions. [`eslint.config.js`](eslint.config.js) bans the same APIs in source (`no-restricted-globals`, `no-restricted-properties`, `no-restricted-syntax`). The Content Security Policy in [`wxt.config.ts`](wxt.config.ts) sets `default-src 'self'; ... connect-src 'none'`. |
+| Nothing runs until you click | [`guard/build.test.ts`](guard/build.test.ts) asserts the built manifest declares no content scripts and no web-accessible resources, and that every requested permission is in the `ALLOWED` list in that test file (`activeTab`, `alarms`, `scripting`, `downloads`, `storage`, `unlimitedStorage`). The stage 1 manifest uses three of them, listed below. The background event page only registers a toolbar-click listener ([`entrypoints/background.ts`](entrypoints/background.ts)).                                                                                                           |
+| It never submits anything    | There is no code path that sends a request (see the first row), the manifest has no host access, and the CSP sets `form-action 'none'`, so a form on an extension page cannot post anywhere. The test asserts the exact CSP in the built manifest.                                                                                                                                                                                                                                                                                                                                                   |
 
 Files are saved only through [`shell/files/download.ts`](shell/files/download.ts), which builds a local `blob:` URL. A lint rule in [`eslint.config.js`](eslint.config.js) rejects any other use of `downloads`, and [`guard/source-rules.test.ts`](guard/source-rules.test.ts) tests that rule.
 
@@ -34,7 +34,7 @@ Stage 1 is the dashboard. You enter everything by hand.
 - **Application detail** with a status history. Entries can be backdated, and a mistaken status can be undone without deleting history.
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
 - **Canonical answers** (for example work authorisation or salary range), each with its history of earlier values.
-- **Export and restore.** Export saves all data and settings to a JSON file. Restore checks the file first and saves a pre-restore copy of your current data (if there is any) before replacing it. A bad file leaves your data untouched.
+- **Export and restore.** Export saves all data and settings to a JSON file. Restore checks the file first and saves a pre-restore copy of your current data (if there is any) before replacing it. A file that fails validation leaves your data untouched.
 - **Demo data.** A synthetic data set so you can try it without typing in your own.
 
 ## What is next
@@ -57,7 +57,7 @@ The tool has failed if it does any of these:
 
 ## Permissions
 
-These are the permissions in the built manifest. There is no `tabs` permission and no host access.
+These are the permissions the built manifest contains today. The build test enforces a ceiling (the `ALLOWED` list above), not this exact list. There is no `tabs` permission and no host access.
 
 | Permission         | Why                                                                       |
 | ------------------ | ------------------------------------------------------------------------- |
@@ -80,7 +80,7 @@ npm run dev
 
 `npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
 
-The extension needs Firefox 140 or later (`strict_min_version`). See [CONTRIBUTING.md](CONTRIBUTING.md) for the Firefox version used in development.
+The extension runs on Firefox 140 or later (`strict_min_version`). `npm run dev` needs Firefox 147 or later.
 
 ## More
 

@@ -54,8 +54,8 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 Three parts keep "no network, nothing runs until you click" true:
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
-2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.
-3. **Manifest and CSP checks** (`guard/build.test.ts`) assert the permission list, no host access, no content scripts, no remote resources in built pages, and the exact Content Security Policy from `wxt.config.ts`.
+2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.
+3. **Manifest and CSP checks** (`guard/build.test.ts`) assert that permissions stay within a short allowlist, no host access, no content scripts, no remote resources in built pages, and the exact Content Security Policy from `wxt.config.ts`.
 
 ## Decisions made in this plan
 
