@@ -30,6 +30,7 @@ export interface Ports {
   validate?: (text: string) => ParseResult;
   openFile?: (file: string) => number; // default: exclusive create (wx)
   writeFd?: (fd: number, data: string) => void;
+  closeFd?: (fd: number) => void; // default: closeSync
 }
 
 const USAGE =
@@ -70,6 +71,7 @@ export async function runImportSheet(
 ): Promise<number> {
   const validate = ports.validate ?? parseExport;
   const openFile = ports.openFile ?? ((file: string) => openSync(file, 'wx'));
+  const closeFd = ports.closeFd ?? ((fd: number) => closeSync(fd));
   const writeFd =
     ports.writeFd ?? ((fd: number, data: string) => writeFileSync(fd, data));
   let values;
@@ -164,7 +166,7 @@ export async function runImportSheet(
     writeFd(fd, text);
   } catch (error) {
     try {
-      closeSync(fd);
+      closeFd(fd);
     } catch {
       // best effort
     }
@@ -177,7 +179,7 @@ export async function runImportSheet(
     return 1;
   }
   try {
-    closeSync(fd);
+    closeFd(fd);
   } catch (error) {
     try {
       rmSync(target);

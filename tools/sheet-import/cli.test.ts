@@ -1,4 +1,5 @@
 import {
+  closeSync,
   existsSync,
   mkdtempSync,
   readdirSync,
@@ -146,6 +147,28 @@ describe('import-sheet', () => {
         {
           writeFd: () => {
             throw new Error('disk full');
+          },
+        },
+      );
+      expect(code).toBe(1);
+      expect(existsSync(target)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('removes the file when the close fails after a successful write', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sheet-import-close-'));
+    try {
+      const target = path.join(dir, exportFileName('export', FIRST_NOW));
+      const code = await runImportSheet(
+        [...base, '--out', dir],
+        { stdout: () => undefined, stderr: () => undefined },
+        fixedDeps(),
+        {
+          closeFd: (fd) => {
+            closeSync(fd);
+            throw new Error('close failed');
           },
         },
       );

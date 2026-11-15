@@ -461,6 +461,15 @@ export async function convert(
         date = undefined;
         effective = options.undatedOn ?? rawLast;
       }
+      if (
+        rule.kind === 'status' &&
+        last !== undefined &&
+        effective <= last.effective
+      ) {
+        flags.push(
+          `Stage "${app.rawStage}" overrides the later history status "${last.status}"; check which is current.`,
+        );
+      }
       if (mostRecent !== '')
         closingLines.push(`Most Recent Event: ${mostRecent}`);
       entries.push({

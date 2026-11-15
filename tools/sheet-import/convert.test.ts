@@ -384,6 +384,57 @@ describe('convert', () => {
     expect(notesOf('Unconf')).toContain('Stage: Not submitted');
   });
 
+  describe('stage overriding later history', () => {
+    const go = (stage: string, lastEvent: string) =>
+      convert(
+        {
+          applications: parseCsv(
+            [
+              applications.header.join(','),
+              `Acme Widgets,Role,2026-01-05,,,,${stage},${lastEvent},,,,,,,,,`,
+            ].join('\n'),
+          ),
+          history: parseCsv(
+            [
+              history.header.join(','),
+              '2026-01-09,Acme Widgets,Role,Email,Sorry,Rejected,High,',
+            ].join('\n'),
+          ),
+        },
+        options,
+        fixedDeps(),
+      );
+    const reason = (stage: string) =>
+      `Stage "${stage}" overrides the later history status "rejected"; check which is current.`;
+
+    it('flags a stage that overrides a history event at least as recent', async () => {
+      const { snapshot, report } = await go('Applied', '');
+      const app = appByRow(snapshot, 'Role');
+      expect(currentStatus(snapshot.statusEvents, app.id)?.status).toBe(
+        'applied',
+      );
+      const items = report.flagged.filter(
+        (i) => i.file === 'applications' && i.reason === reason('Applied'),
+      );
+      expect(items).toHaveLength(1);
+    });
+
+    it('does not flag a stage that is newer than the history', async () => {
+      const { snapshot, report } = await go('Rejected', '2026-01-20');
+      const app = appByRow(snapshot, 'Role');
+      expect(currentStatus(snapshot.statusEvents, app.id)?.status).toBe(
+        'rejected',
+      );
+      expect(
+        report.flagged.filter((i) => i.reason.includes('overrides')),
+      ).toHaveLength(0);
+      const { report: later } = await go('Applied', '2026-01-20');
+      expect(
+        later.flagged.filter((i) => i.reason.includes('overrides')),
+      ).toHaveLength(0);
+    });
+  });
+
   describe('thread and name resolution', () => {
     const thread = (id: string) =>
       `https://mail.example.com/mail/u/0/#all/${id}`;
@@ -435,9 +486,12 @@ describe('convert', () => {
         [histLine('Acme Widgets', 'Role B', 't1')],
       );
       expect(report.history.imported).toBe(1);
-      expect(
-        snapshot.statusEvents.filter((e) => e.status === 'interview'),
-      ).toHaveLength(1);
+      const roleB = snapshot.applications.find((a) => a.title === 'Role B')!;
+      const interviews = snapshot.statusEvents.filter(
+        (e) => e.status === 'interview',
+      );
+      expect(interviews).toHaveLength(1);
+      expect(interviews[0]!.applicationId).toBe(roleB.id);
       expect(report.flagged.find((i) => i.file === 'history')?.reason).toBe(
         'Thread matched 2 applications; linked by company and position.',
       );
