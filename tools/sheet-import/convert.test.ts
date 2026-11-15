@@ -298,6 +298,109 @@ describe('convert', () => {
     expect(notes).toContain('Mood: Upbeat');
   });
 
+  it('prefers the imported application when a skipped one shares the name', async () => {
+    const apps = parseCsv(
+      [
+        applications.header.join(','),
+        'Acme Widgets,Role,2026-01-05,,,,Interviewing,,,,,,,,,,',
+        'Acme Widgets,Role,2026-01-06,,,,Ghosted,,,,,,,,,,',
+      ].join('\n'),
+    );
+    const hist = parseCsv(
+      [
+        history.header.join(','),
+        '2026-01-09,Acme Widgets,Role,Email,Thanks,Interviewing,High,',
+      ].join('\n'),
+    );
+    const { snapshot, report } = await convert(
+      { applications: apps, history: hist },
+      options,
+      fixedDeps(),
+    );
+    expect(report.history.imported).toBe(1);
+    expect(snapshot.statusEvents.map((e) => e.status)).toEqual([
+      'applied',
+      'interview',
+    ]);
+  });
+
+  it('skips a history row whose only match was a skipped application', async () => {
+    const apps = parseCsv(
+      [
+        applications.header.join(','),
+        'Acme Widgets,Role,2026-01-06,,,,Ghosted,,,,,,,,,,',
+      ].join('\n'),
+    );
+    const hist = parseCsv(
+      [
+        history.header.join(','),
+        '2026-01-09,Acme Widgets,Role,Email,Thanks,Applied,High,',
+      ].join('\n'),
+    );
+    const { report } = await convert(
+      { applications: apps, history: hist },
+      options,
+      fixedDeps(),
+    );
+    expect(report.skipped.find((i) => i.file === 'history')?.reason).toBe(
+      'its application was skipped.',
+    );
+  });
+
+  it('treats names that differ only in inner whitespace as duplicates', async () => {
+    const apps = parseCsv(
+      [
+        applications.header.join(','),
+        'Acme  Widgets,Role,2026-01-05,,,,Applied,,,,,,,,,,',
+        'Acme Widgets,Role,2026-01-06,,,,Applied,,,,,,,,,,',
+      ].join('\n'),
+    );
+    const { report } = await convert(
+      { applications: apps, history: { header: history.header, rows: [] } },
+      options,
+      fixedDeps(),
+    );
+    expect(
+      report.flagged.filter((i) => i.reason.includes('duplicate')),
+    ).toHaveLength(2);
+  });
+
+  it('records the Stage text in notes when no event note carries it', async () => {
+    const apps = parseCsv(
+      [
+        applications.header.join(','),
+        'Acme Widgets,Carry,2026-01-05,,,,Awaiting response,,,,,,,,,,',
+        'Acme Widgets,Unconf,2026-01-05,,,,Not submitted,,,,,,,,,,',
+      ].join('\n'),
+    );
+    const { snapshot } = await convert(
+      { applications: apps, history: { header: history.header, rows: [] } },
+      options,
+      fixedDeps(),
+    );
+    const notesOf = (title: string) =>
+      snapshot.applications.find((a) => a.title === title)?.notes;
+    expect(notesOf('Carry')).toContain('Stage: Awaiting response');
+    expect(notesOf('Unconf')).toContain('Stage: Not submitted');
+  });
+
+  it('gives strictly increasing createdAt per application with no wall-clock dates', async () => {
+    const { snapshot } = await run({ undatedOn: '2026-03-10' });
+    const today = new Date().toISOString().slice(0, 10);
+    for (const app of snapshot.applications) {
+      const events = historyFor(snapshot.statusEvents, app.id);
+      for (let i = 1; i < events.length; i += 1) {
+        expect(events[i]!.createdAt > events[i - 1]!.createdAt).toBe(true);
+      }
+    }
+    const all = [
+      ...snapshot.companies,
+      ...snapshot.applications,
+      ...snapshot.statusEvents,
+    ];
+    for (const r of all) expect(r.createdAt).not.toContain(today);
+  });
+
   it('gives the same output on two runs', async () => {
     const a = await run({ undatedOn: '2026-03-10' });
     const b = await run({ undatedOn: '2026-03-10' });

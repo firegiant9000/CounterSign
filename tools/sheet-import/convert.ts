@@ -189,20 +189,25 @@ export async function convert(
     const row = at + 2;
     const get = (h: string) => histReader(cells, h);
     const thread = threadIdOf(get(HISTORY_HEADERS.emailThreadUrl));
-    const threadApps = thread === undefined ? undefined : byThread.get(thread);
+    const threadApps = thread === undefined ? [] : (byThread.get(thread) ?? []);
+    const threadLive = threadApps.filter((a) => a.rule !== undefined);
     let target: AppRow | undefined;
-    if (threadApps?.length === 1) {
-      target = threadApps[0];
+    if (threadLive.length === 1) {
+      target = threadLive[0];
     } else {
       const nameKey = `${normalise(get(HISTORY_HEADERS.company))}\u0000${normalise(get(HISTORY_HEADERS.position))}`;
       const named = nameKey === '\u0000' ? [] : (byName.get(nameKey) ?? []);
-      if (named.length === 1) target = named[0];
-      else if (named.length > 1) {
+      const live = named.filter((a) => a.rule !== undefined);
+      if (live.length === 1) target = live[0];
+      else if (live.length > 1) {
         skip(
           'history',
           row,
-          `matches ${named.length} applications; row not imported.`,
+          `matches ${live.length} applications; row not imported.`,
         );
+        return;
+      } else if (named.length > 0 || threadApps.length > 0) {
+        skip('history', row, 'its application was skipped.');
         return;
       } else {
         skip('history', row, 'matches no application; row not imported.');
@@ -210,10 +215,6 @@ export async function convert(
       }
     }
     if (target === undefined) return;
-    if (target.rule === undefined) {
-      skip('history', row, 'its application was skipped.');
-      return;
-    }
     const date = get(HISTORY_HEADERS.eventDate);
     if (!isLocalDate(date)) {
       skip(
@@ -445,8 +446,12 @@ export async function convert(
         effective,
         note: joinNote(closingLines),
       });
-    } else if (mostRecent !== '') {
-      extraNotes.push(`Most Recent Event: ${mostRecent}`);
+    } else {
+      // No event carries the Stage text, so keep it in the notes.
+      if (rule.kind !== 'status') extraNotes.push(`Stage: ${app.rawStage}`);
+      if (mostRecent !== '') {
+        extraNotes.push(`Most Recent Event: ${mostRecent}`);
+      }
     }
     if (rawLast !== '' && !usedLast) {
       extraNotes.push(`Last Event Date: ${rawLast}`);
@@ -505,7 +510,7 @@ export async function convert(
   }
 
   // 5. Duplicates among imported applications.
-  const trimLower = (s: string) => s.trim().toLowerCase();
+  const trimLower = normalise;
   for (let i = 0; i < imported.length; i += 1) {
     for (let j = i + 1; j < imported.length; j += 1) {
       const a = imported[i]!.app;
