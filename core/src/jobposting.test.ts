@@ -47,7 +47,7 @@ describe('postingFromJsonLd', () => {
       jobLocation: null,
       description: { a: 1 },
     });
-    expect(postingFromJsonLd([block])).toEqual({});
+    expect(postingFromJsonLd([block])).toBeUndefined();
   });
 
   it('accepts hiringOrganization as a string and jobLocation as an array', () => {
@@ -69,9 +69,10 @@ describe('postingFromJsonLd', () => {
     const block = JSON.stringify({
       '@type': 'JobPosting',
       title: '   ',
+      description: 'Body',
       jobLocation: { address: { addressLocality: ' ', addressRegion: '' } },
     });
-    expect(postingFromJsonLd([block])).toEqual({});
+    expect(postingFromJsonLd([block])).toEqual({ descriptionHtml: 'Body' });
   });
 
   it('returns undefined when there is no JobPosting', () => {
@@ -93,12 +94,26 @@ describe('postingFromJsonLd', () => {
     expect(postingFromJsonLd([block])).toEqual({ title: 'T' });
   });
 
-  it('first candidate wins and depth is limited', () => {
+  it('returns undefined for a posting with no usable fields', () => {
+    const block = JSON.stringify({ '@type': 'JobPosting', title: '  ' });
+    expect(postingFromJsonLd([block])).toBeUndefined();
+  });
+
+  it('returns undefined when more than one posting is found', () => {
     const first = { '@type': 'JobPosting', title: 'First' };
     const second = { '@type': 'JobPosting', title: 'Second' };
-    expect(postingFromJsonLd([JSON.stringify([first, second])])?.title).toBe(
-      'First',
-    );
+    expect(
+      postingFromJsonLd([JSON.stringify([first, second])]),
+    ).toBeUndefined();
+    expect(
+      postingFromJsonLd([JSON.stringify({ '@graph': [first, second] })]),
+    ).toBeUndefined();
+    expect(
+      postingFromJsonLd([JSON.stringify(first), JSON.stringify(second)]),
+    ).toBeUndefined();
+  });
+
+  it('depth is limited', () => {
     const deep = [[[[{ '@type': 'JobPosting', title: 'Deep' }]]]];
     expect(postingFromJsonLd([JSON.stringify(deep)])).toBeUndefined();
     const ok = [[[{ '@type': 'JobPosting', title: 'Ok' }]]];

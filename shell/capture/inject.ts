@@ -4,7 +4,11 @@ import { MAX_POSTING_TEXT } from '../../core/src/jobposting';
 
 export type CaptureOutcome =
   | { ok: true; capture: CaptureResult }
-  | { ok: false; reason: 'no_tab' | 'refused' };
+  | { ok: false; reason: 'no_tab' | 'refused'; url?: string };
+
+export const MAX_CAPTURE_FIELD = 2_000;
+export const MAX_CAPTURE_URL = 8_000;
+export const CAPTURE_TIMEOUT_MS = 5_000;
 
 export interface CaptureApi {
   activeTab(): Promise<{ id?: number; url?: string } | undefined>;
@@ -19,6 +23,13 @@ const TEXT_FIELDS = [
   'location',
   'text',
 ] as const;
+const LIMITS: Record<(typeof TEXT_FIELDS)[number], number> = {
+  relCanonical: MAX_CAPTURE_URL,
+  title: MAX_CAPTURE_FIELD,
+  companyName: MAX_CAPTURE_FIELD,
+  location: MAX_CAPTURE_FIELD,
+  text: MAX_POSTING_TEXT,
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
@@ -39,11 +50,14 @@ export function toCaptureResult(
   const source = SOURCES.find((s) => s === raw.source) ?? 'none';
   const tab = trimmed(tabUrl);
   const url = tab !== undefined && tab !== '' ? tab : (trimmed(raw.url) ?? '');
-  const result: CaptureResult = { source, url };
+  const result: CaptureResult = {
+    source,
+    url: url.slice(0, MAX_CAPTURE_URL),
+  };
   for (const key of TEXT_FIELDS) {
     const value = trimmed(raw[key]);
-    if (value === undefined) continue;
-    result[key] = key === 'text' ? value.slice(0, MAX_POSTING_TEXT) : value;
+    if (value === undefined || value === '') continue;
+    result[key] = value.slice(0, LIMITS[key]);
   }
   return result;
 }
@@ -75,12 +89,32 @@ export async function capturePage(
     return { ok: false, reason: 'no_tab' };
   }
   if (tab?.id === undefined) return { ok: false, reason: 'no_tab' };
+  const refused = refusal(tab.url);
   let raw: unknown;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    raw = await api.run(tab.id);
+    const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => {
+        resolve(TIMED_OUT);
+      }, CAPTURE_TIMEOUT_MS);
+    });
+    const result = await Promise.race([api.run(tab.id), timeout]);
+    if (result === TIMED_OUT) return refused;
+    raw = result;
   } catch {
-    return { ok: false, reason: 'refused' };
+    return refused;
+  } finally {
+    clearTimeout(timer);
   }
   const capture = toCaptureResult(raw, tab.url);
-  return capture ? { ok: true, capture } : { ok: false, reason: 'refused' };
+  return capture ? { ok: true, capture } : refused;
+}
+
+const TIMED_OUT = Symbol('timed out');
+
+function refusal(tabUrl: string | undefined): CaptureOutcome {
+  const url = trimmed(tabUrl);
+  return url !== undefined && /^https?:\/\//i.test(url)
+    ? { ok: false, reason: 'refused', url }
+    : { ok: false, reason: 'refused' };
 }

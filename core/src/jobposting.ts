@@ -36,23 +36,23 @@ function isJobPosting(node: Record<string, unknown>): boolean {
   return Array.isArray(type) && type.includes('JobPosting');
 }
 
-function findJobPosting(
+function collectJobPostings(
   value: unknown,
   depth: number,
-): Record<string, unknown> | undefined {
-  if (depth > MAX_DEPTH) return undefined;
+  found: Record<string, unknown>[],
+): void {
+  if (depth > MAX_DEPTH) return;
   if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findJobPosting(item, depth + 1);
-      if (found) return found;
-    }
-    return undefined;
+    for (const item of value) collectJobPostings(item, depth + 1, found);
+    return;
   }
-  if (!isPlainObject(value)) return undefined;
-  if (isJobPosting(value)) return value;
+  if (!isPlainObject(value)) return;
+  if (isJobPosting(value)) {
+    found.push(value);
+    return;
+  }
   const graph = value['@graph'];
-  if (Array.isArray(graph)) return findJobPosting(graph, depth + 1);
-  return undefined;
+  if (Array.isArray(graph)) collectJobPostings(graph, depth + 1, found);
 }
 
 function companyOf(node: Record<string, unknown>): string | undefined {
@@ -77,6 +77,7 @@ function locationOf(node: Record<string, unknown>): string | undefined {
 export function postingFromJsonLd(
   blocks: readonly string[],
 ): PostingFields | undefined {
+  const nodes: Record<string, unknown>[] = [];
   for (const block of blocks) {
     let parsed: unknown;
     try {
@@ -84,18 +85,19 @@ export function postingFromJsonLd(
     } catch {
       continue;
     }
-    const node = findJobPosting(parsed, 0);
-    if (!node) continue;
-    const fields: PostingFields = {};
-    const title = str(node['title']);
-    if (title !== undefined) fields.title = title;
-    const companyName = companyOf(node);
-    if (companyName !== undefined) fields.companyName = companyName;
-    const location = locationOf(node);
-    if (location !== undefined) fields.location = location;
-    const descriptionHtml = str(node['description']);
-    if (descriptionHtml !== undefined) fields.descriptionHtml = descriptionHtml;
-    return fields;
+    collectJobPostings(parsed, 0, nodes);
   }
-  return undefined;
+  // None, or several (a listing page), means no single posting to trust.
+  const node = nodes.length === 1 ? nodes[0] : undefined;
+  if (!node) return undefined;
+  const fields: PostingFields = {};
+  const title = str(node['title']);
+  if (title !== undefined) fields.title = title;
+  const companyName = companyOf(node);
+  if (companyName !== undefined) fields.companyName = companyName;
+  const location = locationOf(node);
+  if (location !== undefined) fields.location = location;
+  const descriptionHtml = str(node['description']);
+  if (descriptionHtml !== undefined) fields.descriptionHtml = descriptionHtml;
+  return Object.keys(fields).length > 0 ? fields : undefined;
 }
