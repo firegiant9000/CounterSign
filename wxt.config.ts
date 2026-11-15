@@ -22,7 +22,7 @@ export default defineConfig({
       ? {
           content_security_policy: {
             extension_pages:
-              "default-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'",
+              "default-src 'self'; script-src 'self'; connect-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'",
           },
         }
       : {}),

@@ -2,7 +2,12 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import allowlist from './allowlist.json';
-import { scanDirectory, type AllowEntry } from './scan';
+import {
+  parseCsp,
+  scanDirectory,
+  scanDirectoryWithUsage,
+  type AllowEntry,
+} from './scan';
 
 const OUT = resolve(import.meta.dirname, '..', '.output', 'firefox-mv3');
 const MANIFEST = join(OUT, 'manifest.json');
@@ -71,10 +76,15 @@ describe('built extension', () => {
   });
   it('blocks every connection on extension pages', () => {
     const csp = manifest.content_security_policy?.extension_pages ?? '';
-    expect(csp).toContain("connect-src 'none'");
-    expect(csp).toContain("default-src 'self'");
-    expect(csp).toContain("script-src 'self'");
-    expect(csp).not.toMatch(/https?:|wss?:|\*/);
+    expect(parseCsp(csp)).toEqual({
+      'default-src': ["'self'"],
+      'script-src': ["'self'"],
+      'connect-src': ["'none'"],
+      'object-src': ["'none'"],
+      'form-action': ["'none'"],
+      'base-uri': ["'none'"],
+      'frame-ancestors': ["'none'"],
+    });
   });
   it('uses an event page, not a service worker', () => {
     expect(Array.isArray(manifest.background?.scripts)).toBe(true);
@@ -89,6 +99,15 @@ describe('built extension', () => {
   });
   it('ships no network calls', () => {
     expect(scanDirectory(OUT, allowlist as AllowEntry[])).toEqual([]);
+  });
+  it('has no stale allowlist entries', () => {
+    const entries = allowlist as AllowEntry[];
+    const { usedEntries } = scanDirectoryWithUsage(OUT, entries);
+    entries.forEach((entry, i) => {
+      expect(usedEntries.has(i), `unused allowlist entry: ${entry.near}`).toBe(
+        true,
+      );
+    });
   });
   it('loads nothing remote from its pages', () => {
     const files = htmlFiles(OUT);

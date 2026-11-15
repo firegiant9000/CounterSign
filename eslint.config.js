@@ -10,6 +10,12 @@ const networkGlobals = [
   'XMLHttpRequest',
   'WebSocket',
   'EventSource',
+  'WebTransport',
+  'RTCPeerConnection',
+  'Worker',
+  'SharedWorker',
+  'importScripts',
+  'Request',
 ].map((name) => ({ name, message: NETWORK_MESSAGE }));
 const networkProperties = ['window', 'globalThis', 'self'].map((object) => ({
   object,

@@ -7,8 +7,6 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
-          // The first typed lint in guard/source-rules.test.ts builds a TypeScript program.
-          testTimeout: 60_000,
           include: [
             'core/**/*.test.ts',
             'shell/**/*.test.ts',
