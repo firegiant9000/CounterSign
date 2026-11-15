@@ -11,6 +11,7 @@ import { isLocalDate, toLocalDate } from '../../core/src/dates';
 import {
   STATUS_KEYS,
   currentStatus,
+  effectiveDate,
   historyFor,
   statusLabel,
 } from '../../core/src/status';
@@ -40,7 +41,11 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   const { data, settings, deps } = appData;
   const { id } = props;
 
-  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const [titleError, setTitleError] = useState<string | undefined>(undefined);
+  const [urlError, setUrlError] = useState<string | undefined>(undefined);
+  const [actorError, setActorError] = useState<string | undefined>(undefined);
+  const [notesError, setNotesError] = useState<string | undefined>(undefined);
+  const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
   const [nextError, setNextError] = useState<string | undefined>(undefined);
   const [eventError, setEventError] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<StatusKey>('applied');
@@ -114,12 +119,18 @@ export function ApplicationDetail(props: { id: Id }): VNode {
     setEventError(undefined);
     setBusy(true);
     try {
+      let stale = false;
       await appData.apply((d) => {
-        const target = d.statusEvents.find((e) => e.id === eventId);
-        return target && !target.voidedAt
-          ? voidStatusEventOps(target, deps)
-          : [];
+        const target = currentStatus(d.statusEvents, id);
+        if (target?.id !== eventId) {
+          stale = true;
+          return [];
+        }
+        return voidStatusEventOps(target, deps);
       });
+      if (stale) {
+        setEventError('The status changed meanwhile; nothing was undone.');
+      }
     } catch (err) {
       setEventError(`Could not undo: ${messageOf(err)}`);
     } finally {
@@ -130,7 +141,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   const onDelete = async (): Promise<void> => {
     if (busy) return;
     if (!confirm('Delete this application and its status history?')) return;
-    setSaveError(undefined);
+    setDeleteError(undefined);
     setBusy(true);
     try {
       await appData.apply((d) =>
@@ -140,7 +151,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
       );
       location.hash = routeHref({ page: 'applications' });
     } catch (err) {
-      setSaveError(`Could not delete: ${messageOf(err)}`);
+      setDeleteError(`Could not delete: ${messageOf(err)}`);
     } finally {
       setBusy(false);
     }
@@ -160,7 +171,6 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         <a href={routeHref({ page: 'applications' })}>Back to applications</a>
       </p>
       <h1>{company?.name ?? 'Unknown company'}</h1>
-      {saveError ? <p class="field-error">{saveError}</p> : null}
 
       <div class="detail-fields">
         <label>
@@ -170,9 +180,10 @@ export function ApplicationDetail(props: { id: Id }): VNode {
             type="text"
             defaultValue={title}
             onChange={(e) => {
-              void save({ title: e.currentTarget.value }, setSaveError);
+              void save({ title: e.currentTarget.value }, setTitleError);
             }}
           />
+          {titleError ? <span class="field-error">{titleError}</span> : null}
         </label>
         <label>
           URL
@@ -181,9 +192,10 @@ export function ApplicationDetail(props: { id: Id }): VNode {
             type="text"
             defaultValue={url}
             onChange={(e) => {
-              void save({ url: e.currentTarget.value }, setSaveError);
+              void save({ url: e.currentTarget.value }, setUrlError);
             }}
           />
+          {urlError ? <span class="field-error">{urlError}</span> : null}
         </label>
         {url !== '' ? (
           <p>
@@ -218,7 +230,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
                   nextActor:
                     value === 'me' || value === 'them' ? value : undefined,
                 },
-                setSaveError,
+                setActorError,
               );
             }}
           >
@@ -226,6 +238,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
             <option value="me">Me</option>
             <option value="them">Them</option>
           </select>
+          {actorError ? <span class="field-error">{actorError}</span> : null}
         </label>
         <label>
           Notes
@@ -233,9 +246,10 @@ export function ApplicationDetail(props: { id: Id }): VNode {
             key={`notes-${notes}`}
             defaultValue={notes}
             onChange={(e) => {
-              void save({ notes: e.currentTarget.value }, setSaveError);
+              void save({ notes: e.currentTarget.value }, setNotesError);
             }}
           />
+          {notesError ? <span class="field-error">{notesError}</span> : null}
         </label>
       </div>
 
@@ -249,7 +263,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         {history.map((e) => (
           <li key={e.id} class={e.voidedAt ? 'voided' : undefined}>
             <span>
-              {e.occurredOn ?? e.createdAt.slice(0, 10)} ·{' '}
+              {effectiveDate(e)} ·{' '}
               {statusLabel(e.status, settings.statusLabels)}
               {e.note ? ` · ${e.note}` : ''}
             </span>
@@ -320,6 +334,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         >
           Delete application
         </button>
+        {deleteError ? <span class="field-error">{deleteError}</span> : null}
       </p>
     </div>
   );
