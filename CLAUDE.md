@@ -1,0 +1,5 @@
+- The gate is `npm run gate`. It must pass before you call work done.
+- Rules are in `CONTRIBUTING.md`: branches, pull requests, warning budgets, fixtures.
+- Spec: `docs/superpowers/specs/2026-11-13-countersign-design.md`. Plan: `docs/superpowers/plans/2026-11-14-countersign-v1.md`.
+- `core/` must stay free of DOM and `browser.*` APIs.
+- Never `git add docs/superpowers/prompts/`. It is local handoff material.
