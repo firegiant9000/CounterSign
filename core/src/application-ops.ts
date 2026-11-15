@@ -1,0 +1,161 @@
+import type { WriteOp } from './repository';
+import type { StatusKey } from './status';
+import type {
+  Actor,
+  Application,
+  Company,
+  Deps,
+  Id,
+  LocalDate,
+  Snapshot,
+  StatusEvent,
+} from './types';
+
+export interface NewApplicationInput {
+  companyName?: string;
+  title?: string;
+  url?: string;
+  status?: StatusKey;
+  occurredOn?: LocalDate;
+  nextActionDate?: LocalDate;
+  nextActor?: Actor;
+  notes?: string;
+}
+
+function isBlank(value: string | undefined): boolean {
+  return value === undefined || value.trim() === '';
+}
+
+function collapse(name: string): string {
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeName(name: string): string {
+  return collapse(name).toLowerCase();
+}
+
+export function findCompanyByName(
+  companies: readonly Company[],
+  name: string,
+): Company | undefined {
+  const wanted = normalizeName(name);
+  return companies.find(
+    (c) => c.name !== undefined && normalizeName(c.name) === wanted,
+  );
+}
+
+export function newApplicationOps(
+  input: NewApplicationInput,
+  data: Snapshot,
+  deps: Deps,
+): { ops: WriteOp[]; applicationId: Id } {
+  const ops: WriteOp[] = [];
+  let companyId: Id | undefined;
+  if (input.companyName !== undefined && !isBlank(input.companyName)) {
+    const existing = findCompanyByName(data.companies, input.companyName);
+    if (existing) {
+      companyId = existing.id;
+    } else {
+      const company: Company = {
+        id: deps.newId(),
+        createdAt: deps.now(),
+        name: collapse(input.companyName),
+      };
+      companyId = company.id;
+      ops.push({ kind: 'put', store: 'companies', record: company });
+    }
+  }
+
+  const app: Application = { id: deps.newId(), createdAt: deps.now() };
+  if (companyId !== undefined) app.companyId = companyId;
+  if (input.title !== undefined && !isBlank(input.title))
+    app.title = input.title.trim();
+  if (input.url !== undefined && !isBlank(input.url))
+    app.url = input.url.trim();
+  if (input.nextActionDate !== undefined && !isBlank(input.nextActionDate)) {
+    app.nextActionDate = input.nextActionDate;
+  }
+  if (input.nextActor !== undefined) app.nextActor = input.nextActor;
+  if (input.notes !== undefined && !isBlank(input.notes))
+    app.notes = input.notes;
+  ops.push({ kind: 'put', store: 'applications', record: app });
+
+  const event: StatusEvent = {
+    id: deps.newId(),
+    createdAt: deps.now(),
+    applicationId: app.id,
+    status: input.status ?? 'interested',
+  };
+  if (input.occurredOn !== undefined && !isBlank(input.occurredOn)) {
+    event.occurredOn = input.occurredOn;
+  }
+  ops.push({ kind: 'put', store: 'statusEvents', record: event });
+
+  return { ops, applicationId: app.id };
+}
+
+export type ApplicationPatch = Partial<Omit<Application, 'id' | 'createdAt'>>;
+
+export function updateApplicationOps(
+  app: Application,
+  patch: ApplicationPatch,
+): WriteOp[] {
+  const record: Record<string, unknown> = { ...app };
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === 'id' || key === 'createdAt') continue;
+    if (
+      value === undefined ||
+      (typeof value === 'string' && value.trim() === '')
+    ) {
+      delete record[key];
+    } else {
+      record[key] = value;
+    }
+  }
+  return [
+    {
+      kind: 'put',
+      store: 'applications',
+      record: record as unknown as Application,
+    },
+  ];
+}
+
+export function addStatusEventOps(
+  applicationId: Id,
+  input: { status: StatusKey; occurredOn?: LocalDate; note?: string },
+  deps: Deps,
+): WriteOp[] {
+  const event: StatusEvent = {
+    id: deps.newId(),
+    createdAt: deps.now(),
+    applicationId,
+    status: input.status,
+  };
+  if (input.occurredOn !== undefined && !isBlank(input.occurredOn)) {
+    event.occurredOn = input.occurredOn;
+  }
+  if (input.note !== undefined && !isBlank(input.note)) event.note = input.note;
+  return [{ kind: 'put', store: 'statusEvents', record: event }];
+}
+
+export function voidStatusEventOps(event: StatusEvent, deps: Deps): WriteOp[] {
+  return [
+    {
+      kind: 'put',
+      store: 'statusEvents',
+      record: { ...event, voidedAt: deps.now() },
+    },
+  ];
+}
+
+export function deleteApplicationOps(
+  data: Snapshot,
+  applicationId: Id,
+): WriteOp[] {
+  const ops: WriteOp[] = data.statusEvents
+    .filter((e) => e.applicationId === applicationId)
+    .map((e): WriteOp => ({ kind: 'delete', store: 'statusEvents', id: e.id }));
+  ops.push({ kind: 'delete', store: 'applications', id: applicationId });
+  return ops;
+}
