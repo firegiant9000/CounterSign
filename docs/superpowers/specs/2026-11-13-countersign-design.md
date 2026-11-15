@@ -1,8 +1,8 @@
 # Countersign: design
 
-Date: 2026-11-13. Status: draft, awaiting owner approval.
+Date: 2026-11-13. Status: approved by the owner on 2026-11-14.
 
-Lines marked **(call)** are the spec author's decisions, not the owner's. The owner can overturn any of them before approval.
+Lines marked **(call)** are the spec author's decisions, accepted by the owner with the rest of the spec.
 
 ## 1. Intent
 
@@ -68,7 +68,7 @@ The owner picked A, accepting the recommendations of an earlier engineering revi
 ## 5. Architecture
 
 - **Build:** WXT with TypeScript, targeting Firefox MV3 first. The builder confirms the exact Firefox MV3 build flag and the WXT version against current WXT documentation.
-- **`core/`:** entity types, schema version, forward-only migrations, a repository interface, and pure functions for derived values (current status, deadlines, duplicate and repost checks, weekly counts, follow-up limits). No `browser.*`, no DOM, no network.
+- **`core/`:** entity types, schema version, forward-only migrations, a repository interface, and pure functions for derived values (current status, deadlines, duplicate and repost checks, mismatch checks, weekly counts, follow-up limits). No `browser.*`, no DOM, no network.
 - **Shell:**
   - *Storage adapter:* IndexedDB behind the repository interface, using the small `idb` wrapper **(call)**. `storage.local` holds settings only.
   - *Toolbar popup:* the save-job flow (section 6.3).
@@ -87,7 +87,12 @@ Priority order. Everything except `id` and `createdAt` is optional on every reco
 
 - A list of canonical answers to knockout questions: work authorization, sponsorship, salary range, earliest start date, relocation, reason for leaving. Each has a type (yes/no, choice, money range, date, free text) and keeps its edit history.
 - Each application has "what I told them" entries (salary named, start date, and any other answer the user wants to record). A new entry is pre-filled from the canonical answer and can be edited.
-- This is a record only. Comparing entries against canonical answers and warning on a mismatch is deferred (section 7).
+- Mismatch warning (in version 1 at the owner's request; no user research asked for it). When an entry is saved, it is compared with the canonical answer by type:
+  - yes/no and choice: warn if they differ;
+  - money: warn if the figure named falls outside the canonical range;
+  - date: warn if the date told is earlier than the canonical earliest date;
+  - free text: no automatic judgement; the two are shown side by side.
+- A warning never blocks saving. It offers two actions: "update canonical" (changes the canonical answer and adds to its history) or "keep as exception" (marks the entry as deliberate, and the warning goes away). Unresolved warnings show on the application and in its interview pack.
 
 ### 6.2 Tracker
 
@@ -157,11 +162,10 @@ A dashboard panel listing the user's details (name, email, phone, full address i
 
 1. Recruiter-email status button: clicked while an email is open, suggests a status change. No mailbox login, no filing of email threads.
 2. Resume profiles: several resume variants. Canonical answers stay global.
-3. Mismatch warning: compare each "what I told them" entry with the canonical answer by type (equality for yes/no and choices, overlap for money ranges, threshold for dates, side by side for free text); the user picks "update canonical" or "keep as exception". No user evidence asks for it; built only if the owner wants it.
-4. Own form filling, review-first, if the Formhand log justifies it. Workday first.
-5. Story bank: who heard which story.
-6. Application windows on target companies.
-7. A dated activity export.
+3. Own form filling, review-first, if the Formhand log justifies it. Workday first.
+4. Story bank: who heard which story.
+5. Application windows on target companies.
+6. A dated activity export.
 
 **Excluded outright:** auto-apply or auto-submit, AI-written answers, fit scores, ghost-job verdicts, telemetry, accounts, any server, detailed education modelling, onboarding tutorials, in-page overlays, filing email threads, a references ledger.
 
@@ -180,7 +184,7 @@ Entities (only `id` and `createdAt` required on each):
 | Round | Interview round with debrief |
 | Story | Behavioural story |
 | CanonicalAnswer | Typed answer with history |
-| Statement | "What I told them" for one application |
+| Statement | "What I told them" for one application, with a "deliberate exception" flag |
 | Task | Free-form to-do with a date |
 | Document | Label, file name, hash; no file contents |
 | ProfileField | The user's details for the copy panel **(call)** |
@@ -190,7 +194,7 @@ A schema version is stored with the data. Migrations are forward-only and each h
 
 ## 9. Testing and the gate
 
-- Vitest on `core/`: derived status, deadlines, duplicate and repost checks, follow-up limit, weekly counts, quiet-application list.
+- Vitest on `core/`: derived status, deadlines, duplicate and repost checks, follow-up limit, weekly counts, quiet-application list, mismatch check for each answer type.
 - 5 to 8 synthetic HTML fixtures for capture (JSON-LD present, malformed, absent; selection; canonical link variants).
 - One test per migration, plus an export-then-restore round trip.
 - Privacy guard, three parts **(call)**: a lint rule bans `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` in the project's own source; a test fails if the built manifest contains host permissions or content scripts, or lacks the `connect-src 'none'` policy; and a text scan of the built bundle for the same names, with a short reviewed allowlist for strings inside dependencies.
@@ -210,7 +214,7 @@ A schema version is stored with the data. Migrations are forward-only and each h
 Each stage ends with something used on real applications.
 
 - **Stage 1 (about 6 hours):** core schema and storage; applications page with status history, next-action date, who acts next and which resume; canonical answers list; JSON export and restore. Applications are entered by hand at this stage (company name, title, URL), and the company record is created inline **(call)**.
-- **Stage 2 (to about 20 hours):** save job with duplicate warning and repost fact; automatic backup; "what I told them"; quiet-application list; deadlines view; simple contacts with "anyone here?"; copy panel.
+- **Stage 2 (to about 20 hours):** save job with duplicate warning and repost fact; automatic backup; "what I told them" with the mismatch warning; quiet-application list; deadlines view; simple contacts with "anyone here?"; copy panel.
 - **Stage 3 (to about 40 hours):** follow-up tracking; interview pack; story bank; weekly review; target companies.
 
 ## 12. Process guardrails (set by the owner, 2026-11-14)
