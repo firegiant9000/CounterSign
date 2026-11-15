@@ -191,11 +191,33 @@ export async function convert(
     const thread = threadIdOf(get(HISTORY_HEADERS.emailThreadUrl));
     const threadApps = thread === undefined ? [] : (byThread.get(thread) ?? []);
     const threadLive = threadApps.filter((a) => a.rule !== undefined);
+    const nameKey = `${normalise(get(HISTORY_HEADERS.company))}\u0000${normalise(get(HISTORY_HEADERS.position))}`;
+    const byNameKey = (list: readonly AppRow[]) =>
+      nameKey === '\u0000' ? [] : list.filter((a) => a.nameKey === nameKey);
     let target: AppRow | undefined;
-    if (threadLive.length === 1) {
-      target = threadLive[0];
+    let narrowedFlag: string | undefined;
+    if (threadApps.length > 0) {
+      // A thread match is never overridden by name matching.
+      if (threadLive.length === 1) {
+        target = threadLive[0];
+      } else if (threadLive.length === 0) {
+        skip('history', row, 'its application was skipped.');
+        return;
+      } else {
+        const narrowed = byNameKey(threadLive);
+        if (narrowed.length === 1) {
+          target = narrowed[0];
+          narrowedFlag = `Thread matched ${threadLive.length} applications; linked by company and position.`;
+        } else {
+          skip(
+            'history',
+            row,
+            `matches ${threadLive.length} applications; row not imported.`,
+          );
+          return;
+        }
+      }
     } else {
-      const nameKey = `${normalise(get(HISTORY_HEADERS.company))}\u0000${normalise(get(HISTORY_HEADERS.position))}`;
       const named = nameKey === '\u0000' ? [] : (byName.get(nameKey) ?? []);
       const live = named.filter((a) => a.rule !== undefined);
       if (live.length === 1) target = live[0];
@@ -206,7 +228,7 @@ export async function convert(
           `matches ${live.length} applications; row not imported.`,
         );
         return;
-      } else if (named.length > 0 || threadApps.length > 0) {
+      } else if (named.length > 0) {
         skip('history', row, 'its application was skipped.');
         return;
       } else {
@@ -248,6 +270,7 @@ export async function convert(
     list.push({ row, date, rule, rawStage, lines });
     histByApp.set(target, list);
     historyImported += 1;
+    if (narrowedFlag !== undefined) flag('history', row, narrowedFlag);
   });
 
   // 4. Build timelines and the application records.

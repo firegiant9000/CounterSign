@@ -384,6 +384,92 @@ describe('convert', () => {
     expect(notesOf('Unconf')).toContain('Stage: Not submitted');
   });
 
+  describe('thread and name resolution', () => {
+    const thread = (id: string) =>
+      `https://mail.example.com/mail/u/0/#all/${id}`;
+    const appLine = (
+      company: string,
+      title: string,
+      stage: string,
+      threadId: string,
+    ) =>
+      `${company},${title},2026-01-05,,,,${stage},,,,,,${threadId === '' ? '' : thread(threadId)},,,,`;
+    const histLine = (company: string, title: string, threadId: string) =>
+      `2026-01-09,${company},${title},Email,Thanks,Interviewing,High,${threadId === '' ? '' : thread(threadId)}`;
+    const go = (appLines: string[], histLines: string[]) =>
+      convert(
+        {
+          applications: parseCsv(
+            [applications.header.join(','), ...appLines].join('\n'),
+          ),
+          history: parseCsv(
+            [history.header.join(','), ...histLines].join('\n'),
+          ),
+        },
+        options,
+        fixedDeps(),
+      );
+    const reasonOf = (report: {
+      skipped: { file: string; reason: string }[];
+    }) => report.skipped.find((i) => i.file === 'history')?.reason;
+
+    it('does not fall back to the name when the thread is held only by a skipped application', async () => {
+      const { report, snapshot } = await go(
+        [
+          appLine('Acme Widgets', 'Other', 'Ghosted', 't1'),
+          appLine('Acme Widgets', 'Role', 'Applied', ''),
+        ],
+        [histLine('Acme Widgets', 'Role', 't1')],
+      );
+      expect(reasonOf(report)).toBe('its application was skipped.');
+      expect(snapshot.statusEvents).toHaveLength(1);
+      expect(report.history.imported + report.history.skipped).toBe(1);
+    });
+
+    it('narrows a thread held by two imported applications by name and flags it', async () => {
+      const { report, snapshot } = await go(
+        [
+          appLine('Acme Widgets', 'Role A', 'Applied', 't1'),
+          appLine('Acme Widgets', 'Role B', 'Applied', 't1'),
+        ],
+        [histLine('Acme Widgets', 'Role B', 't1')],
+      );
+      expect(report.history.imported).toBe(1);
+      expect(
+        snapshot.statusEvents.filter((e) => e.status === 'interview'),
+      ).toHaveLength(1);
+      expect(report.flagged.find((i) => i.file === 'history')?.reason).toBe(
+        'Thread matched 2 applications; linked by company and position.',
+      );
+    });
+
+    it('skips when a two-holder thread is not narrowed by name', async () => {
+      const { report } = await go(
+        [
+          appLine('Acme Widgets', 'Role A', 'Applied', 't1'),
+          appLine('Acme Widgets', 'Role B', 'Applied', 't1'),
+        ],
+        [histLine('Acme Widgets', 'Role C', 't1')],
+      );
+      expect(reasonOf(report)).toBe(
+        'matches 2 applications; row not imported.',
+      );
+    });
+
+    it('skips when a name is held by two imported applications and there is no thread', async () => {
+      const { report } = await go(
+        [
+          appLine('Acme Widgets', 'Role', 'Applied', ''),
+          appLine('Acme Widgets', 'Role', 'Applied', ''),
+        ],
+        [histLine('Acme Widgets', 'Role', '')],
+      );
+      expect(reasonOf(report)).toBe(
+        'matches 2 applications; row not imported.',
+      );
+    });
+  });
+
   it('gives strictly increasing createdAt per application with no wall-clock dates', async () => {
     const { snapshot } = await run({ undatedOn: '2026-03-10' });
     const today = new Date().toISOString().slice(0, 10);
