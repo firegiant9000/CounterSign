@@ -1,4 +1,11 @@
-import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { isLocalDate } from '../../core/src/dates';
@@ -21,8 +28,8 @@ export interface Io {
 /** Seams for tests; the defaults are the real thing. */
 export interface Ports {
   validate?: (text: string) => ParseResult;
-  writeFile?: (file: string, data: string) => void;
-  removeFile?: (file: string) => void;
+  openFile?: (file: string) => number; // default: exclusive create (wx)
+  writeFd?: (fd: number, data: string) => void;
 }
 
 const USAGE =
@@ -62,10 +69,9 @@ export async function runImportSheet(
   ports: Ports = {},
 ): Promise<number> {
   const validate = ports.validate ?? parseExport;
-  const write =
-    ports.writeFile ??
-    ((file: string, data: string) => writeFileSync(file, data, { flag: 'wx' }));
-  const remove = ports.removeFile ?? ((file: string) => rmSync(file));
+  const openFile = ports.openFile ?? ((file: string) => openSync(file, 'wx'));
+  const writeFd =
+    ports.writeFd ?? ((fd: number, data: string) => writeFileSync(fd, data));
   let values;
   try {
     ({ values } = parseArgs({
@@ -140,16 +146,43 @@ export async function runImportSheet(
     return 1;
   }
   const target = path.join(out, exportFileName('export', at));
+  // Remove the file only if this run created it, so a truncated export is
+  // never left behind and an existing file is never touched.
+  let fd: number;
   try {
-    write(target, text);
+    fd = openFile(target);
   } catch (error) {
-    // Never leave a truncated export behind (but never touch an existing file).
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
-      try {
-        remove(target);
-      } catch {
-        // best effort
-      }
+    const exists = (error as NodeJS.ErrnoException).code === 'EEXIST';
+    io.stderr(
+      exists
+        ? `${target} already exists; not overwriting it.\n`
+        : `Could not write ${target}: ${message(error)}\n`,
+    );
+    return 1;
+  }
+  try {
+    writeFd(fd, text);
+  } catch (error) {
+    try {
+      closeSync(fd);
+    } catch {
+      // best effort
+    }
+    try {
+      rmSync(target);
+    } catch {
+      // best effort
+    }
+    io.stderr(`Could not write ${target}: ${message(error)}\n`);
+    return 1;
+  }
+  try {
+    closeSync(fd);
+  } catch (error) {
+    try {
+      rmSync(target);
+    } catch {
+      // best effort
     }
     io.stderr(`Could not write ${target}: ${message(error)}\n`);
     return 1;

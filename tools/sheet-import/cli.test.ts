@@ -110,38 +110,50 @@ describe('import-sheet', () => {
     expect(readdirSync(out)).toEqual([]);
   });
 
-  it('removes a partial file when the write fails, and exits 1', async () => {
-    const removed: string[] = [];
-    const stderr: string[] = [];
-    const code = await runImportSheet(
-      [...base, '--out', out],
-      { stdout: () => undefined, stderr: (t) => stderr.push(t) },
-      fixedDeps(),
-      {
-        writeFile: () => {
-          throw Object.assign(new Error('disk full'), { code: 'ENOSPC' });
+  it('leaves an existing file alone when the open fails for any reason', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sheet-import-open-'));
+    try {
+      const target = path.join(dir, exportFileName('export', FIRST_NOW));
+      writeFileSync(target, 'earlier export');
+      const stderr: string[] = [];
+      const code = await runImportSheet(
+        [...base, '--out', dir],
+        { stdout: () => undefined, stderr: (t) => stderr.push(t) },
+        fixedDeps(),
+        {
+          openFile: () => {
+            throw Object.assign(new Error('denied'), { code: 'EPERM' });
+          },
         },
-        removeFile: (p) => removed.push(p),
-      },
-    );
-    expect(code).toBe(1);
-    expect(removed).toEqual([
-      path.join(out, exportFileName('export', FIRST_NOW)),
-    ]);
-    expect(stderr.join('')).toContain('disk full');
+      );
+      expect(code).toBe(1);
+      expect(stderr.join('')).toContain('denied');
+      expect(existsSync(target)).toBe(true);
+      expect(readFileSync(target, 'utf8')).toBe('earlier export');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
-  it('does not remove the existing file when the target already exists', async () => {
-    const removed: string[] = [];
-    await run([...base, '--out', out]);
-    const code = await runImportSheet(
-      [...base, '--out', out],
-      { stdout: () => undefined, stderr: () => undefined },
-      fixedDeps(),
-      { removeFile: (p) => removed.push(p) },
-    );
-    expect(code).toBe(1);
-    expect(removed).toEqual([]);
+  it('removes the partial file when the write fails after a successful open', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sheet-import-write-'));
+    try {
+      const target = path.join(dir, exportFileName('export', FIRST_NOW));
+      const code = await runImportSheet(
+        [...base, '--out', dir],
+        { stdout: () => undefined, stderr: () => undefined },
+        fixedDeps(),
+        {
+          writeFd: () => {
+            throw new Error('disk full');
+          },
+        },
+      );
+      expect(code).toBe(1);
+      expect(existsSync(target)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('exits 2 when --history is missing', async () => {
