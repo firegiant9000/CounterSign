@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseExport } from '../core/src/export';
 import type { ExportFile } from '../core/src/export';
 import { createMemoryRepository } from '../core/src/memory-repository';
@@ -174,6 +174,31 @@ describe('data service', () => {
     expect(await loadSettings(area)).toEqual({
       statusLabels: { applied: 'Sent' },
     });
+  });
+
+  it('stops when the safety copy never finishes saving', async () => {
+    vi.useFakeTimers();
+    try {
+      const repo = await seeded('Old Co');
+      const before = await repo.snapshot();
+      const saver: FileSaver = {
+        save: () => new Promise<void>(() => undefined),
+      };
+      const result = createDataService({
+        repo,
+        area: mapArea(),
+        saver,
+        clock,
+      }).restore(incoming(snapshotWith('New Co'), {}));
+      const assertion = expect(result).rejects.toThrow(
+        'The safety copy did not finish saving within 60 seconds.',
+      );
+      await vi.advanceTimersByTimeAsync(60_000);
+      await assertion;
+      expect(await repo.snapshot()).toEqual(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('leaves settings alone when the data swap fails', async () => {

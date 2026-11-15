@@ -51,6 +51,7 @@ function exportDateOf(file: ExportFile): string {
 // leaving the Data page mid-action and coming back still shows them.
 interface Outcome {
   busy: boolean;
+  restoring: boolean;
   exportError: string | undefined;
   restoreError: string | undefined;
   restored: boolean;
@@ -58,6 +59,7 @@ interface Outcome {
 
 let outcome: Outcome = {
   busy: false,
+  restoring: false,
   exportError: undefined,
   restoreError: undefined,
   restored: false,
@@ -78,6 +80,14 @@ function useOutcome(): Outcome {
     listener();
     return () => {
       listeners.delete(listener);
+      // A finished result is shown once on return, then cleared.
+      if (!outcome.busy) {
+        setOutcome({
+          restored: false,
+          restoreError: undefined,
+          exportError: undefined,
+        });
+      }
     };
   }, []);
   return outcome;
@@ -86,7 +96,7 @@ function useOutcome(): Outcome {
 export function DataPage(): VNode {
   const app = useAppData();
   const { data, settings, deps, service } = app;
-  const { busy, exportError, restoreError, restored } = useOutcome();
+  const { busy, restoring, exportError, restoreError, restored } = useOutcome();
   const fileToken = useRef(0);
   const [storage, setStorage] = useState<PersistenceState | undefined>(
     undefined,
@@ -176,7 +186,11 @@ export function DataPage(): VNode {
     );
     if (!ok) return;
     if (!startAction()) return;
-    setOutcome({ restoreError: undefined, restored: false });
+    setOutcome({
+      restoring: true,
+      restoreError: undefined,
+      restored: false,
+    });
     let failure: string | undefined;
     let swapped = true;
     try {
@@ -200,11 +214,17 @@ export function DataPage(): VNode {
       restoreError: failure,
       restored: swapped && !failure,
       busy: false,
+      restoring: false,
     });
   };
 
   const demo = async (action: 'load' | 'remove'): Promise<void> => {
     if (!startAction()) return;
+    setOutcome({
+      restored: false,
+      restoreError: undefined,
+      exportError: undefined,
+    });
     setDemoError(undefined);
     try {
       await app.apply((d) =>
@@ -293,6 +313,7 @@ export function DataPage(): VNode {
             </button>
           </div>
         ) : null}
+        {restoring ? <p>Saving a safety copy before restoring…</p> : null}
         {restoreError ? <span class="field-error">{restoreError}</span> : null}
         {restored ? <p>Restored.</p> : null}
       </section>
