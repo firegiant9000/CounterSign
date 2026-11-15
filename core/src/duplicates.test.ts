@@ -39,6 +39,53 @@ describe('findApplicationMatch', () => {
     ).toEqual({ kind: 'already_applied', applicationId: 'a1' });
   });
 
+  describe('URL match against names', () => {
+    const url = 'https://example.com/inbox';
+    const data = snap({
+      companies: [company],
+      applications: [
+        {
+          id: 'a1',
+          createdAt: `2026-01-02${AT}`,
+          companyId: 'c1',
+          title: 'Welder',
+          url,
+        },
+      ],
+    });
+
+    it('a different company or title is not already_applied', () => {
+      expect(
+        findApplicationMatch(data, {
+          canonicalUrl: url,
+          companyName: 'Other Co',
+          title: 'Welder',
+        }),
+      ).toBeUndefined();
+      expect(
+        findApplicationMatch(data, {
+          canonicalUrl: url,
+          companyName: 'Example Robotics',
+          title: 'Pipefitter',
+        }),
+      ).toBeUndefined();
+    });
+
+    it('same names or no names is already_applied', () => {
+      expect(
+        findApplicationMatch(data, {
+          canonicalUrl: url,
+          companyName: 'example robotics',
+          title: 'WELDER',
+        }),
+      ).toEqual({ kind: 'already_applied', applicationId: 'a1' });
+      expect(findApplicationMatch(data, { canonicalUrl: url })).toEqual({
+        kind: 'already_applied',
+        applicationId: 'a1',
+      });
+    });
+  });
+
   it('already_applied through app.url with a utm parameter', () => {
     const data = snap({
       applications: [
@@ -243,6 +290,62 @@ describe('repostFact', () => {
       ],
     });
     expect(repostFact(bad, cand, '2026-11-15')).toBeUndefined();
+  });
+
+  it('a shared URL with a different company or title is not a repost', () => {
+    const named = job('j1', '2026-06-12', {
+      companyName: 'Acme Co',
+      title: 'Welder',
+    });
+    const data = snap({ jobs: [named] });
+    expect(
+      repostFact(data, { ...cand, companyName: 'Other Co' }, '2026-11-15'),
+    ).toBeUndefined();
+    expect(
+      repostFact(
+        data,
+        { ...cand, companyName: 'Acme Co', title: 'Pipefitter' },
+        '2026-11-15',
+      ),
+    ).toBeUndefined();
+  });
+
+  it('a shared URL with the same names or no candidate names keeps the URL wording', () => {
+    const data = snap({
+      jobs: [
+        job('j1', '2026-06-12', { companyName: 'Acme Co', title: 'Welder' }),
+      ],
+    });
+    const text = 'You saved this posting on 12 June (5 months ago).';
+    expect(
+      repostFact(
+        data,
+        { ...cand, companyName: 'acme co', title: 'welder' },
+        '2026-11-15',
+      )?.text,
+    ).toBe(text);
+    expect(repostFact(data, cand, '2026-11-15')?.text).toBe(text);
+  });
+
+  it('a name-only repost uses the company and title wording', () => {
+    const data = snap({
+      jobs: [
+        job('j1', '2026-06-12', {
+          canonicalUrl: undefined,
+          companyName: 'Acme Co',
+          title: 'Welder',
+        }),
+      ],
+    });
+    expect(
+      repostFact(
+        data,
+        { companyName: 'Acme Co', title: 'Welder' },
+        '2026-11-15',
+      )?.text,
+    ).toBe(
+      'You saved a posting with the same company and title on 12 June (5 months ago).',
+    );
   });
 
   it('uses today when firstSavedOn is in the future', () => {

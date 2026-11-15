@@ -57,6 +57,28 @@ function applicationCanonicalUrl(
   return url === undefined ? undefined : safeCanonical(url);
 }
 
+// A shared URL is contradicted when both sides name a company (or a title)
+// and the names differ. A side with no name never contradicts.
+function contradicts(
+  wantCompany: string | undefined,
+  haveCompany: string | undefined,
+  wantTitle: string | undefined,
+  haveTitle: string | undefined,
+): boolean {
+  if (
+    wantCompany !== undefined &&
+    haveCompany !== undefined &&
+    wantCompany !== haveCompany
+  ) {
+    return true;
+  }
+  return (
+    wantTitle !== undefined &&
+    haveTitle !== undefined &&
+    wantTitle !== haveTitle
+  );
+}
+
 function createdAtMs(createdAt: unknown): number {
   const t = typeof createdAt === 'string' ? Date.parse(createdAt) : NaN;
   return Number.isNaN(t) ? -Infinity : t;
@@ -81,7 +103,16 @@ export function findApplicationMatch(
   let possible: Application | undefined;
   for (const app of data.applications) {
     const url = applicationCanonicalUrl(app, jobsById);
-    if (wantUrl !== undefined && url === wantUrl) {
+    const company =
+      typeof app.companyId === 'string'
+        ? companyNames.get(app.companyId)
+        : undefined;
+    const appTitle = nameKey(app.title);
+    if (
+      wantUrl !== undefined &&
+      url === wantUrl &&
+      !contradicts(wantCompany, company, wantTitle, appTitle)
+    ) {
       if (
         !applied ||
         createdAtMs(app.createdAt) >= createdAtMs(applied.createdAt)
@@ -91,11 +122,7 @@ export function findApplicationMatch(
       continue;
     }
     if (wantCompany === undefined || wantTitle === undefined) continue;
-    const company =
-      typeof app.companyId === 'string'
-        ? companyNames.get(app.companyId)
-        : undefined;
-    if (company === wantCompany && nameKey(app.title) === wantTitle) {
+    if (company === wantCompany && appTitle === wantTitle) {
       if (
         !possible ||
         createdAtMs(app.createdAt) >= createdAtMs(possible.createdAt)
@@ -135,29 +162,37 @@ export function repostFact(
   const wantCompany = nameKey(candidate.companyName);
   const wantTitle = nameKey(candidate.title);
 
-  let best: { date: LocalDate; ms: number } | undefined;
+  let best: { date: LocalDate; ms: number; viaUrl: boolean } | undefined;
   for (const job of data.jobs) {
     if (job.id === candidate.excludeJobId) continue;
-    const sameUrl = wantUrl !== undefined && str(job.canonicalUrl) === wantUrl;
+    const jobCompany = nameKey(job.companyName);
+    const jobTitle = nameKey(job.title);
+    const sameUrl =
+      wantUrl !== undefined &&
+      str(job.canonicalUrl) === wantUrl &&
+      !contradicts(wantCompany, jobCompany, wantTitle, jobTitle);
     const sameName =
       wantCompany !== undefined &&
       wantTitle !== undefined &&
-      nameKey(job.companyName) === wantCompany &&
-      nameKey(job.title) === wantTitle;
+      jobCompany === wantCompany &&
+      jobTitle === wantTitle;
     if (!sameUrl && !sameName) continue;
     const ms = createdAtMs(job.createdAt);
     if (ms === -Infinity) continue;
     const date = toLocalDate(new Date(ms));
     if (!isLocalDate(date)) continue;
-    if (!best || ms < best.ms) best = { date, ms };
+    if (!best || ms < best.ms) best = { date, ms, viaUrl: sameUrl };
   }
   if (!best) return undefined;
 
   const [fy = 0, fm = 1, fd = 1] = best.date.split('-').map(Number);
   const ty = Number(today.slice(0, 4));
   const year = fy === ty ? '' : ` ${fy}`;
+  const when = `${fd} ${MONTHS[fm - 1] ?? ''}${year} (${agoText(best.date, today)})`;
   return {
     firstSavedOn: best.date,
-    text: `You saved this posting on ${fd} ${MONTHS[fm - 1] ?? ''}${year} (${agoText(best.date, today)}).`,
+    text: best.viaUrl
+      ? `You saved this posting on ${when}.`
+      : `You saved a posting with the same company and title on ${when}.`,
   };
 }
