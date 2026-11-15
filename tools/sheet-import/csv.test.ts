@@ -49,7 +49,7 @@ describe('parseCsv', () => {
   });
 
   it('strips a leading byte-order mark', () => {
-    expect(parseCsv('﻿a,b\n1,2\n')).toEqual({
+    expect(parseCsv('\uFEFFa,b\n1,2\n')).toEqual({
       header: ['a', 'b'],
       rows: [['1', '2']],
     });
@@ -66,15 +66,44 @@ describe('parseCsv', () => {
     );
   });
 
+  it('reports a wrong cell count before a later unterminated quote', () => {
+    expect(() => parseCsv('a,b\n1\n"x,y')).toThrow(
+      'CSV line 2: expected 2 cells, found 1',
+    );
+  });
+
   it('throws naming the line where an unterminated quote opened', () => {
     expect(() => parseCsv('a,b\n1,"open\n2,3')).toThrow(
       'CSV line 2: unterminated quoted field',
     );
   });
 
+  it('throws on a character after a closing quote', () => {
+    expect(() => parseCsv('a,b\n"ab"cd,x')).toThrow(
+      'CSV line 2: unexpected character after closing quote',
+    );
+    expect(() => parseCsv('a,b\n"ab" ,x')).toThrow(
+      'CSV line 2: unexpected character after closing quote',
+    );
+  });
+
+  it('throws on a blank line before the header', () => {
+    expect(() => parseCsv('\na,b\n1,2\n')).toThrow('CSV line 1: blank line');
+  });
+
+  it('throws on a blank line in the middle of the file', () => {
+    expect(() => parseCsv('a,b\n\n1,2\n')).toThrow('CSV line 2: blank line');
+  });
+
+  it('throws on a bare carriage return', () => {
+    expect(() => parseCsv('a,b\n1,2\r')).toThrow(
+      'CSV line 2: unexpected carriage return',
+    );
+  });
+
   it('throws on empty input', () => {
     expect(() => parseCsv('')).toThrow('CSV is empty');
-    expect(() => parseCsv('﻿')).toThrow('CSV is empty');
+    expect(() => parseCsv('\uFEFF')).toThrow('CSV is empty');
     expect(() => parseCsv('\n\r\n')).toThrow('CSV is empty');
   });
 

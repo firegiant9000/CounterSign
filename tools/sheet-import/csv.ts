@@ -1,4 +1,4 @@
-interface Record {
+interface ParsedRecord {
   line: number;
   cells: string[];
   blank: boolean;
@@ -6,8 +6,12 @@ interface Record {
 
 // Dependency-free RFC 4180 reader for the Google Sheets CSV exports.
 export function parseCsv(text: string): { header: string[]; rows: string[][] } {
-  const input = text.startsWith('﻿') ? text.slice(1) : text;
-  const records: Record[] = [];
+  const input = text.startsWith('\uFEFF') ? text.slice(1) : text;
+  let header: string[] | undefined;
+  const rows: string[][] = [];
+  // Line of the first blank record since the last non-blank record. It is an
+  // error only if real data follows; blank lines at the end are ignored.
+  let pendingBlank: number | undefined;
   let pos = 0;
   let line = 1;
 
@@ -33,6 +37,17 @@ export function parseCsv(text: string): { header: string[]; rows: string[][] } {
           } else {
             inQuotes = false;
             pos += 1;
+            const next = input.charAt(pos);
+            const endsField =
+              next === '' ||
+              next === ',' ||
+              next === '\n' ||
+              (next === '\r' && input.charAt(pos + 1) === '\n');
+            if (!endsField) {
+              throw new Error(
+                `CSV line ${line}: unexpected character after closing quote`,
+              );
+            }
           }
         } else {
           if (ch === '\n') line += 1;
@@ -57,6 +72,8 @@ export function parseCsv(text: string): { header: string[]; rows: string[][] } {
         pos += ch === '\n' ? 1 : 2;
         line += 1;
         terminated = true;
+      } else if (ch === '\r') {
+        throw new Error(`CSV line ${line}: unexpected carriage return`);
       } else {
         field += ch;
         atFieldStart = false;
@@ -68,24 +85,31 @@ export function parseCsv(text: string): { header: string[]; rows: string[][] } {
       throw new Error(`CSV line ${quoteLine}: unterminated quoted field`);
     }
     cells.push(field);
-    records.push({ line: recordLine, cells, blank });
-  }
 
-  while (records.length > 0 && records[records.length - 1]?.blank) {
-    records.pop();
-  }
-  const first = records.shift();
-  if (!first) {
-    throw new Error('CSV is empty');
-  }
-
-  const header = first.cells;
-  for (const record of records) {
-    if (record.cells.length !== header.length) {
-      throw new Error(
-        `CSV line ${record.line}: expected ${header.length} cells, found ${record.cells.length}`,
-      );
+    // Each record is checked as soon as it completes, so an error in an
+    // earlier line is reported before a later problem is reached.
+    const record: ParsedRecord = { line: recordLine, cells, blank };
+    if (record.blank) {
+      pendingBlank ??= record.line;
+      continue;
+    }
+    if (pendingBlank !== undefined) {
+      throw new Error(`CSV line ${pendingBlank}: blank line`);
+    }
+    if (header === undefined) {
+      header = record.cells;
+    } else {
+      if (record.cells.length !== header.length) {
+        throw new Error(
+          `CSV line ${record.line}: expected ${header.length} cells, found ${record.cells.length}`,
+        );
+      }
+      rows.push(record.cells);
     }
   }
-  return { header, rows: records.map((record) => record.cells) };
+
+  if (header === undefined) {
+    throw new Error('CSV is empty');
+  }
+  return { header, rows };
 }
