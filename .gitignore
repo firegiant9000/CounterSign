@@ -1,0 +1,23 @@
+# Dependencies and build output
+node_modules/
+.output/
+.wxt/
+dist/
+web-ext-artifacts/
+
+# Local data: never commit exported backups
+*backup*.json
+countersign-export-*.json
+
+# Secrets and signing credentials
+.env
+.env.*
+!.env.example
+
+# Local handoff notes (untracked on purpose)
+docs/superpowers/prompts/
+
+# Editor and OS
+.vscode/
+.DS_Store
+Thumbs.db
