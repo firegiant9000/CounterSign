@@ -147,6 +147,79 @@ export function describeRepositoryContract(
       expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
     });
 
+    it('apply rejects a delete with an empty id and changes nothing', async () => {
+      const repo = await make();
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'companies',
+          record: { id: 'keep', createdAt: T },
+        },
+      ]);
+      await expect(
+        repo.apply([
+          {
+            kind: 'put',
+            store: 'companies',
+            record: { id: 'c2', createdAt: T },
+          },
+          { kind: 'delete', store: 'companies', id: '' },
+        ]),
+      ).rejects.toThrow();
+      const snap = await repo.snapshot();
+      expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
+    });
+
+    it('replaceAll rejects a snapshot missing a store and changes nothing', async () => {
+      const repo = await make();
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'companies',
+          record: { id: 'keep', createdAt: T },
+        },
+      ]);
+      const partial = {
+        ...emptySnapshot(),
+        companies: [],
+      } as Partial<Snapshot>;
+      delete partial.documents;
+      await expect(repo.replaceAll(partial as Snapshot)).rejects.toThrow();
+      const snap = await repo.snapshot();
+      expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
+    });
+
+    it('rejects a record without createdAt and changes nothing', async () => {
+      const repo = await make();
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'companies',
+          record: { id: 'keep', createdAt: T },
+        },
+      ]);
+      const noStamp = { id: 'c2' } as unknown as Company;
+      const emptyStamp = { id: 'c3', createdAt: '' };
+      await expect(
+        repo.apply([
+          {
+            kind: 'put',
+            store: 'companies',
+            record: { id: 'c1', createdAt: T },
+          },
+          { kind: 'put', store: 'companies', record: noStamp },
+        ]),
+      ).rejects.toThrow();
+      await expect(
+        repo.apply([{ kind: 'put', store: 'companies', record: emptyStamp }]),
+      ).rejects.toThrow();
+      await expect(
+        repo.replaceAll({ ...emptySnapshot(), companies: [noStamp] }),
+      ).rejects.toThrow();
+      const snap = await repo.snapshot();
+      expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
+    });
+
     it('returns copies', async () => {
       const repo = await make();
       const company: Company = { id: 'c1', createdAt: T, name: 'Acme Example' };

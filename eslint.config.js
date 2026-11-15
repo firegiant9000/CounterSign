@@ -32,6 +32,14 @@ const networkSyntax = [
     message: NETWORK_MESSAGE,
   },
 ];
+// Saving a file is the one way data leaves the extension, so every save goes
+// through shell/files/download.ts, which builds a local blob: URL.
+const DOWNLOAD_MESSAGE = 'Save files only through shell/files/download.ts.';
+const downloadSyntax = [
+  "MemberExpression[property.name='downloads']",
+  "MemberExpression[property.value='downloads']",
+  "Property[key.name='downloads']",
+].map((selector) => ({ selector, message: DOWNLOAD_MESSAGE }));
 
 export default defineConfig(
   {
@@ -50,6 +58,14 @@ export default defineConfig(
     rules: {
       'no-restricted-globals': ['error', ...networkGlobals],
       'no-restricted-properties': ['error', ...networkProperties],
+      'no-restricted-syntax': ['error', ...networkSyntax, ...downloadSyntax],
+    },
+  },
+  // The one place allowed to call downloads.download. This block replaces the
+  // shared rule for the file, so it re-spreads the network selectors.
+  {
+    files: ['shell/files/download.ts'],
+    rules: {
       'no-restricted-syntax': ['error', ...networkSyntax],
     },
   },
