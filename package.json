@@ -14,6 +14,7 @@
     "typecheck": "tsc -p core/tsconfig.json --noEmit && tsc --noEmit",
     "test": "vitest run --project unit",
     "test:build": "vitest run --project build",
+    "import-sheet": "jiti tools/sheet-import/cli.ts",
     "lint:ext": "web-ext lint --source-dir .output/firefox-mv3",
     "gate": "npm run lint && npm run typecheck && npm run test && npm run build && npm run test:build && npm run lint:ext"
   },

@@ -37,6 +37,38 @@ Stage 1 is the dashboard. You enter everything by hand.
 - **Export and restore.** Export saves all data and settings to a JSON file. Restore checks the file first and saves a pre-restore copy of your current data (if there is any) before replacing it. A file that fails validation leaves your data untouched.
 - **Demo data.** A synthetic data set so you can try it without typing in your own.
 
+## Moving from a spreadsheet
+
+A local command turns two CSV exports of a job-tracker sheet into a Countersign export file. It makes no network requests and never overwrites a file.
+
+```
+npm run import-sheet -- --applications <csv> --history <csv> --out <folder> [--undated-on YYYY-MM-DD] [--dry-run]
+```
+
+1. Remove any demo data. Enter nothing real yet, including canonical answers: Restore replaces every store and the settings.
+2. Download both sheet tabs ("Applications" and "Response History") as CSV into a folder outside the repository.
+3. Run the command with `--dry-run` and read the report. Fix the sheet, or ask for a mapping change, until the report is acceptable. Rows with no date need `--undated-on <date>`.
+4. Run it without `--dry-run`, then use Data → Restore on the file it wrote.
+5. Check the application count against the sheet and spot-check about ten rows, including one employer-closed row and one unconfirmed row.
+6. Export from Countersign straight away and keep the file somewhere safe.
+7. Keep the sheet as a read-only archive. Until automatic backup ships, export after every session: uninstalling the extension deletes its data.
+
+Sheet status values map to Countersign statuses like this (matching ignores case and extra spaces):
+
+| Sheet value          | Countersign status                                                |
+| -------------------- | ----------------------------------------------------------------- |
+| Applied              | Applied                                                           |
+| Rejected             | Rejected                                                          |
+| Closed               | Position closed                                                   |
+| Phone Screening      | Phone screen                                                      |
+| Technical Assessment | Phone screen                                                      |
+| Interviewing         | Interview                                                         |
+| Not submitted        | Interested, with a note that the submission is not confirmed      |
+| Awaiting response    | No change: keeps the previous status, and is listed in the report |
+| Needs review         | No change: keeps the previous status, and is listed in the report |
+
+Any other value is not imported and appears under "Skipped" in the report.
+
 ## What is next
 
 - Stage 2: saving a job with a duplicate warning, automatic backup, "what I told them" with a mismatch warning, a quiet-application list, a deadlines view, simple contacts and a copy panel.
