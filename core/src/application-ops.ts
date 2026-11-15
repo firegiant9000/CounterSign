@@ -20,6 +20,7 @@ export interface NewApplicationInput {
   nextActionDate?: LocalDate;
   nextActor?: Actor;
   notes?: string;
+  note?: string;
 }
 
 function isBlank(value: string | undefined): boolean {
@@ -89,6 +90,7 @@ export function newApplicationOps(
   if (input.occurredOn !== undefined && !isBlank(input.occurredOn)) {
     event.occurredOn = input.occurredOn;
   }
+  if (input.note !== undefined && !isBlank(input.note)) event.note = input.note;
   ops.push({ kind: 'put', store: 'statusEvents', record: event });
 
   return { ops, applicationId: app.id };
