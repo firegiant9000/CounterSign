@@ -12,7 +12,7 @@ import type { StatusKey } from './status';
 import type { StatusEvent } from './types';
 
 describe('default statuses', () => {
-  it('lists the ten statuses in spec order', () => {
+  it('lists the eleven statuses in spec order', () => {
     expect(STATUS_KEYS).toEqual([
       'interested',
       'applied',
@@ -22,6 +22,7 @@ describe('default statuses', () => {
       'offer',
       'accepted',
       'rejected',
+      'position_closed',
       'no_response',
       'withdrawn',
     ]);
@@ -36,6 +37,7 @@ describe('default statuses', () => {
       offer: 'Offer',
       accepted: 'Accepted',
       rejected: 'Rejected',
+      position_closed: 'Position closed',
       no_response: 'No response',
       withdrawn: 'Withdrawn',
     });
@@ -101,10 +103,11 @@ describe('derived status', () => {
       ),
     ).toBeUndefined();
   });
-  it('archives on the four closing statuses only', () => {
+  it('archives on the five closing statuses only', () => {
     for (const s of [
       'accepted',
       'rejected',
+      'position_closed',
       'no_response',
       'withdrawn',
     ] as const)
@@ -127,6 +130,7 @@ describe('derived status', () => {
   it('labels by override, then default, then the raw key', () => {
     expect(statusLabel('applied', { applied: 'Sent' })).toBe('Sent');
     expect(statusLabel('applied')).toBe('Applied');
+    expect(statusLabel('position_closed')).toBe('Position closed');
     expect(statusLabel('mystery')).toBe('mystery');
     expect(statusLabel(undefined)).toBe('No status');
   });

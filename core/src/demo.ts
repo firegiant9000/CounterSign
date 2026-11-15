@@ -160,6 +160,16 @@ const APPLICATIONS: readonly DemoApplication[] = [
       ['no_response', 40],
     ],
   },
+  {
+    id: 'demo-application-9',
+    companyId: 'demo-company-2',
+    title: 'Sample Data Steward',
+    path: 'jobs/data-steward',
+    history: [
+      ['applied', 45],
+      ['position_closed', 30],
+    ],
+  },
 ];
 
 /** Synthetic records: invented companies, example.com addresses, made-up hashes. */

@@ -97,7 +97,7 @@ Priority order. Everything except `id` and `createdAt` is optional on every reco
 ### 6.2 Tracker
 
 - An application belongs to a company and, usually, a saved job. Its status history is append-only; the current status is the latest event.
-- Default statuses **(call)**: Interested, Applied, Recruiter contact, Phone screen, Interview, Offer, Accepted, Rejected, No response, Withdrawn. Each is a stable key with an editable label. Adding new statuses is not in version 1.
+- Default statuses **(call)**: Interested, Applied, Recruiter contact, Phone screen, Interview, Offer, Accepted, Rejected, Position closed, No response, Withdrawn. Accepted, Rejected, Position closed, No response and Withdrawn are closed (archived) statuses. Each is a stable key with an editable label. Adding new statuses is not in version 1.
 - Fields: next-action date, who acts next (me or them), which resume was sent (a link to a document record: label, file name, hash; the file itself is not stored), cover letter sent (same), notes.
 - Formhand log **(call on shape)**: optional fields for the application site type (Greenhouse, Lever, Ashby, Workday, LinkedIn, Indeed, other) and how filling went (worked, partly, failed, not used) with a note. This is the evidence for whether Countersign ever builds its own filling.
 - "No response" is separate from "Rejected". A setting holds a cut-off in days, default 30 **(call)**. Applications still at Applied with no later event past the cut-off appear in a "quiet for N days" list where the user can close them as No response, one at a time or selected together. Nothing is closed automatically.
