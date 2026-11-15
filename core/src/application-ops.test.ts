@@ -275,3 +275,41 @@ describe('deleteApplicationOps', () => {
     ]);
   });
 });
+
+describe('odd restored records and update trimming', () => {
+  it('findCompanyByName skips companies with a non-string name', () => {
+    const data = {
+      ...emptySnapshot(),
+      companies: [
+        { id: 'c0', createdAt: T, name: null },
+        { id: 'c5', createdAt: T, name: 5 },
+        { id: 'c1', createdAt: T, name: 'Example Robotics' },
+      ],
+    } as unknown as ReturnType<typeof emptySnapshot>;
+    const result = newApplicationOps(
+      { companyName: 'Example Robotics' },
+      data,
+      fixedDeps(),
+    );
+    expect(putRecord(result.ops, 'applications')?.['companyId']).toBe('c1');
+    expect(putRecord(result.ops, 'companies')).toBeUndefined();
+  });
+
+  it('updateApplicationOps trims title and url like create does', () => {
+    const app: Application = { id: 'a1', createdAt: T };
+    const [op] = updateApplicationOps(app, {
+      title: '  Staff Engineer ',
+      url: ' https://example.com/j ',
+    });
+    expect(op).toEqual({
+      kind: 'put',
+      store: 'applications',
+      record: {
+        id: 'a1',
+        createdAt: T,
+        title: 'Staff Engineer',
+        url: 'https://example.com/j',
+      },
+    });
+  });
+});

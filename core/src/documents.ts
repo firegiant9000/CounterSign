@@ -19,7 +19,12 @@ export function attachDocumentOps(
 ): WriteOp[] {
   const ops: WriteOp[] = [];
   let documentId: string;
-  const known = data.documents.find((d) => d.sha256 === file.sha256);
+  // Hashes match case-insensitively. Reuse keeps the existing record's
+  // fileName and label; the new file's name is not stored.
+  const wanted = file.sha256.toLowerCase();
+  const known = data.documents.find(
+    (d) => typeof d.sha256 === 'string' && d.sha256.toLowerCase() === wanted,
+  );
   if (known) {
     documentId = known.id;
   } else {

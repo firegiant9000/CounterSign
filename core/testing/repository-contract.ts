@@ -126,6 +126,27 @@ export function describeRepositoryContract(
       expect(snap.applications).toEqual([]);
     });
 
+    it('replaceAll rejects duplicate ids in a store', async () => {
+      const repo = await make();
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'companies',
+          record: { id: 'keep', createdAt: T },
+        },
+      ]);
+      const dup: Snapshot = {
+        ...emptySnapshot(),
+        companies: [
+          { id: 'c9', createdAt: T },
+          { id: 'c9', createdAt: T, name: 'Twin' },
+        ],
+      };
+      await expect(repo.replaceAll(dup)).rejects.toThrow();
+      const snap = await repo.snapshot();
+      expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
+    });
+
     it('returns copies', async () => {
       const repo = await make();
       const company: Company = { id: 'c1', createdAt: T, name: 'Acme Example' };

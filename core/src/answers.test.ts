@@ -118,3 +118,52 @@ describe('canonical answers', () => {
     expect(formatAnswer(undefined)).toBe('');
   });
 });
+
+describe('answers with odd restored records', () => {
+  const asValue = (v: unknown) => v as Parameters<typeof formatAnswer>[0];
+
+  it('formats and validates a non-object value as empty', () => {
+    for (const v of [null, 5, 'x', [1]]) {
+      expect(formatAnswer(asValue(v))).toBe('');
+      expect(answerProblem(asValue(v))).toBeUndefined();
+    }
+  });
+
+  it('ignores non-numeric money bounds and non-string currency or period', () => {
+    expect(
+      formatAnswer(
+        asValue({ type: 'money_range', min: null, max: 90, currency: 5 }),
+      ),
+    ).toBe('up to 90');
+    expect(
+      formatAnswer(
+        asValue({ type: 'money_range', min: 'a', max: NaN, period: {} }),
+      ),
+    ).toBe('');
+  });
+
+  it('formats a non-boolean yes_no as empty', () => {
+    expect(formatAnswer(asValue({ type: 'yes_no', value: 'yes' }))).toBe('');
+    expect(formatAnswer(asValue({ type: 'yes_no', value: null }))).toBe('');
+  });
+
+  it('revises an answer whose history is not a list', () => {
+    const answer = {
+      id: 'x',
+      createdAt: T,
+      key: 'k',
+      label: 'K',
+      type: 'text',
+      value: { type: 'text', value: 'a' },
+      history: {},
+    } as unknown as Parameters<typeof reviseAnswer>[0];
+    const next = reviseAnswer(
+      answer,
+      { type: 'text', value: 'b' },
+      fixedDeps(),
+    );
+    expect(next.history).toEqual([
+      { value: { type: 'text', value: 'a' }, replacedAt: T },
+    ]);
+  });
+});

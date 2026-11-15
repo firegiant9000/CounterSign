@@ -70,20 +70,29 @@ export function applicationRows(
       app.companyId === undefined ? undefined : companies.get(app.companyId);
     const events = eventsByApplication.get(app.id) ?? [];
     const current = currentStatus(events, app.id);
+    // Restored records are not field-checked, so coerce every optional field.
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    const status: unknown = current?.status;
     const row: ApplicationRow = {
       id: app.id,
-      companyName: company?.name ?? '',
-      title: app.title ?? '',
-      notes: app.notes ?? '',
-      statusLabel: statusLabel(current?.status, labelOverrides),
+      companyName: str(company?.name),
+      title: str(app.title),
+      notes: str(app.notes),
+      statusLabel: statusLabel(
+        typeof status === 'string' ? status : undefined,
+        labelOverrides,
+      ),
       archived: isArchived(current),
       createdAt: app.createdAt,
     };
-    if (app.url) row.url = app.url;
-    if (app.nextActionDate) row.nextActionDate = app.nextActionDate;
-    if (app.nextActor) row.nextActor = app.nextActor;
+    const url: unknown = app.url;
+    if (typeof url === 'string' && url) row.url = url;
+    const next: unknown = app.nextActionDate;
+    if (typeof next === 'string' && next) row.nextActionDate = next;
+    const actor: unknown = app.nextActor;
+    if (actor === 'me' || actor === 'them') row.nextActor = actor;
     if (current) {
-      if (current.status !== undefined) row.status = current.status;
+      if (typeof status === 'string') row.status = status;
       row.statusDate = effectiveDate(current);
     }
     return row;
@@ -109,7 +118,7 @@ export function filterRows(
       return false;
     }
     const fields = [row.companyName, row.title, row.notes].map((f) =>
-      f.toLowerCase(),
+      typeof f === 'string' ? f.toLowerCase() : '',
     );
     return terms.every((term) => fields.some((f) => f.includes(term)));
   });

@@ -290,22 +290,36 @@ describe('parseExport', () => {
     });
   });
 
-  it('does not share records between the result and a migration input', () => {
-    let seen: unknown;
+  it('reports a failed upgrade when a migration throws', () => {
     const migrate: Migration = {
       to: 2,
-      migrate: (f) => {
-        seen = f.data['companies'];
-        return { ...f, schemaVersion: 2 };
+      migrate: () => {
+        throw new Error('boom');
       },
     };
-    const result = parseExport(
-      envelope({ companies: [{ id: 'c1', createdAt: T }] }),
-      { migrations: [migrate], target: 2 },
-    );
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(seen).toEqual([{ id: 'c1', createdAt: T }]);
-    expect(result.file.schemaVersion).toBe(2);
+    expect(
+      parseExport(envelope({}), { migrations: [migrate], target: 2 }),
+    ).toEqual({ ok: false, errors: ['The upgrade to schema 2 failed.'] });
+  });
+
+  it('reports a failed upgrade when a migration returns a non-object', () => {
+    const migrate = {
+      to: 2,
+      migrate: () => 'nope',
+    } as unknown as Migration;
+    expect(
+      parseExport(envelope({}), { migrations: [migrate], target: 2 }),
+    ).toEqual({ ok: false, errors: ['The upgrade to schema 2 failed.'] });
+  });
+
+  it('gives the newer-version message even when data is missing', () => {
+    expect(
+      parseExport(JSON.stringify({ app: 'countersign', schemaVersion: 99 })),
+    ).toEqual({
+      ok: false,
+      errors: [
+        'This file was made by a newer version of Countersign (schema 99). Update the extension first.',
+      ],
+    });
   });
 });

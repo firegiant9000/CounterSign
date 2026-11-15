@@ -156,3 +156,40 @@ describe('documentFor', () => {
     ).toBe('cv.pdf');
   });
 });
+
+describe('attachDocumentOps hash matching', () => {
+  it('reuses a lower-case record for an upper-case hash and keeps its name', () => {
+    const data: Snapshot = {
+      ...emptySnapshot(),
+      documents: [
+        { id: 'd1', createdAt: T, fileName: 'cv.pdf', sha256: 'abc123' },
+      ],
+    };
+    const ops = attachDocumentOps(
+      app,
+      'resume',
+      { fileName: 'other.pdf', sha256: 'ABC123' },
+      data,
+      fixedDeps(),
+    );
+    expect(putRecord<DocumentRecord>(ops, 'documents')).toBeUndefined();
+    expect(putRecord<Application>(ops, 'applications')?.resumeDocumentId).toBe(
+      'd1',
+    );
+  });
+
+  it('tolerates an existing record with a non-string sha256', () => {
+    const data = {
+      ...emptySnapshot(),
+      documents: [{ id: 'd1', createdAt: T, sha256: null }],
+    } as unknown as Snapshot;
+    const ops = attachDocumentOps(
+      app,
+      'resume',
+      { fileName: 'cv.pdf', sha256: 'abc' },
+      data,
+      fixedDeps(),
+    );
+    expect(putRecord<DocumentRecord>(ops, 'documents')?.sha256).toBe('abc');
+  });
+});

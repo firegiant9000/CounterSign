@@ -40,7 +40,7 @@ export function findCompanyByName(
 ): Company | undefined {
   const wanted = normalizeName(name);
   return companies.find(
-    (c) => c.name !== undefined && normalizeName(c.name) === wanted,
+    (c) => typeof c.name === 'string' && normalizeName(c.name) === wanted,
   );
 }
 
@@ -108,6 +108,11 @@ export function updateApplicationOps(
       (typeof value === 'string' && value.trim() === '')
     ) {
       delete record[key];
+    } else if (
+      (key === 'title' || key === 'url') &&
+      typeof value === 'string'
+    ) {
+      record[key] = value.trim();
     } else {
       record[key] = value;
     }

@@ -91,17 +91,16 @@ export function parseExport(
   ) {
     return fail('The schema version is missing or not a whole number.');
   }
+  if (version > target) {
+    return fail(
+      `This file was made by a newer version of Countersign (schema ${version}). Update the extension first.`,
+    );
+  }
   const rawData = parsed['data'];
   if (!isPlainObject(rawData)) return fail('The file has no data section.');
   const rawSettings = parsed['settings'];
   if (rawSettings !== undefined && !isPlainObject(rawSettings)) {
     return fail('The settings section is not an object.');
-  }
-
-  if (version > target) {
-    return fail(
-      `This file was made by a newer version of Countersign (schema ${version}). Update the extension first.`,
-    );
   }
 
   // Find the whole migration chain before running any step.

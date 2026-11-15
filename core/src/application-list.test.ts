@@ -215,3 +215,96 @@ describe('applicationRows', () => {
     expect(ids(filterRows(rows, { status: 'offer' }))).toEqual([]);
   });
 });
+
+describe('applicationRows with odd restored records', () => {
+  function odd(apps: unknown[], companies: unknown[], events: unknown[]) {
+    return {
+      ...emptySnapshot(),
+      applications: apps,
+      companies,
+      statusEvents: events,
+    } as unknown as Snapshot;
+  }
+
+  it('coerces null fields without throwing', () => {
+    const data = odd(
+      [
+        {
+          id: 'a1',
+          createdAt: T,
+          companyId: 'c1',
+          title: null,
+          notes: null,
+          url: null,
+          nextActionDate: null,
+          nextActor: null,
+        },
+      ],
+      [{ id: 'c1', createdAt: T, name: null }],
+      [
+        {
+          id: 's1',
+          createdAt: T,
+          applicationId: 'a1',
+          status: null,
+          occurredOn: null,
+        },
+      ],
+    );
+    const rows = applicationRows(data);
+    expect(() => filterRows(rows, { query: 'x' })).not.toThrow();
+    expect(rows).toEqual([
+      {
+        id: 'a1',
+        companyName: '',
+        title: '',
+        notes: '',
+        statusLabel: 'No status',
+        statusDate: '2026-01-05',
+        archived: false,
+        createdAt: T,
+      },
+    ]);
+  });
+
+  it('coerces numeric and object fields without throwing', () => {
+    const data = odd(
+      [
+        {
+          id: 'a1',
+          createdAt: T,
+          companyId: 'c1',
+          title: 7,
+          notes: { a: 1 },
+          url: 5,
+          nextActionDate: {},
+          nextActor: 'nobody',
+        },
+      ],
+      [{ id: 'c1', createdAt: T, name: 5 }],
+      [
+        {
+          id: 's1',
+          createdAt: T,
+          applicationId: 'a1',
+          status: 3,
+          occurredOn: 20260106,
+        },
+      ],
+    );
+    const rows = applicationRows(data);
+    expect(() => filterRows(rows, { query: 'x' })).not.toThrow();
+    expect(rows).toEqual([
+      {
+        id: 'a1',
+        companyName: '',
+        title: '',
+        notes: '',
+        statusLabel: 'No status',
+        statusDate: '2026-01-05',
+        archived: false,
+        createdAt: T,
+      },
+    ]);
+  });
+});

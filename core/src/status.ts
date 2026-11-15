@@ -39,7 +39,9 @@ export const CLOSED_STATUSES: ReadonlySet<string> = new Set([
 
 /** The calendar day an event happened: `occurredOn`, else the creation day (no time-zone conversion). */
 export function effectiveDate(event: StatusEvent): LocalDate {
-  return event.occurredOn || event.createdAt.slice(0, 10);
+  const on: unknown = event.occurredOn;
+  if (typeof on === 'string' && on !== '') return on;
+  return event.createdAt.slice(0, 10);
 }
 
 function compareText(a: string, b: string): number {
@@ -81,11 +83,11 @@ export function statusLabel(
   key: string | undefined,
   overrides?: Partial<Record<string, string>>,
 ): string {
-  if (key === undefined) return 'No status';
+  if (typeof key !== 'string') return 'No status';
   // hasOwn keeps prototype names such as 'toString' from leaking through as labels.
-  const override =
+  const override: unknown =
     overrides && Object.hasOwn(overrides, key) ? overrides[key] : undefined;
-  if (override) return override;
+  if (typeof override === 'string' && override !== '') return override;
   const known = STATUS_KEYS.find((k) => k === key);
   if (known) return DEFAULT_STATUS_LABELS[known];
   return key;

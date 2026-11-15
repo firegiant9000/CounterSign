@@ -65,7 +65,8 @@ export function reviseAnswer(
 ): CanonicalAnswer {
   if (sameData(answer.value, value)) return answer;
   const next: CanonicalAnswer = { ...answer };
-  if (answer.history) next.history = [...answer.history];
+  if (Array.isArray(answer.history)) next.history = [...answer.history];
+  else delete next.history;
   if (answer.value !== undefined) {
     next.history = [
       ...(next.history ?? []),
@@ -80,17 +81,22 @@ export function reviseAnswer(
   return next;
 }
 
+// Restored records are not field-checked, so a value may be null, a primitive or an array.
+function isObject<T>(value: T | undefined): value is T {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNum(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
 /** A human-readable problem with `value`, or `undefined` when it is acceptable. */
 export function answerProblem(
   value: AnswerValue | undefined,
 ): string | undefined {
-  if (value === undefined) return undefined;
+  if (!isObject(value)) return undefined;
   if (value.type === 'money_range') {
-    if (
-      value.min !== undefined &&
-      value.max !== undefined &&
-      value.min > value.max
-    ) {
+    if (isNum(value.min) && isNum(value.max) && value.min > value.max) {
       return 'Minimum is above maximum.';
     }
     return undefined;
@@ -106,29 +112,35 @@ function formatMoney(
 ): string {
   const money = (n: number) => n.toLocaleString('en-US');
   let amount = '';
-  if (value.min !== undefined && value.max !== undefined) {
-    amount = `${money(value.min)} to ${money(value.max)}`;
-  } else if (value.min !== undefined) {
-    amount = `from ${money(value.min)}`;
-  } else if (value.max !== undefined) {
-    amount = `up to ${money(value.max)}`;
+  const { min, max } = value;
+  if (isNum(min) && isNum(max)) {
+    amount = `${money(min)} to ${money(max)}`;
+  } else if (isNum(min)) {
+    amount = `from ${money(min)}`;
+  } else if (isNum(max)) {
+    amount = `up to ${money(max)}`;
   }
   if (amount === '') return '';
-  if (value.currency) amount += ` ${value.currency}`;
-  if (value.period) amount += ` per ${value.period}`;
+  const { currency, period } = value;
+  if (typeof currency === 'string' && currency) amount += ` ${currency}`;
+  if (typeof period === 'string' && period) amount += ` per ${period}`;
   return amount;
 }
 
 /** Display text for an answer value; empty when there is no value. */
 export function formatAnswer(value: AnswerValue | undefined): string {
-  if (value === undefined) return '';
+  if (!isObject(value)) return '';
   switch (value.type) {
     case 'yes_no':
-      return value.value ? 'Yes' : 'No';
+      return typeof value.value === 'boolean'
+        ? value.value
+          ? 'Yes'
+          : 'No'
+        : '';
     case 'choice':
     case 'date':
     case 'text':
-      return value.value;
+      return typeof value.value === 'string' ? value.value : '';
     case 'money_range':
       return formatMoney(value);
     default:

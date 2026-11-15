@@ -68,8 +68,13 @@ export function createMemoryRepository(): Repository {
       const list: unknown = incoming[name];
       if (!Array.isArray(list))
         throw new Error(`Snapshot is missing store ${name}`);
+      const seen = new Set<string>();
       for (const record of list) {
         if (!hasId(record)) throw new Error(`Record in ${name} needs an id`);
+        if (seen.has(record.id)) {
+          throw new Error(`Store ${name} has two records with id ${record.id}`);
+        }
+        seen.add(record.id);
       }
     }
     data = copy(incoming);

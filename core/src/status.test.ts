@@ -131,3 +131,28 @@ describe('derived status', () => {
     expect(statusLabel(undefined)).toBe('No status');
   });
 });
+
+describe('statusLabel hardening', () => {
+  it('returns the raw key for prototype names', () => {
+    expect(statusLabel('toString')).toBe('toString');
+    expect(statusLabel('__proto__')).toBe('__proto__');
+    expect(statusLabel('toString', {})).toBe('toString');
+    expect(statusLabel('__proto__', {})).toBe('__proto__');
+  });
+
+  it('ignores non-string overrides and non-string keys', () => {
+    const overrides = { applied: 5 } as unknown as Record<string, string>;
+    expect(statusLabel('applied', overrides)).toBe('Applied');
+    expect(statusLabel(5 as unknown as string)).toBe('No status');
+    expect(statusLabel(null as unknown as string)).toBe('No status');
+  });
+
+  it('effectiveDate falls back to createdAt for a non-string occurredOn', () => {
+    const event = {
+      id: 's',
+      createdAt: '2026-01-05T09:00:00.000Z',
+      occurredOn: 20260106,
+    } as unknown as StatusEvent;
+    expect(effectiveDate(event)).toBe('2026-01-05');
+  });
+});
