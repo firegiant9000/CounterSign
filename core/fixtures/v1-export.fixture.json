@@ -7,12 +7,12 @@
       {
         "id": "co-1",
         "createdAt": "2026-01-05T09:00:00.000Z",
-        "name": "Northwind Example Works"
+        "name": "Ashgrove Example Works"
       },
       {
         "id": "co-2",
         "createdAt": "2026-01-06T09:00:00.000Z",
-        "name": "Fabrikam Sample Labs"
+        "name": "Pellwick Sample Labs"
       }
     ],
     "applications": [

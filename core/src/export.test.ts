@@ -98,7 +98,7 @@ describe('parseExport', () => {
     });
     expect(result.file.exportedAt).toBe('2026-02-01T10:00:00.000Z');
     expect(result.file.settings).toEqual({ statusLabels: { applied: 'Sent' } });
-    expect(result.file.data.companies[0]?.name).toBe('Northwind Example Works');
+    expect(result.file.data.companies[0]?.name).toBe('Ashgrove Example Works');
     expect(
       result.file.data.statusEvents
         .filter((e) => e.voidedAt !== undefined)

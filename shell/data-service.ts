@@ -7,6 +7,8 @@ import type { FileSaver } from './files/download';
 import { loadSettings, saveSettings } from './storage/settings';
 import type { KeyValueArea } from './storage/settings';
 
+const SAFETY_COPY_TIMEOUT_MS = 60_000;
+
 export interface DataService {
   exportNow(): Promise<void>;
   restore(file: ExportFile): Promise<void>;
@@ -47,11 +49,29 @@ export function createDataService(deps: {
       const now = clock.now();
       const { file: current, empty } = await currentAsFile(now);
       if (!empty) {
-        await saver.save(
-          `Countersign/${exportFileName('pre-restore', now)}`,
-          JSON.stringify(current, null, 2),
-          { saveAs: false },
-        );
+        // Restore holds the write lock, so a stalled download must not wait forever.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(
+              new Error(
+                'The safety copy did not finish saving within 60 seconds.',
+              ),
+            );
+          }, SAFETY_COPY_TIMEOUT_MS);
+        });
+        try {
+          await Promise.race([
+            saver.save(
+              `Countersign/${exportFileName('pre-restore', now)}`,
+              JSON.stringify(current, null, 2),
+              { saveAs: false },
+            ),
+            timeout,
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
       }
       await repo.replaceAll(file.data);
       try {
