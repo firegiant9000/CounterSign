@@ -29,10 +29,14 @@ export function browserFileSaver(): FileSaver {
         const early: DownloadDelta[] = [];
         let finished = false;
 
+        const earlyErased: number[] = [];
+        const ERASED_MESSAGE = 'The download was removed before it finished.';
+
         const finish = (error?: Error): void => {
           if (finished) return;
           finished = true;
           browser.downloads.onChanged.removeListener(onChanged);
+          browser.downloads.onErased.removeListener(onErased);
           URL.revokeObjectURL(url);
           if (error) reject(error);
           else resolve();
@@ -51,28 +55,61 @@ export function browserFileSaver(): FileSaver {
           else if (delta.id === downloadId) handle(delta);
         }
 
-        browser.downloads.onChanged.addListener(onChanged);
-        browser.downloads
-          .download({
-            url,
-            filename: path,
-            saveAs: options.saveAs,
-            conflictAction: 'uniquify',
-          })
-          .then(
-            (id) => {
-              downloadId = id;
-              for (const delta of early) {
-                if (delta.id === id) handle(delta);
+        function onErased(id: number): void {
+          if (downloadId === undefined) earlyErased.push(id);
+          else if (id === downloadId) finish(new Error(ERASED_MESSAGE));
+        }
+
+        // The item may already be done by the time we start listening.
+        const checkCurrentState = (id: number): void => {
+          browser.downloads.search({ id }).then(
+            (items) => {
+              const state = items[0]?.state;
+              if (state === 'complete') finish();
+              else if (state === 'interrupted') {
+                finish(new Error('The download was interrupted or cancelled.'));
               }
-              early.length = 0;
             },
-            (error: unknown) => {
-              finish(
-                error instanceof Error ? error : new Error('Download failed.'),
-              );
-            },
+            () => undefined,
           );
+        };
+
+        try {
+          browser.downloads.onChanged.addListener(onChanged);
+          browser.downloads.onErased.addListener(onErased);
+          browser.downloads
+            .download({
+              url,
+              filename: path,
+              saveAs: options.saveAs,
+              conflictAction: 'uniquify',
+            })
+            .then(
+              (id) => {
+                downloadId = id;
+                for (const delta of early) {
+                  if (delta.id === id) handle(delta);
+                }
+                early.length = 0;
+                if (earlyErased.includes(id)) {
+                  finish(new Error(ERASED_MESSAGE));
+                }
+                earlyErased.length = 0;
+                checkCurrentState(id);
+              },
+              (error: unknown) => {
+                finish(
+                  error instanceof Error
+                    ? error
+                    : new Error('Download failed.'),
+                );
+              },
+            );
+        } catch (error: unknown) {
+          finish(
+            error instanceof Error ? error : new Error('Download failed.'),
+          );
+        }
       }),
   };
 }

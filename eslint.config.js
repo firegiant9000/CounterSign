@@ -36,10 +36,9 @@ const networkSyntax = [
 // through shell/files/download.ts, which builds a local blob: URL.
 const DOWNLOAD_MESSAGE = 'Save files only through shell/files/download.ts.';
 const downloadSyntax = [
-  "MemberExpression[object.property.name='downloads'][property.name='download']",
-  "MemberExpression[object.name='downloads'][property.name='download']",
-  "MemberExpression[object.property.name='downloads'][property.value='download']",
-  "MemberExpression[object.name='downloads'][property.value='download']",
+  "MemberExpression[property.name='downloads']",
+  "MemberExpression[property.value='downloads']",
+  "Property[key.name='downloads']",
 ].map((selector) => ({ selector, message: DOWNLOAD_MESSAGE }));
 
 export default defineConfig(

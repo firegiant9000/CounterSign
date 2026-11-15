@@ -26,7 +26,9 @@ export function createDataService(deps: {
   ): Promise<{ file: ExportFile; empty: boolean }> {
     const data = await repo.snapshot();
     const settings = await loadSettings(area);
-    const empty = STORES.every(({ name }) => data[name].length === 0);
+    const empty =
+      STORES.every(({ name }) => data[name].length === 0) &&
+      Object.keys(settings).length === 0;
     return { file: buildExport(data, settings, { now: () => now }), empty };
   }
 
@@ -52,7 +54,14 @@ export function createDataService(deps: {
         );
       }
       await repo.replaceAll(file.data);
-      await saveSettings(area, file.settings);
+      try {
+        await saveSettings(area, file.settings);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `Data was restored, but settings were not saved: ${reason}`,
+        );
+      }
     },
   };
 }

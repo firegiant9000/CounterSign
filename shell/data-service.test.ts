@@ -130,6 +130,35 @@ describe('data service', () => {
     expect((await repo.snapshot()).companies[0]?.name).toBe('New Co');
   });
 
+  it('saves a safety copy when only settings would be lost', async () => {
+    const repo = createMemoryRepository();
+    const area = mapArea();
+    await saveSettings(area, { statusLabels: { applied: 'Sent' } });
+    const { saver, calls } = fakeSaver();
+    await createDataService({ repo, area, saver, clock }).restore(
+      incoming(snapshotWith('New Co'), {}),
+    );
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.text).toContain('Sent');
+  });
+
+  it('says so when settings fail after the data swap', async () => {
+    const repo = await seeded('Old Co');
+    const area: KeyValueArea = {
+      get: () => Promise.resolve(undefined),
+      set: () => Promise.reject(new Error('quota exceeded')),
+    };
+    const { saver } = fakeSaver();
+    await expect(
+      createDataService({ repo, area, saver, clock }).restore(
+        incoming(snapshotWith('New Co'), { statusLabels: { offer: 'Won' } }),
+      ),
+    ).rejects.toThrow(
+      'Data was restored, but settings were not saved: quota exceeded',
+    );
+    expect((await repo.snapshot()).companies[0]?.name).toBe('New Co');
+  });
+
   it('stops when the safety copy fails', async () => {
     const repo = await seeded('Old Co');
     const before = await repo.snapshot();

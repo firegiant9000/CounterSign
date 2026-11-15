@@ -11,7 +11,13 @@ function copy<T>(value: T): T {
 function hasId(record: unknown): record is BaseRecord {
   if (typeof record !== 'object' || record === null) return false;
   const id = (record as { id?: unknown }).id;
-  return typeof id === 'string' && id !== '';
+  const createdAt = (record as { createdAt?: unknown }).createdAt;
+  return (
+    typeof id === 'string' &&
+    id !== '' &&
+    typeof createdAt === 'string' &&
+    createdAt !== ''
+  );
 }
 
 function isStore(name: unknown): name is StoreName {
@@ -37,7 +43,7 @@ export function createMemoryRepository(): Repository {
         throw new Error(`Unknown store: ${String(op.store)}`);
       if (op.kind === 'put') {
         if (!hasId(op.record))
-          throw new Error(`Record for ${op.store} needs an id`);
+          throw new Error(`Record for ${op.store} needs an id and createdAt`);
       } else if (op.kind === 'delete') {
         if (typeof op.id !== 'string' || op.id === '') {
           throw new Error(`Delete for ${op.store} needs an id`);
@@ -70,7 +76,8 @@ export function createMemoryRepository(): Repository {
         throw new Error(`Snapshot is missing store ${name}`);
       const seen = new Set<string>();
       for (const record of list) {
-        if (!hasId(record)) throw new Error(`Record in ${name} needs an id`);
+        if (!hasId(record))
+          throw new Error(`Record in ${name} needs an id and createdAt`);
         if (seen.has(record.id)) {
           throw new Error(`Store ${name} has two records with id ${record.id}`);
         }

@@ -1,9 +1,11 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { STORES, SCHEMA_VERSION } from '../../core/src/schema';
+import { STORES, SCHEMA_VERSION, emptySnapshot } from '../../core/src/schema';
+import type { Company, Snapshot } from '../../core/src/types';
 import { describeRepositoryContract } from '../../core/testing/repository-contract';
 import { openIdbRepository } from './idb-repository';
 
+const T = '2026-01-05T09:00:00.000Z';
 let n = 0;
 function freshName(): string {
   return `test-db-${n++}`;
@@ -49,6 +51,42 @@ describe('indexeddb repository', () => {
     const names = Array.from(db.objectStoreNames).sort();
     db.close();
     expect(names).toEqual(STORES.map((s) => s.name).sort());
+  });
+
+  it('keeps the original data when replaceAll cannot store a record', async () => {
+    const repo = await openIdbRepository({ dbName: freshName() });
+    await repo.apply([
+      { kind: 'put', store: 'companies', record: { id: 'c1', createdAt: T } },
+      { kind: 'put', store: 'companies', record: { id: 'c2', createdAt: T } },
+    ]);
+    const bad = {
+      ...emptySnapshot(),
+      companies: [{ id: 'c9', createdAt: T, run: () => undefined }],
+    } as unknown as Snapshot;
+    await expect(repo.replaceAll(bad)).rejects.toThrow();
+    const snap = await repo.snapshot();
+    expect(snap.companies.map((c) => c.id)).toEqual(['c1', 'c2']);
+  });
+
+  it('keeps the original data when apply cannot store a record', async () => {
+    const repo = await openIdbRepository({ dbName: freshName() });
+    await repo.apply([
+      { kind: 'put', store: 'companies', record: { id: 'c1', createdAt: T } },
+      { kind: 'put', store: 'companies', record: { id: 'c2', createdAt: T } },
+    ]);
+    const bad = {
+      id: 'c9',
+      createdAt: T,
+      run: () => undefined,
+    } as unknown as Company;
+    await expect(
+      repo.apply([
+        { kind: 'put', store: 'companies', record: { id: 'c3', createdAt: T } },
+        { kind: 'put', store: 'companies', record: bad },
+      ]),
+    ).rejects.toThrow();
+    const snap = await repo.snapshot();
+    expect(snap.companies.map((c) => c.id)).toEqual(['c1', 'c2']);
   });
 
   it('explains a database written by a newer version', async () => {

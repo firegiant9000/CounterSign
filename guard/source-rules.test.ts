@@ -121,6 +121,10 @@ describe('download guard', { timeout: 60_000 }, () => {
     'const { downloads } = browser; downloads.download({ url: "blob:x" });',
     "browser.downloads?.download?.({ url: 'blob:x' });",
     "browser.downloads['download']({ url: 'blob:x' });",
+    "const d = browser.downloads; d.download({ url: 'blob:x' });",
+    'const { download } = browser.downloads;',
+    "browser['downloads'].download({ url: 'blob:x' });",
+    'const { downloads } = browser;',
   ])('rejects the variant %s', async (code) => {
     const found = await messages(code, 'entrypoints/background.ts');
     expect(found.some((m) => m.message === message)).toBe(true);

@@ -15,7 +15,13 @@ type Tx = IDBPTransaction<unknown, StoreNames, 'readwrite'>;
 function hasId(record: unknown): record is { id: string } {
   if (typeof record !== 'object' || record === null) return false;
   const id = (record as { id?: unknown }).id;
-  return typeof id === 'string' && id !== '';
+  const createdAt = (record as { createdAt?: unknown }).createdAt;
+  return (
+    typeof id === 'string' &&
+    id !== '' &&
+    typeof createdAt === 'string' &&
+    createdAt !== ''
+  );
 }
 
 function isStore(name: unknown): name is StoreName {
@@ -28,7 +34,7 @@ function validateOps(ops: readonly WriteOp[]): void {
       throw new Error(`Unknown store: ${String(op.store)}`);
     if (op.kind === 'put') {
       if (!hasId(op.record))
-        throw new Error(`Record for ${op.store} needs an id`);
+        throw new Error(`Record for ${op.store} needs an id and createdAt`);
     } else if (op.kind === 'delete') {
       if (typeof op.id !== 'string' || op.id === '') {
         throw new Error(`Delete for ${op.store} needs an id`);
@@ -47,7 +53,8 @@ function validateSnapshot(incoming: Snapshot): void {
       throw new Error(`Snapshot is missing store ${name}`);
     const seen = new Set<string>();
     for (const record of list) {
-      if (!hasId(record)) throw new Error(`Record in ${name} needs an id`);
+      if (!hasId(record))
+        throw new Error(`Record in ${name} needs an id and createdAt`);
       if (seen.has(record.id)) {
         throw new Error(`Store ${name} has two records with id ${record.id}`);
       }
@@ -117,11 +124,17 @@ export async function openIdbRepository(
         'readonly',
       );
       const out: Record<string, unknown[]> = {};
-      await Promise.all(
-        STORES.map(async ({ name }) => {
-          out[name] = await tx.objectStore(name).getAll();
-        }),
-      );
+      try {
+        await Promise.all(
+          STORES.map(async ({ name }) => {
+            out[name] = await tx.objectStore(name).getAll();
+          }),
+        );
+      } catch (err) {
+        // The transaction rejects too; mark it handled so nothing is left over.
+        tx.done.catch(() => undefined);
+        throw err;
+      }
       await tx.done;
       // One narrow cast: every store key was filled above.
       return out as unknown as Snapshot;

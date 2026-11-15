@@ -352,6 +352,14 @@ describe('emptiedStores', () => {
   it('lists nothing when every current store is empty', () => {
     expect(emptiedStores(emptySnapshot(), zero())).toEqual([]);
   });
+  it('still lists a populated store with count 0 when a sibling is malformed', () => {
+    const current = emptySnapshot() as unknown as Record<string, unknown>;
+    current['companies'] = [rec('c1')];
+    current['applications'] = 'oops';
+    expect(emptiedStores(current as unknown as Snapshot, zero())).toEqual([
+      'companies',
+    ]);
+  });
   it('treats a missing store as empty without throwing', () => {
     const current = emptySnapshot() as unknown as Record<string, unknown>;
     delete current['companies'];

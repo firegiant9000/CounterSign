@@ -189,6 +189,37 @@ export function describeRepositoryContract(
       expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
     });
 
+    it('rejects a record without createdAt and changes nothing', async () => {
+      const repo = await make();
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'companies',
+          record: { id: 'keep', createdAt: T },
+        },
+      ]);
+      const noStamp = { id: 'c2' } as unknown as Company;
+      const emptyStamp = { id: 'c3', createdAt: '' };
+      await expect(
+        repo.apply([
+          {
+            kind: 'put',
+            store: 'companies',
+            record: { id: 'c1', createdAt: T },
+          },
+          { kind: 'put', store: 'companies', record: noStamp },
+        ]),
+      ).rejects.toThrow();
+      await expect(
+        repo.apply([{ kind: 'put', store: 'companies', record: emptyStamp }]),
+      ).rejects.toThrow();
+      await expect(
+        repo.replaceAll({ ...emptySnapshot(), companies: [noStamp] }),
+      ).rejects.toThrow();
+      const snap = await repo.snapshot();
+      expect(snap.companies).toEqual([{ id: 'keep', createdAt: T }]);
+    });
+
     it('returns copies', async () => {
       const repo = await make();
       const company: Company = { id: 'c1', createdAt: T, name: 'Acme Example' };
