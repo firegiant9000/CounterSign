@@ -55,6 +55,42 @@ describe('write queue', () => {
     expect(appFrom(await repo.snapshot()).title).toBe('Still saved');
   });
 
+  it('runs a queued write only after a pending exclusive settles', async () => {
+    const repo = await seeded();
+    const queue = createWriteQueue(repo);
+    const order: string[] = [];
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const ex = queue.exclusive(async () => {
+      await gate;
+      order.push('exclusive');
+    });
+    const w = queue.run((d) => {
+      order.push('run');
+      return updateApplicationOps(appFrom(d), { title: 'After exclusive' });
+    });
+    await Promise.resolve();
+    expect(order).toEqual([]);
+    release();
+    await Promise.all([ex, w]);
+    expect(order).toEqual(['exclusive', 'run']);
+    expect(appFrom(await repo.snapshot()).title).toBe('After exclusive');
+  });
+
+  it('does not let a rejecting exclusive block the next turn', async () => {
+    const repo = await seeded();
+    const queue = createWriteQueue(repo);
+    const failing = queue.exclusive(() => Promise.reject(new Error('boom')));
+    const next = queue.run((d) =>
+      updateApplicationOps(appFrom(d), { title: 'Ran after' }),
+    );
+    await expect(failing).rejects.toThrow('boom');
+    await next;
+    expect(appFrom(await repo.snapshot()).title).toBe('Ran after');
+  });
+
   it('resolves with the current snapshot and skips apply for no ops', async () => {
     const inner = await seeded();
     let applies = 0;

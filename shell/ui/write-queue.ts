@@ -11,21 +11,44 @@ export interface WriteQueue {
    * fresh snapshot. A failure rejects this call only; later calls still run.
    */
   run(build: OpsBuilder): Promise<Snapshot>;
+  /**
+   * Runs fn as one queue turn: it waits for earlier turns and later turns
+   * wait for it. A rejection rejects this call only; later calls still run.
+   */
+  exclusive<T>(fn: () => Promise<T>): Promise<T>;
+}
+
+const LOCK_NAME = 'countersign-write';
+
+/** Holds the cross-tab Web Lock around fn; runs without it where unavailable. */
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks =
+    typeof navigator === 'undefined'
+      ? undefined
+      : (navigator as { locks?: LockManager }).locks;
+  if (!locks) return fn();
+  return locks.request(LOCK_NAME, fn);
 }
 
 export function createWriteQueue(repo: Repository): WriteQueue {
   let tail: Promise<unknown> = Promise.resolve();
+
+  function turn<T>(fn: () => Promise<T>): Promise<T> {
+    const result = tail.then(() => withLock(fn));
+    tail = result.catch(() => undefined);
+    return result;
+  }
+
   return {
     run(build) {
-      const result = tail.then(async () => {
+      return turn(async () => {
         const before = await repo.snapshot();
         const ops = build(before);
         if (ops.length === 0) return before;
         await repo.apply(ops);
         return repo.snapshot();
       });
-      tail = result.catch(() => undefined);
-      return result;
     },
+    exclusive: (fn) => turn(fn),
   };
 }

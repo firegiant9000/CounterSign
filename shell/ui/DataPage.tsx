@@ -47,22 +47,52 @@ function exportDateOf(file: ExportFile): string {
   return new Date(at).toLocaleString();
 }
 
+// Busy flag and the last export/restore outcome live outside the component, so
+// leaving the Data page mid-action and coming back still shows them.
+interface Outcome {
+  busy: boolean;
+  exportError: string | undefined;
+  restoreError: string | undefined;
+  restored: boolean;
+}
+
+let outcome: Outcome = {
+  busy: false,
+  exportError: undefined,
+  restoreError: undefined,
+  restored: false,
+};
+const listeners = new Set<() => void>();
+
+function setOutcome(patch: Partial<Outcome>): void {
+  outcome = { ...outcome, ...patch };
+  listeners.forEach((l) => l());
+}
+
+function useOutcome(): Outcome {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const listener = (): void => setTick((n) => n + 1);
+    listeners.add(listener);
+    // Catch a change made between the first render and this effect.
+    listener();
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
+  return outcome;
+}
+
 export function DataPage(): VNode {
   const app = useAppData();
   const { data, settings, deps, service } = app;
-  const busyRef = useRef(false);
+  const { busy, exportError, restoreError, restored } = useOutcome();
   const fileToken = useRef(0);
   const [storage, setStorage] = useState<PersistenceState | undefined>(
     undefined,
   );
-  const [exportError, setExportError] = useState<string | undefined>(undefined);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [pending, setPending] = useState<Pending | undefined>(undefined);
-  const [restoreError, setRestoreError] = useState<string | undefined>(
-    undefined,
-  );
-  const [restored, setRestored] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [demoError, setDemoError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -79,26 +109,24 @@ export function DataPage(): VNode {
     };
   }, []);
 
-  // One shared flag: export, restore and demo changes never overlap. The ref
-  // closes the gap before the state update re-renders.
+  // One shared module-level flag: export, restore and demo changes never
+  // overlap, even across a remount. It is set synchronously, so there is no gap.
   const startAction = (): boolean => {
-    if (busyRef.current) return false;
-    busyRef.current = true;
-    setBusy(true);
+    if (outcome.busy) return false;
+    setOutcome({ busy: true });
     return true;
   };
   const endAction = (): void => {
-    busyRef.current = false;
-    setBusy(false);
+    setOutcome({ busy: false });
   };
 
   const exportNow = async (): Promise<void> => {
     if (!startAction()) return;
-    setExportError(undefined);
+    setOutcome({ exportError: undefined });
     try {
       await service.exportNow();
     } catch (err) {
-      setExportError(reasonOf(err));
+      setOutcome({ exportError: reasonOf(err) });
     } finally {
       endAction();
     }
@@ -112,8 +140,7 @@ export function DataPage(): VNode {
     input.value = '';
     setPending(undefined);
     setParseErrors([]);
-    setRestoreError(undefined);
-    setRestored(false);
+    setOutcome({ restoreError: undefined, restored: false });
     if (!file) return;
     let text: string;
     try {
@@ -141,7 +168,7 @@ export function DataPage(): VNode {
     Object.keys(settings).length > 0;
 
   const replaceAll = async (): Promise<void> => {
-    if (!pending || busyRef.current) return;
+    if (!pending || outcome.busy) return;
     const ok = confirm(
       hasCurrentData
         ? 'Replace all current data with the contents of this file? A copy of your current data is saved first.'
@@ -149,12 +176,11 @@ export function DataPage(): VNode {
     );
     if (!ok) return;
     if (!startAction()) return;
-    setRestoreError(undefined);
-    setRestored(false);
+    setOutcome({ restoreError: undefined, restored: false });
     let failure: string | undefined;
     let swapped = true;
     try {
-      await service.restore(pending.file);
+      await app.restore(pending.file);
     } catch (err) {
       const message = reasonOf(err);
       failure = message;
@@ -169,10 +195,12 @@ export function DataPage(): VNode {
       }
       setPending(undefined);
       setParseErrors([]);
-      if (!failure) setRestored(true);
     }
-    setRestoreError(failure);
-    endAction();
+    setOutcome({
+      restoreError: failure,
+      restored: swapped && !failure,
+      busy: false,
+    });
   };
 
   const demo = async (action: 'load' | 'remove'): Promise<void> => {
@@ -242,7 +270,7 @@ export function DataPage(): VNode {
             <ul>
               {STORES.map(({ name }) => (
                 <li key={name}>
-                  {STORE_LABELS[name]}:{pending.counts[name]}
+                  {STORE_LABELS[name]}: {pending.counts[name]}
                 </li>
               ))}
             </ul>

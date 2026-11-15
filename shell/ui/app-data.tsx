@@ -4,6 +4,7 @@ import { useContext, useEffect, useState } from 'preact/hooks';
 import { missingDefaultAnswers } from '../../core/src/answers';
 import type { WriteOp } from '../../core/src/repository';
 import type { Deps, Settings, Snapshot } from '../../core/src/types';
+import type { ExportFile } from '../../core/src/export';
 import { browserDeps } from '../deps';
 import { browserFileSaver } from '../files/download';
 import { createDataService } from '../data-service';
@@ -20,6 +21,8 @@ export interface AppData {
   service: DataService;
   /** Writes through the queue; a builder gets the fresh snapshot at its turn. Then publishes the new snapshot and tells other tabs. */
   apply(ops: readonly WriteOp[] | OpsBuilder): Promise<void>;
+  /** Restores an export as one exclusive queue turn, so no write is lost. Call dataReplaced() afterwards. */
+  restore(file: ExportFile): Promise<void>;
   /** Re-reads snapshot and settings. Does not broadcast. */
   reload(): Promise<void>;
   /** After a restore (Task 18): ensure default answers, reload snapshot and settings, tell other tabs. */
@@ -140,6 +143,9 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
         tellOtherTabs();
       };
 
+      const restore: AppData['restore'] = (file) =>
+        queue.exclusive(() => service.restore(file));
+
       // Callbacks are created once; only data and settings change per publish.
       const view = (): AppData => ({
         data: current.data,
@@ -147,6 +153,7 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
         deps,
         service,
         apply,
+        restore,
         reload,
         dataReplaced,
       });
