@@ -1,0 +1,133 @@
+{
+  "app": "countersign",
+  "schemaVersion": 1,
+  "exportedAt": "2026-02-01T10:00:00.000Z",
+  "data": {
+    "companies": [
+      {
+        "id": "co-1",
+        "createdAt": "2026-01-05T09:00:00.000Z",
+        "name": "Northwind Example Works"
+      },
+      {
+        "id": "co-2",
+        "createdAt": "2026-01-06T09:00:00.000Z",
+        "name": "Fabrikam Sample Labs"
+      }
+    ],
+    "applications": [
+      {
+        "id": "app-1",
+        "createdAt": "2026-01-05T09:05:00.000Z",
+        "companyId": "co-1",
+        "title": "Staff Widget Engineer",
+        "url": "https://example.com/jobs/1001",
+        "nextActionDate": "2026-02-10",
+        "nextActor": "me",
+        "resumeDocumentId": "doc-1",
+        "notes": "Invented posting for tests."
+      },
+      {
+        "id": "app-2",
+        "createdAt": "2026-01-06T09:05:00.000Z",
+        "companyId": "co-2",
+        "title": "Gadget Platform Lead",
+        "url": "https://example.com/jobs/1002",
+        "futureField": { "tag": "kept", "n": 7 }
+      },
+      {
+        "id": "app-3",
+        "createdAt": "2026-01-07T09:05:00.000Z",
+        "companyId": "co-2",
+        "title": "Sprocket Analyst"
+      }
+    ],
+    "statusEvents": [
+      {
+        "id": "ev-1",
+        "createdAt": "2026-01-05T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "applied",
+        "occurredOn": "2026-01-05"
+      },
+      {
+        "id": "ev-2",
+        "createdAt": "2026-01-12T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "phone_screen",
+        "occurredOn": "2026-01-12",
+        "note": "Call with an invented recruiter."
+      },
+      {
+        "id": "ev-3",
+        "createdAt": "2026-01-06T09:06:00.000Z",
+        "applicationId": "app-2",
+        "status": "applied",
+        "occurredOn": "2026-01-06"
+      },
+      {
+        "id": "ev-4",
+        "createdAt": "2026-01-20T09:06:00.000Z",
+        "applicationId": "app-2",
+        "status": "rejected",
+        "occurredOn": "2026-01-20",
+        "voidedAt": "2026-01-21T08:00:00.000Z"
+      },
+      {
+        "id": "ev-5",
+        "createdAt": "2026-01-07T09:06:00.000Z",
+        "applicationId": "app-3",
+        "status": "interested",
+        "occurredOn": "2026-01-07"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-1",
+        "createdAt": "2026-01-05T09:01:00.000Z",
+        "label": "Resume, January",
+        "fileName": "resume-january.pdf",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      }
+    ],
+    "canonicalAnswers": [
+      {
+        "id": "ans-1",
+        "createdAt": "2026-01-05T09:02:00.000Z",
+        "key": "work_authorization",
+        "label": "Authorized to work?",
+        "type": "yes_no",
+        "value": { "type": "yes_no", "value": true }
+      },
+      {
+        "id": "ans-2",
+        "createdAt": "2026-01-05T09:03:00.000Z",
+        "key": "salary_expectation",
+        "label": "Salary expectation",
+        "type": "money_range",
+        "value": {
+          "type": "money_range",
+          "min": 100000,
+          "max": 120000,
+          "currency": "USD",
+          "period": "year"
+        },
+        "history": [
+          {
+            "value": {
+              "type": "money_range",
+              "min": 90000,
+              "max": 110000,
+              "currency": "USD",
+              "period": "year"
+            },
+            "replacedAt": "2026-01-15T09:00:00.000Z"
+          }
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "statusLabels": { "applied": "Sent" }
+  }
+}
