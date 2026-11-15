@@ -140,6 +140,29 @@ describe('newApplicationOps', () => {
     expect(app?.nextActor).toBe('them');
     expect(app?.notes).toBe('line one\n  line two');
   });
+
+  it('stores the note on the opening event', () => {
+    const { ops } = newApplicationOps(
+      { status: 'applied', note: 'Imported from sheet' },
+      emptySnapshot(),
+      fixedDeps(),
+    );
+    expect(putRecord(ops, 'statusEvents')?.note).toBe('Imported from sheet');
+  });
+
+  it('does not store a blank note on the opening event', () => {
+    const { ops } = newApplicationOps(
+      { note: '  ' },
+      emptySnapshot(),
+      fixedDeps(),
+    );
+    expect('note' in (putRecord(ops, 'statusEvents') ?? {})).toBe(false);
+  });
+
+  it('leaves no note key on the opening event when omitted', () => {
+    const { ops } = newApplicationOps({}, emptySnapshot(), fixedDeps());
+    expect('note' in (putRecord(ops, 'statusEvents') ?? {})).toBe(false);
+  });
 });
 
 describe('updateApplicationOps', () => {

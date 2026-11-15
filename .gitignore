@@ -9,6 +9,15 @@ web-ext-artifacts/
 *backup*.json
 countersign-export-*.json
 
+# Real sheet exports must never be committed; only invented fixtures are allowed
+*.csv
+*.CSV
+*.tsv
+*.TSV
+*.xlsx
+*.XLSX
+!*.fixture.csv
+
 # Secrets and signing credentials
 .env
 .env.*

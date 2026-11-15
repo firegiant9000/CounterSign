@@ -63,7 +63,7 @@ Three parts keep "no network, nothing runs until you click" true:
 2. **Three repository methods** (`snapshot`, `apply`, `replaceAll`). The data set is small, so views filter in memory.
 3. **Stores are created per stage,** so every stage ships a tested migration before a risky one is needed.
 4. **An application has its own editable `title` and `url`.** The immutable Job capture arrives in stage 2.
-5. **Archived is derived.** An application is archived when its current status is Accepted, Rejected, No response or Withdrawn, so there is no flag to get out of step.
+5. **Archived is derived.** An application is archived when its current status is Accepted, Rejected, Position closed, No response or Withdrawn, so there is no flag to get out of step.
 6. **A status event has `occurredOn` and `voidedAt`.** Old applications can be entered with real dates, and a mis-click can be undone without deleting history.
 7. **The CSP is stricter than the spec.** `default-src 'self'` is added because `connect-src 'none'` alone does not stop a remote image, font or stylesheet.
 8. **Restore validation is structural.** Dangling links are tolerated so you can always restore your own file.

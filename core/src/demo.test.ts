@@ -34,7 +34,7 @@ describe('demo data', () => {
 
   it('uses only example.com addresses', async () => {
     const { snap } = await demoSnapshot();
-    expect(snap.applications).toHaveLength(8);
+    expect(snap.applications).toHaveLength(9);
     for (const app of snap.applications) {
       expect(app.url?.startsWith('https://example.com/')).toBe(true);
     }
@@ -43,7 +43,7 @@ describe('demo data', () => {
   it('shows active and archived applications', async () => {
     const { snap } = await demoSnapshot();
     const rows = applicationRows(snap);
-    expect(rows).toHaveLength(8);
+    expect(rows).toHaveLength(9);
     expect(rows.filter((r) => r.archived).length).toBeGreaterThanOrEqual(2);
     expect(rows.filter((r) => !r.archived).length).toBeGreaterThanOrEqual(4);
   });

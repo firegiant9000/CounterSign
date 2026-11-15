@@ -1,0 +1,15 @@
+Event Date,Company,Position,Event Type,Response / Notes,Stage After Event,Source Reliability,Email Thread URL
+2026-01-05,Acme Widgets,Widget Engineer,Application,Submitted via portal,Applied,High,https://mail.example.com/mail/u/0/#all/aaa111
+2026-01-14,Acme Widgets,Widget Engineer,Recruiter call,Call booked,Phone screening,Medium,https://mail.example.com/mail/u/0/#all/aaa111
+2026-01-14,Acme Widgets,Widget Engineer,Interview,Panel booked,Interviewing,High,https://mail.example.com/mail/u/0/#all/aaa111
+2026-01-20,,,Interview,First round,Interviewing,High,https://mail.example.com/mail/u/1/#all/bbb222
+2026-01-22,acme widgets,Support Lead — Night Shift,Interview,"Second round, onsite",Interviewing,High,
+2026-01-22,acme widgets,Support Lead — Night Shift,Follow-up,Sent thanks,Awaiting response,Low,
+2026-02-05,Soylent Example,Editor,Recruiter call,Intro call,Phone screening,Medium,
+2026-02-09,Soylent Example,Editor,Email,Waiting to hear,Needs review,Low,
+2026-02-04,Hooli Example,Staff Writer,Draft,Form half done,Not submitted,Low,
+2026-02-01,Nowhere Example,Ghost Role,Application,Sent,Applied,High,
+2026-02-20,Wayne Example,Designer,Application,Sent,Applied,High,
+soon,Globex Example,Data Analyst,Update,Status page,Closed,Medium,
+2026-01-25,Globex Example,Data Analyst,Update,Recruiter note,Offer pending,Medium,
+2026-01-30,Initech Example,QA Analyst,Application,Sent,Applied,High,

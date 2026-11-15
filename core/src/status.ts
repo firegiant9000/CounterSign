@@ -10,6 +10,7 @@ export const STATUS_KEYS = [
   'offer',
   'accepted',
   'rejected',
+  'position_closed',
   'no_response',
   'withdrawn',
 ] as const;
@@ -25,6 +26,7 @@ export const DEFAULT_STATUS_LABELS: Record<StatusKey, string> = {
   offer: 'Offer',
   accepted: 'Accepted',
   rejected: 'Rejected',
+  position_closed: 'Position closed',
   no_response: 'No response',
   withdrawn: 'Withdrawn',
 };
@@ -33,6 +35,7 @@ export const DEFAULT_STATUS_LABELS: Record<StatusKey, string> = {
 export const CLOSED_STATUSES: ReadonlySet<string> = new Set([
   'accepted',
   'rejected',
+  'position_closed',
   'no_response',
   'withdrawn',
 ]);
