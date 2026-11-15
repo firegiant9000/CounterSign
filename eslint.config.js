@@ -40,6 +40,38 @@ const downloadSyntax = [
   "MemberExpression[property.value='downloads']",
   "Property[key.name='downloads']",
 ].map((selector) => ({ selector, message: DOWNLOAD_MESSAGE }));
+// Nothing navigates the page away or opens a window. Assigning location.hash
+// stays legal (the UI uses it for routing); indexedDB.open and window.close
+// are not matched because only a bare open() call is banned.
+const NAVIGATION_MESSAGE = 'Countersign never navigates away or opens windows.';
+// Only these objects count as the page, so assigning a data field that happens
+// to be named location (job.location = ...) stays legal.
+const GLOBAL_OBJECTS = '/^(window|document|globalThis|self)$/';
+const navigationSyntax = [
+  "MemberExpression[object.name='window'][property.name='open']",
+  "MemberExpression[object.name='window'][property.value='open']",
+  "CallExpression[callee.type='Identifier'][callee.name='open']",
+  "CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.name='location']",
+  `CallExpression[callee.property.name=/^(assign|replace|reload)$/][callee.object.property.name='location'][callee.object.object.name=${GLOBAL_OBJECTS}]`,
+  "AssignmentExpression[left.type='Identifier'][left.name='location']",
+  `AssignmentExpression[left.property.name='location'][left.object.name=${GLOBAL_OBJECTS}]`,
+  `AssignmentExpression[left.property.value='location'][left.object.name=${GLOBAL_OBJECTS}]`,
+  "AssignmentExpression[left.property.name='href'][left.object.name='location']",
+  `AssignmentExpression[left.property.name='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
+].map((selector) => ({ selector, message: NAVIGATION_MESSAGE }));
+// Reading tabs and injecting scripts are confined to two shell files.
+const TABS_MESSAGE = 'Use tabs only in open-dashboard.ts or capture/inject.ts.';
+const tabsSyntax = [
+  "MemberExpression[property.name='tabs']",
+  "MemberExpression[property.value='tabs']",
+  "Property[key.name='tabs']",
+].map((selector) => ({ selector, message: TABS_MESSAGE }));
+const SCRIPTING_MESSAGE = 'Inject only through shell/capture/inject.ts.';
+const scriptingSyntax = [
+  "MemberExpression[property.name='scripting']",
+  "MemberExpression[property.value='scripting']",
+  "Property[key.name='scripting']",
+].map((selector) => ({ selector, message: SCRIPTING_MESSAGE }));
 
 export default defineConfig(
   {
@@ -58,15 +90,54 @@ export default defineConfig(
     rules: {
       'no-restricted-globals': ['error', ...networkGlobals],
       'no-restricted-properties': ['error', ...networkProperties],
-      'no-restricted-syntax': ['error', ...networkSyntax, ...downloadSyntax],
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+      ],
     },
   },
-  // The one place allowed to call downloads.download. This block replaces the
-  // shared rule for the file, so it re-spreads the network selectors.
+  // Each block below replaces the shared rule for its files, so it re-spreads
+  // every selector the file is still subject to.
+  // The one place allowed to call downloads.download.
   {
     files: ['shell/files/download.ts'],
     rules: {
-      'no-restricted-syntax': ['error', ...networkSyntax],
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...navigationSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+      ],
+    },
+  },
+  // open-dashboard.ts may use tabs, but not scripting.
+  {
+    files: ['shell/open-dashboard.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...scriptingSyntax,
+      ],
+    },
+  },
+  // capture/inject.ts may use both tabs and scripting.
+  {
+    files: ['shell/capture/inject.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+      ],
     },
   },
   // core/ is framework-free: no framework, storage or browser access.
