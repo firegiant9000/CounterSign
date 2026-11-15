@@ -3,11 +3,23 @@ import { MAX_POSTING_TEXT, postingFromJsonLd } from '../../core/src/jobposting';
 
 /** Description HTML to plain text, parsed in a fresh document (never the live page). */
 function htmlToText(html: string): string | undefined {
-  const parsed = new DOMParser().parseFromString(html, 'text/html');
+  const parsed = new DOMParser().parseFromString(
+    html.slice(0, 4 * MAX_POSTING_TEXT),
+    'text/html',
+  );
   const body = parsed.body as HTMLElement | null;
   if (!body) return undefined;
   for (const el of Array.from(body.querySelectorAll('script, style'))) {
     el.remove();
+  }
+  // Keep words from adjacent blocks apart (fresh document only).
+  for (const el of Array.from(body.querySelectorAll('br'))) {
+    el.replaceWith(parsed.createTextNode(' '));
+  }
+  for (const el of Array.from(
+    body.querySelectorAll('p, div, li, h1, h2, h3, h4, h5, h6, tr, td, ul, ol'),
+  )) {
+    el.append(parsed.createTextNode(' '));
   }
   const text = (body.textContent ?? '').replace(/\s+/g, ' ').trim();
   return text === '' ? undefined : text;
@@ -22,11 +34,15 @@ function cap(text: string): string {
 function extract(doc: Document, selection: string, url: string): CaptureResult {
   const result: CaptureResult = { source: 'none', url };
 
-  const canonical = doc
-    .querySelector('link[rel~="canonical"]')
-    ?.getAttribute('href')
-    ?.trim();
-  if (canonical) result.relCanonical = canonical;
+  try {
+    const canonical = doc
+      .querySelector('link[rel~="canonical"]')
+      ?.getAttribute('href')
+      ?.trim();
+    if (canonical) result.relCanonical = canonical;
+  } catch {
+    // A hostile page must not lose the capture over the canonical link.
+  }
 
   const blocks = Array.from(
     doc.querySelectorAll('script[type="application/ld+json"]'),
@@ -50,8 +66,13 @@ function extract(doc: Document, selection: string, url: string): CaptureResult {
   if (trimmed !== '') {
     result.source = 'selection';
     result.text = cap(trimmed);
-    const title = (doc.title ?? '').trim();
-    if (title !== '') result.title = title;
+    try {
+      // Named elements can shadow doc.title with a non-string.
+      const title = (typeof doc.title === 'string' ? doc.title : '').trim();
+      if (title !== '') result.title = title;
+    } catch {
+      // Keep the selection even if the title cannot be read.
+    }
   }
   return result;
 }

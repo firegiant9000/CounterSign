@@ -82,6 +82,50 @@ describe('extractPosting', () => {
     expect(extractPosting(doc, '').text).toBe('Build robots');
   });
 
+  it('keeps words from adjacent blocks apart', () => {
+    expect(extractPosting(withJsonLd('<p>One</p><p>Two</p>'), '').text).toBe(
+      'One Two',
+    );
+    expect(extractPosting(withJsonLd('a<br>b'), '').text).toBe('a b');
+    expect(
+      extractPosting(withJsonLd('<ul><li>a</li><li>b</li></ul>'), '').text,
+    ).toBe('a b');
+  });
+
+  it('caps a description larger than the cap', () => {
+    const doc = withJsonLd(`<p>${'x'.repeat(150_000)}</p>`);
+    const r = extractPosting(doc, '');
+    expect(r.source).toBe('jsonld');
+    expect(r.text?.length).toBe(100_000);
+  });
+
+  it('keeps the selection when a named element shadows document.title', () => {
+    const window = new Window({ url: 'https://example.com/jobs/1' });
+    window.document.write(
+      '<html><head><title>T</title></head><body><form name="title"></form></body></html>',
+    );
+    const doc = window.document as unknown as Document;
+    const r = extractPosting(doc, 'Selected text');
+    expect(r.source).toBe('selection');
+    expect(r.text).toBe('Selected text');
+  });
+
+  it('keeps the selection when reading document.title throws or is not a string', () => {
+    for (const get of [
+      () => {
+        throw new Error('x');
+      },
+      () => ({ tagName: 'FORM' }),
+    ]) {
+      const doc = load('selection-only.html');
+      Object.defineProperty(doc, 'title', { get, configurable: true });
+      const r = extractPosting(doc, 'Selected text');
+      expect(r.source).toBe('selection');
+      expect(r.text).toBe('Selected text');
+      expect('title' in r).toBe(false);
+    }
+  });
+
   it('caps the text', () => {
     const r = extractPosting(load('nothing.html'), 'a'.repeat(150_000));
     expect(r.text?.length).toBe(100_000);
