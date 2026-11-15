@@ -1,6 +1,6 @@
 import { MIGRATIONS } from './migrations';
 import type { Migration, RawExport } from './migrations';
-import { APP_ID, SCHEMA_VERSION, STORES } from './schema';
+import { APP_ID, emptySnapshot, SCHEMA_VERSION, STORES } from './schema';
 import type { Deps, IsoInstant, Settings, Snapshot, StoreName } from './types';
 
 export interface ExportFile {
@@ -161,20 +161,9 @@ export function parseExport(
     if (!knownNames.has(key)) errors.push(`Unknown store "${key}".`);
   }
 
-  const out: Snapshot = {
-    companies: [],
-    applications: [],
-    statusEvents: [],
-    documents: [],
-    canonicalAnswers: [],
-  };
-  const counts: Record<StoreName, number> = {
-    companies: 0,
-    applications: 0,
-    statusEvents: 0,
-    documents: 0,
-    canonicalAnswers: 0,
-  };
+  const out = emptySnapshot();
+  const counts = {} as Record<StoreName, number>;
+  for (const { name } of STORES) counts[name] = 0;
 
   for (const { name } of known) {
     const list = Object.prototype.hasOwnProperty.call(data, name)

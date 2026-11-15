@@ -33,6 +33,12 @@ const STORE_LABELS: Record<StoreName, string> = {
   statusEvents: 'Status events',
   documents: 'Documents',
   canonicalAnswers: 'Canonical answers',
+  jobs: 'Jobs',
+  statements: 'Statements',
+  contacts: 'Contacts',
+  contactEvents: 'Contact events',
+  tasks: 'Tasks',
+  profileFields: 'Profile fields',
 };
 
 function reasonOf(err: unknown): string {

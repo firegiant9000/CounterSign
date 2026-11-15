@@ -8,8 +8,17 @@ export default defineConfig({
     name: 'Countersign',
     description:
       'A local-only job search companion. Nothing runs until you click, and nothing leaves your machine.',
-    permissions: ['unlimitedStorage', 'storage', 'downloads'],
+    permissions: [
+      'unlimitedStorage',
+      'storage',
+      'downloads',
+      'activeTab',
+      'scripting',
+    ],
     action: { default_title: 'Countersign', default_icon: 'icon.svg' },
+    commands: {
+      _execute_action: { suggested_key: { default: 'Alt+Shift+S' } },
+    },
     icons: { 48: 'icon.svg', 96: 'icon.svg' },
     browser_specific_settings: {
       gecko: {

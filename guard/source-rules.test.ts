@@ -1,5 +1,6 @@
 import { ESLint } from 'eslint';
 import { resolve } from 'node:path';
+import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
 import { NETWORK_TOKENS, parseCsp, scanText, validateAllowlist } from './scan';
 
@@ -143,6 +144,129 @@ describe('download guard', { timeout: 60_000 }, () => {
       'shell/files/download.ts',
     );
     expect(rules).toContain('no-restricted-syntax');
+  });
+});
+
+describe('navigation and injection guard', { timeout: 60_000 }, () => {
+  const navMessage = 'Countersign never navigates away or opens windows.';
+  const tabsMessage =
+    'Use tabs only in open-dashboard.ts or capture/inject.ts.';
+  const scriptingMessage = 'Inject only through shell/capture/inject.ts.';
+  const dashboard = 'shell/open-dashboard.ts';
+  const inject = 'shell/capture/inject.ts';
+  const save = "browser.downloads.download({ url: 'blob:x' });";
+  // Probe paths such as shell/ui/x.tsx and shell/capture/inject.ts do not exist
+  // on disk, so type-aware parsing would fail. Switch type information off;
+  // no-restricted-syntax from eslint.config.js still applies by file path.
+  const syntaxLint = new ESLint({
+    cwd: resolve(import.meta.dirname, '..'),
+    overrideConfig: tseslint.configs.disableTypeChecked,
+  });
+  async function syntaxMessages(code: string, filePath: string) {
+    const [result] = await syntaxLint.lintText(code, { filePath });
+    const found = result?.messages ?? [];
+    expect(found.filter((m) => m.fatal)).toEqual([]);
+    return found;
+  }
+
+  it.each([
+    "window.open('https://example.com');",
+    "window['open']('https://example.com');",
+    "open('https://example.com');",
+    "location.assign('https://example.com');",
+    "location.replace('https://example.com');",
+    'location.reload();',
+    "window.location.assign('https://example.com');",
+    "location = 'https://example.com';",
+    "window.location = 'https://example.com';",
+    "document.location = 'https://example.com';",
+    "location.href = 'https://example.com';",
+    "window.location.href = 'https://example.com';",
+    "document.location.href = 'https://example.com';",
+    "location['href'] = 'https://example.com';",
+    "window.location['href'] = 'https://example.com';",
+    "location['assign']('https://example.com');",
+    "location['replace']('https://example.com');",
+    "location['reload']();",
+    "window.location['assign']('https://example.com');",
+    "globalThis.open('https://example.com');",
+    "self.open('https://example.com');",
+    "top.location = 'https://example.com';",
+    "parent.location = 'https://example.com';",
+    "globalThis.location = 'https://example.com';",
+    "self.location = 'https://example.com';",
+  ])('rejects navigation %s', async (code) => {
+    const found = await syntaxMessages(code, 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === navMessage)).toBe(true);
+  });
+  it.each([
+    "location.hash = '#/data';",
+    "job.location = 'Remote';",
+    "indexedDB.open('db', 1);",
+    'window.close();',
+    "location['hash'] = '#/data';",
+  ])('allows %s', async (code) => {
+    const found = await syntaxMessages(code, 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === navMessage)).toBe(false);
+  });
+  it.each([
+    'browser.tabs.query({});',
+    "browser['tabs'].query({});",
+    'const { tabs } = browser;',
+  ])('rejects tabs access %s outside the allowed files', async (code) => {
+    const found = await syntaxMessages(code, 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === tabsMessage)).toBe(true);
+  });
+  it.each([dashboard, inject])('allows tabs access in %s', async (file) => {
+    const found = await syntaxMessages('browser.tabs.query({});', file);
+    expect(found.some((m) => m.message === tabsMessage)).toBe(false);
+  });
+  it.each([
+    'browser.scripting.executeScript({});',
+    "browser['scripting'].executeScript({});",
+    'const { scripting } = browser;',
+  ])('rejects scripting access %s outside inject.ts', async (code) => {
+    for (const file of ['shell/ui/x.tsx', dashboard]) {
+      const found = await syntaxMessages(code, file);
+      expect(found.some((m) => m.message === scriptingMessage)).toBe(true);
+    }
+  });
+  it('allows scripting access in inject.ts', async () => {
+    const found = await syntaxMessages(
+      'browser.scripting.executeScript({});',
+      inject,
+    );
+    expect(found.some((m) => m.message === scriptingMessage)).toBe(false);
+  });
+  it('rejects tabs access in the download wrapper', async () => {
+    const found = await syntaxMessages(
+      'browser.tabs.query({});',
+      'shell/files/download.ts',
+    );
+    expect(found.some((m) => m.message === tabsMessage)).toBe(true);
+  });
+  it.each([dashboard, inject])(
+    'keeps the download, network and navigation rules in %s',
+    async (file) => {
+      for (const [code, message] of [
+        [save, 'Save files only through shell/files/download.ts.'],
+        [
+          "navigator.sendBeacon('https://example.com');",
+          'This extension makes no network requests.',
+        ],
+        ['location.reload();', navMessage],
+      ] as const) {
+        const found = await syntaxMessages(code, file);
+        expect(found.some((m) => m.message === message)).toBe(true);
+      }
+    },
+  );
+  it('applies the navigation guard in core/', async () => {
+    const found = await syntaxMessages(
+      'location.reload();',
+      'core/src/status.ts',
+    );
+    expect(found.some((m) => m.message === navMessage)).toBe(true);
   });
 });
 

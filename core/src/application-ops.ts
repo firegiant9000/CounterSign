@@ -31,7 +31,7 @@ function collapse(name: string): string {
   return name.trim().replace(/\s+/g, ' ');
 }
 
-function normalizeName(name: string): string {
+export function normalizeName(name: string): string {
   return collapse(name).toLowerCase();
 }
 
