@@ -106,6 +106,42 @@ describe('lint rule', { timeout: 60_000 }, () => {
   });
 });
 
+describe('download guard', { timeout: 60_000 }, () => {
+  const save = "browser.downloads.download({ url: 'blob:x' });";
+  const message = 'Save files only through shell/files/download.ts.';
+  it('rejects downloads.download outside the wrapper', async () => {
+    const found = await messages(save, 'entrypoints/background.ts');
+    expect(
+      found.some(
+        (m) => m.ruleId === 'no-restricted-syntax' && m.message === message,
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    'const { downloads } = browser; downloads.download({ url: "blob:x" });',
+    "browser.downloads?.download?.({ url: 'blob:x' });",
+    "browser.downloads['download']({ url: 'blob:x' });",
+  ])('rejects the variant %s', async (code) => {
+    const found = await messages(code, 'entrypoints/background.ts');
+    expect(found.some((m) => m.message === message)).toBe(true);
+  });
+  it('allows downloads.download in the wrapper', async () => {
+    const found = await messages(save, 'shell/files/download.ts');
+    expect(found.some((m) => m.message === message)).toBe(false);
+  });
+  it('also applies the download guard in core/', async () => {
+    const found = await messages(save, 'core/src/status.ts');
+    expect(found.some((m) => m.message === message)).toBe(true);
+  });
+  it('keeps the network rule in the wrapper', async () => {
+    const rules = await ruleIds(
+      "navigator.sendBeacon('https://example.com');",
+      'shell/files/download.ts',
+    );
+    expect(rules).toContain('no-restricted-syntax');
+  });
+});
+
 describe(
   'core/ restrictions still bite alongside the network rules',
   { timeout: 60_000 },

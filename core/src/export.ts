@@ -31,6 +31,21 @@ export function buildExport(
   };
 }
 
+// Stores the restore would empty while they currently hold records.
+export function emptiedStores(
+  current: Snapshot,
+  counts: Record<StoreName, number>,
+): StoreName[] {
+  const result: StoreName[] = [];
+  for (const { name } of STORES) {
+    const held: unknown = current[name];
+    if (counts[name] === 0 && Array.isArray(held) && held.length > 0) {
+      result.push(name);
+    }
+  }
+  return result;
+}
+
 export function exportFileName(
   kind: 'export' | 'pre-restore',
   at: IsoInstant,

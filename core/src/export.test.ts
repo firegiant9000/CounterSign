@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/v1-export.fixture.json';
-import { buildExport, exportFileName, parseExport } from './export';
+import {
+  buildExport,
+  emptiedStores,
+  exportFileName,
+  parseExport,
+} from './export';
 import type { Migration } from './migrations';
 import { createMemoryRepository } from './memory-repository';
-import { emptySnapshot } from './schema';
+import { emptySnapshot, STORES } from './schema';
+import type { Snapshot, StoreName } from './types';
 
 const T = '2026-01-05T09:00:00.000Z';
 const fixtureText = JSON.stringify(fixture);
@@ -321,5 +327,35 @@ describe('parseExport', () => {
         'This file was made by a newer version of Countersign (schema 99). Update the extension first.',
       ],
     });
+  });
+});
+
+describe('emptiedStores', () => {
+  const rec = (id: string) => ({ id, createdAt: T });
+  const zero = () => {
+    const counts = {} as Record<StoreName, number>;
+    for (const { name } of STORES) counts[name] = 0;
+    return counts;
+  };
+  it('lists a store the file would empty while it holds records', () => {
+    const current = emptySnapshot();
+    (current as unknown as Record<string, unknown[]>)['companies'] = [
+      rec('c1'),
+    ];
+    (current as unknown as Record<string, unknown[]>)['applications'] = [
+      rec('a1'),
+    ];
+    const counts = zero();
+    counts.applications = 2;
+    expect(emptiedStores(current, counts)).toEqual(['companies']);
+  });
+  it('lists nothing when every current store is empty', () => {
+    expect(emptiedStores(emptySnapshot(), zero())).toEqual([]);
+  });
+  it('treats a missing store as empty without throwing', () => {
+    const current = emptySnapshot() as unknown as Record<string, unknown>;
+    delete current['companies'];
+    current['applications'] = 'oops';
+    expect(emptiedStores(current as unknown as Snapshot, zero())).toEqual([]);
   });
 });
