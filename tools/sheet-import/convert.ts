@@ -115,6 +115,7 @@ interface Entry {
   date: LocalDate | undefined; // becomes occurredOn
   effective: LocalDate; // day used for the clock
   note: string;
+  fromHistory: boolean;
 }
 
 function joinNote(lines: readonly string[]): string {
@@ -421,6 +422,7 @@ export async function convert(
         date: r.date,
         effective: r.effective,
         note: joinNote(lines),
+        fromHistory: r.kind === 'history',
       });
     }
 
@@ -464,6 +466,7 @@ export async function convert(
       if (
         rule.kind === 'status' &&
         last !== undefined &&
+        last.fromHistory &&
         effective <= last.effective
       ) {
         flags.push(
@@ -477,6 +480,7 @@ export async function convert(
         date,
         effective,
         note: joinNote(closingLines),
+        fromHistory: false,
       });
     } else {
       // No event carries the Stage text, so keep it in the notes.

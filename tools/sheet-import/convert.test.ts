@@ -384,6 +384,29 @@ describe('convert', () => {
     expect(notesOf('Unconf')).toContain('Stage: Not submitted');
   });
 
+  it('does not flag an override when the last entry is the opening', async () => {
+    const { snapshot, report } = await convert(
+      {
+        applications: parseCsv(
+          [
+            applications.header.join(','),
+            'Acme Widgets,Role,2026-01-05,,,,Interviewing,,,,,,,,,,',
+          ].join('\n'),
+        ),
+        history: { header: history.header, rows: [] },
+      },
+      options,
+      fixedDeps(),
+    );
+    const app = appByRow(snapshot, 'Role');
+    expect(currentStatus(snapshot.statusEvents, app.id)?.status).toBe(
+      'interview',
+    );
+    expect(
+      report.flagged.filter((i) => i.reason.includes('overrides')),
+    ).toHaveLength(0);
+  });
+
   describe('stage overriding later history', () => {
     const go = (stage: string, lastEvent: string) =>
       convert(
