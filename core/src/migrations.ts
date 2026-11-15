@@ -10,5 +10,7 @@ export interface Migration {
   migrate(file: RawExport): RawExport;
 }
 
-// Empty at schema 1: there is nothing older to lift.
-export const MIGRATIONS: readonly Migration[] = [];
+// Schema 1 -> 2 adds six stores; missing stores already read as empty.
+export const MIGRATIONS: readonly Migration[] = [
+  { to: 2, migrate: (file) => ({ ...file, schemaVersion: 2 }) },
+];

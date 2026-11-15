@@ -21,6 +21,7 @@ export interface Application extends BaseRecord {
   resumeDocumentId?: Id;
   coverLetterDocumentId?: Id;
   notes?: string;
+  jobId?: Id;
 }
 export interface StatusEvent extends BaseRecord {
   applicationId?: Id;
@@ -61,12 +62,62 @@ export interface CanonicalAnswer extends BaseRecord {
   history?: AnswerRevision[];
 }
 
+export type CaptureSource = 'jsonld' | 'selection' | 'paste';
+export interface Job extends BaseRecord {
+  title?: string;
+  companyName?: string;
+  location?: string;
+  url?: string;
+  canonicalUrl?: string;
+  text?: string;
+  source?: CaptureSource;
+}
+export interface Statement extends BaseRecord {
+  applicationId?: Id;
+  answerKey?: string;
+  value?: AnswerValue;
+  exception?: boolean;
+}
+export interface Contact extends BaseRecord {
+  companyId?: Id;
+  name?: string;
+  role?: string;
+  howKnown?: string;
+  notes?: string;
+}
+export type ContactEventKind =
+  'reached_out' | 'replied' | 'referred' | 'followed_up' | 'call_held';
+export interface ContactEvent extends BaseRecord {
+  contactId?: Id;
+  applicationId?: Id;
+  kind?: ContactEventKind;
+  occurredOn?: LocalDate;
+  note?: string;
+}
+export interface Task extends BaseRecord {
+  title?: string;
+  dueOn?: LocalDate;
+  doneAt?: IsoInstant;
+  applicationId?: Id;
+}
+export interface ProfileField extends BaseRecord {
+  key?: string;
+  label?: string;
+  value?: string;
+}
+
 export interface StoreMap {
   companies: Company;
   applications: Application;
   statusEvents: StatusEvent;
   documents: DocumentRecord;
   canonicalAnswers: CanonicalAnswer;
+  jobs: Job;
+  statements: Statement;
+  contacts: Contact;
+  contactEvents: ContactEvent;
+  tasks: Task;
+  profileFields: ProfileField;
 }
 export type StoreName = keyof StoreMap;
 export type Snapshot = { [S in StoreName]: StoreMap[S][] };

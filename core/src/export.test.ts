@@ -6,6 +6,7 @@ import {
   exportFileName,
   parseExport,
 } from './export';
+import { MIGRATIONS } from './migrations';
 import type { Migration } from './migrations';
 import { createMemoryRepository } from './memory-repository';
 import { emptySnapshot, STORES } from './schema';
@@ -13,6 +14,22 @@ import type { Snapshot, StoreName } from './types';
 
 const T = '2026-01-05T09:00:00.000Z';
 const fixtureText = JSON.stringify(fixture);
+const NEW_STORES = [
+  'jobs',
+  'statements',
+  'contacts',
+  'contactEvents',
+  'tasks',
+  'profileFields',
+] as const;
+const NEW_ZERO = {
+  jobs: 0,
+  statements: 0,
+  contacts: 0,
+  contactEvents: 0,
+  tasks: 0,
+  profileFields: 0,
+};
 
 function envelope(data: unknown, extra: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -32,7 +49,7 @@ describe('buildExport and exportFileName', () => {
     );
     expect(file).toEqual({
       app: 'countersign',
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: '2026-11-14T15:30:00.000Z',
       data: emptySnapshot(),
       settings: {},
@@ -82,20 +99,37 @@ describe('parseExport', () => {
       statusEvents: 1,
       documents: 0,
       canonicalAnswers: 0,
+      ...NEW_ZERO,
     });
   });
 
-  it('reads the schema 1 fixture', () => {
+  it('reads the schema 1 fixture at schema 2', () => {
     const result = parseExport(fixtureText);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.file.schemaVersion).toBe(2);
     expect(result.counts).toEqual({
       companies: 2,
       applications: 3,
       statusEvents: 5,
       documents: 1,
       canonicalAnswers: 2,
+      ...NEW_ZERO,
     });
+    const raw = fixture.data as unknown as Record<string, unknown[]>;
+    for (const name of [
+      'companies',
+      'applications',
+      'statusEvents',
+      'documents',
+      'canonicalAnswers',
+    ] as const) {
+      expect(result.file.data[name]).toEqual(raw[name]);
+    }
+    for (const name of NEW_STORES) {
+      expect(result.file.data[name]).toEqual([]);
+      expect(result.counts[name]).toBe(0);
+    }
     expect(result.file.exportedAt).toBe('2026-02-01T10:00:00.000Z');
     expect(result.file.settings).toEqual({ statusLabels: { applied: 'Sent' } });
     expect(result.file.data.companies[0]?.name).toBe('Ashgrove Example Works');
@@ -219,6 +253,38 @@ describe('parseExport', () => {
     expect(result.errors).toHaveLength(21);
     expect(result.errors[0]).toBe('applications[0] has no id.');
     expect(result.errors[20]).toBe('and 10 more.');
+  });
+
+  it('lifts a schema 1 file through the real migration', () => {
+    expect(MIGRATIONS).toHaveLength(1);
+    const step = MIGRATIONS[0];
+    expect(step?.to).toBe(2);
+    const data = { companies: [{ id: 'c1', createdAt: T }] };
+    const lifted = step?.migrate({ schemaVersion: 1, data, settings: {} });
+    expect(lifted?.schemaVersion).toBe(2);
+    expect(lifted?.data).toEqual(data);
+  });
+
+  it('counts every store in STORES', () => {
+    const result = parseExport(fixtureText);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(Object.keys(result.counts).sort()).toEqual(
+      STORES.map((s) => s.name).sort(),
+    );
+  });
+
+  it('rejects a schema 3 file', () => {
+    expect(
+      parseExport(
+        JSON.stringify({ app: 'countersign', schemaVersion: 3, data: {} }),
+      ),
+    ).toEqual({
+      ok: false,
+      errors: [
+        'This file was made by a newer version of Countersign (schema 3). Update the extension first.',
+      ],
+    });
   });
 
   it('runs migrations in order, forward only', () => {
