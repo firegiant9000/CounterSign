@@ -1,0 +1,87 @@
+import { ESLint } from 'eslint';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { NETWORK_TOKENS, scanText } from './scan';
+
+const eslint = new ESLint({ cwd: resolve(import.meta.dirname, '..') });
+
+async function messages(code: string, filePath: string) {
+  const [result] = await eslint.lintText(code, { filePath });
+  return result?.messages ?? [];
+}
+
+async function ruleIds(code: string, filePath: string): Promise<string[]> {
+  return (await messages(code, filePath)).map((m) => m.ruleId ?? '');
+}
+
+describe('scanText', () => {
+  it('finds each network token as a whole word', () => {
+    for (const token of NETWORK_TOKENS) {
+      expect(scanText('a.js', `x;${token}(1);`, [])).toHaveLength(1);
+    }
+  });
+  it('ignores longer identifiers', () => {
+    expect(scanText('a.js', 'prefetchCount=1;refetch()', [])).toEqual([]);
+  });
+  it('drops a hit that an allowlist entry explains', () => {
+    const allow = [
+      { token: 'fetch', near: 'errorMessage="fetch failed"', reason: 'test' },
+    ];
+    expect(scanText('a.js', 'var errorMessage="fetch failed";', allow)).toEqual(
+      [],
+    );
+    expect(
+      scanText('a.js', 'fetch("https://example.com")', allow),
+    ).toHaveLength(1);
+  });
+});
+
+describe('lint rule', () => {
+  it.each([
+    "fetch('https://example.com');",
+    'new XMLHttpRequest();',
+    "new WebSocket('wss://example.com');",
+    "new EventSource('https://example.com');",
+    "navigator.sendBeacon('https://example.com');",
+    "window.fetch('https://example.com');",
+    "globalThis.fetch('https://example.com');",
+  ])('rejects %s', async (code) => {
+    const rules = await ruleIds(code, 'entrypoints/background.ts');
+    expect(rules.some((id) => id.startsWith('no-restricted'))).toBe(true);
+  });
+});
+
+describe('core/ restrictions still bite alongside the network rules', () => {
+  it('rejects fetch in core/', async () => {
+    const rules = await ruleIds(
+      "fetch('https://example.com');",
+      'core/src/status.ts',
+    );
+    expect(rules.some((id) => id.startsWith('no-restricted'))).toBe(true);
+  });
+  it('rejects the DOM in core/', async () => {
+    const rules = await ruleIds('document.title;', 'core/src/status.ts');
+    expect(rules).toContain('no-restricted-globals');
+  });
+  it('rejects fetch in core/ with the network message', async () => {
+    const found = await messages(
+      "fetch('https://example.com');",
+      'core/src/status.ts',
+    );
+    expect(found.some((m) => m.message.includes('network'))).toBe(true);
+  });
+  it('rejects preact imports in core/', async () => {
+    const rules = await ruleIds(
+      "import { h } from 'preact';",
+      'core/src/status.ts',
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+  it('rejects shell imports in core/', async () => {
+    const rules = await ruleIds(
+      "import x from '../../shell/x';",
+      'core/src/status.ts',
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+});

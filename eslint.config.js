@@ -1,6 +1,33 @@
+import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+// The extension makes no network requests. These entries apply to all
+// project source, and core/ spreads them into its own rule options because a
+// later block that sets the same rule replaces the earlier one.
+const NETWORK_MESSAGE = 'This extension makes no network requests.';
+const networkGlobals = [
+  'fetch',
+  'XMLHttpRequest',
+  'WebSocket',
+  'EventSource',
+].map((name) => ({ name, message: NETWORK_MESSAGE }));
+const networkProperties = ['window', 'globalThis', 'self'].map((object) => ({
+  object,
+  property: 'fetch',
+  message: NETWORK_MESSAGE,
+}));
+const networkSyntax = [
+  {
+    selector: "MemberExpression[property.name='sendBeacon']",
+    message: NETWORK_MESSAGE,
+  },
+  {
+    selector: "MemberExpression[property.value='sendBeacon']",
+    message: NETWORK_MESSAGE,
+  },
+];
+
+export default defineConfig(
   {
     ignores: ['.output', '.wxt', 'node_modules', '.superpowers/'],
   },
@@ -13,6 +40,11 @@ export default tseslint.config(
           allowDefaultProject: ['eslint.config.js'],
         },
       },
+    },
+    rules: {
+      'no-restricted-globals': ['error', ...networkGlobals],
+      'no-restricted-properties': ['error', ...networkProperties],
+      'no-restricted-syntax': ['error', ...networkSyntax],
     },
   },
   // core/ is framework-free: no framework, storage or browser access.
@@ -39,6 +71,7 @@ export default tseslint.config(
       ],
       'no-restricted-globals': [
         'error',
+        ...networkGlobals,
         ...[
           'browser',
           'chrome',
