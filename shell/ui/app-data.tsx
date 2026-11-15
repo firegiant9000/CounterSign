@@ -47,6 +47,7 @@ function messageOf(err: unknown): string {
 
 export function AppDataProvider(props: { children: ComponentChildren }): VNode {
   const [state, setState] = useState<State>({ status: 'loading' });
+  const [notice, setNotice] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,46 +88,81 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
         settings: initialSettings,
       };
 
-      const publish = (data: Snapshot, settings: Settings): void => {
+      // Operations start in call order and the queue runs them in that
+      // order, so a higher sequence number always holds newer data. A slower
+      // earlier operation must not publish over a later one.
+      let started = 0;
+      let published = 0;
+
+      const publish = (
+        seq: number,
+        data: Snapshot,
+        settings: Settings,
+      ): void => {
+        if (seq < published) return;
+        published = seq;
         current = { data, settings };
         if (cancelled) return;
-        setState({ status: 'ready', value: build() });
+        setNotice(undefined);
+        setState({ status: 'ready', value: view() });
+      };
+
+      const tellOtherTabs = (): void => {
+        if (cancelled) return;
+        try {
+          ch.postMessage('changed');
+        } catch {
+          // The write is already stored; other tabs just will not hear of it.
+        }
       };
 
       const reload = async (): Promise<void> => {
-        const [data, settings] = await Promise.all([
-          queue.run(() => []),
-          loadSettings(area),
-        ]);
-        publish(data, settings);
+        const seq = ++started;
+        const data = await queue.run(() => []);
+        const settings = await loadSettings(area);
+        publish(seq, data, settings);
       };
 
-      const build = (): AppData => ({
+      const apply: AppData['apply'] = async (ops) => {
+        const seq = ++started;
+        const data = await queue.run(
+          typeof ops === 'function' ? ops : () => ops,
+        );
+        publish(seq, data, current.settings);
+        tellOtherTabs();
+      };
+
+      const dataReplaced: AppData['dataReplaced'] = async () => {
+        const seq = ++started;
+        const data = await ensureDefaults();
+        const settings = await loadSettings(area);
+        publish(seq, data, settings);
+        tellOtherTabs();
+      };
+
+      // Callbacks are created once; only data and settings change per publish.
+      const view = (): AppData => ({
         data: current.data,
         settings: current.settings,
         deps,
         service,
-        async apply(ops) {
-          const data = await queue.run(
-            typeof ops === 'function' ? ops : () => ops,
-          );
-          publish(data, current.settings);
-          ch.postMessage('changed');
-        },
+        apply,
         reload,
-        async dataReplaced() {
-          const data = await ensureDefaults();
-          const settings = await loadSettings(area);
-          publish(data, settings);
-          ch.postMessage('changed');
-        },
+        dataReplaced,
       });
 
       ch.onmessage = () => {
-        reload().catch(() => undefined);
+        reload().catch((err: unknown) => {
+          console.error('Countersign: cross-tab reload failed', err);
+          if (!cancelled) {
+            setNotice(
+              `Another tab changed the data, but this tab could not reload it: ${messageOf(err)}. Reload the page.`,
+            );
+          }
+        });
       };
 
-      setState({ status: 'ready', value: build() });
+      setState({ status: 'ready', value: view() });
     }
 
     start().catch((err: unknown) => {
@@ -148,6 +184,7 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
   if (state.status === 'loading') return <p>Loading…</p>;
   return (
     <AppDataContext.Provider value={state.value}>
+      {notice ? <p>{notice}</p> : null}
       {props.children}
     </AppDataContext.Provider>
   );
