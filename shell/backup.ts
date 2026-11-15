@@ -115,17 +115,10 @@ export async function ensureBackupAlarm(alarms: AlarmApi): Promise<void> {
 }
 
 export function browserBackupDeps(): BackupDeps {
-  let repoPromise: Promise<Repository> | undefined;
   return {
     repo: {
-      snapshot: () => {
-        const opening = (repoPromise ??= openIdbRepository());
-        // A failed open must not be cached for the life of the event page.
-        opening.catch(() => {
-          if (repoPromise === opening) repoPromise = undefined;
-        });
-        return opening.then((repo) => repo.snapshot());
-      },
+      // Fresh open per call: the event page holds no connection between wakes.
+      snapshot: async () => (await openIdbRepository()).snapshot(),
     },
     area: browserLocalArea(),
     saver: browserFileSaver(),

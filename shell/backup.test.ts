@@ -105,6 +105,37 @@ describe('runBackupCheck', () => {
     expect(state.lastFailure).toBeUndefined();
   });
 
+  it('writes state under the write lock and downloads outside it', async () => {
+    const { deps, area } = await setup({ writesSince: 25 });
+    let held = false;
+    let savedWhileHeld: boolean | undefined;
+    const setsHeld: boolean[] = [];
+    deps.withWriteLock = async (fn) => {
+      held = true;
+      try {
+        return await fn();
+      } finally {
+        held = false;
+      }
+    };
+    deps.area = {
+      get: (key) => area.get(key),
+      set: (key, value) => {
+        setsHeld.push(held);
+        return area.set(key, value);
+      },
+    };
+    deps.saver = {
+      save: () => {
+        savedWhileHeld = held;
+        return Promise.resolve();
+      },
+    };
+    expect(await runBackupCheck(deps)).toBe('saved');
+    expect(savedWhileHeld).toBe(false);
+    expect(setsHeld).toEqual([true, true]);
+  });
+
   it('keeps counting writes made during the download', async () => {
     const setupResult = await setup({ writesSince: 25 });
     const { deps, area } = setupResult;
