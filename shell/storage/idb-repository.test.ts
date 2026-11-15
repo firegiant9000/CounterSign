@@ -1,5 +1,5 @@
 import 'fake-indexeddb/auto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { STORES, SCHEMA_VERSION, emptySnapshot } from '../../core/src/schema';
 import type { Company, Snapshot } from '../../core/src/types';
 import { describeRepositoryContract } from '../../core/testing/repository-contract';
@@ -141,5 +141,71 @@ describe('indexeddb repository', () => {
     await expect(openIdbRepository({ dbName })).rejects.toThrow(
       'This data was written by a newer version of Countersign.',
     );
+  });
+});
+
+describe('onWrite', () => {
+  it('is called once for an apply that writes across two stores', async () => {
+    const onWrite = vi.fn(() => Promise.resolve());
+    const repo = await openIdbRepository({ dbName: freshName(), onWrite });
+    await repo.apply([
+      { kind: 'put', store: 'companies', record: { id: 'c1', createdAt: T } },
+      { kind: 'put', store: 'companies', record: { id: 'c2', createdAt: T } },
+      {
+        kind: 'put',
+        store: 'applications',
+        record: { id: 'a1', createdAt: T },
+      },
+    ]);
+    expect(onWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not called for an empty apply', async () => {
+    const onWrite = vi.fn(() => Promise.resolve());
+    const repo = await openIdbRepository({ dbName: freshName(), onWrite });
+    await repo.apply([]);
+    expect(onWrite).not.toHaveBeenCalled();
+  });
+
+  it('is not called when apply fails validation', async () => {
+    const onWrite = vi.fn(() => Promise.resolve());
+    const repo = await openIdbRepository({ dbName: freshName(), onWrite });
+    const missingCreatedAt = { id: 'c1' } as unknown as Company;
+    await expect(
+      repo.apply([
+        { kind: 'put', store: 'companies', record: missingCreatedAt },
+      ]),
+    ).rejects.toThrow();
+    expect(onWrite).not.toHaveBeenCalled();
+  });
+
+  it('is called once by replaceAll', async () => {
+    const onWrite = vi.fn(() => Promise.resolve());
+    const repo = await openIdbRepository({ dbName: freshName(), onWrite });
+    await repo.replaceAll(emptySnapshot());
+    expect(onWrite).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the write and logs when the hook rejects', async () => {
+    const onWrite = vi.fn(() =>
+      Promise.reject(new Error('backup unavailable')),
+    );
+    const repo = await openIdbRepository({ dbName: freshName(), onWrite });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    try {
+      await repo.apply([
+        { kind: 'put', store: 'companies', record: { id: 'c1', createdAt: T } },
+      ]);
+      const snap = await repo.snapshot();
+      expect(snap.companies.map((c) => c.id)).toEqual(['c1']);
+      expect(consoleError).toHaveBeenCalledWith(
+        'Countersign: could not count a write for the backup',
+        expect.any(Error),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
