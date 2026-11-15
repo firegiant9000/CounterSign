@@ -1,0 +1,68 @@
+// core/ declares no URL global (lib ES2023, types []), so declare the subset used here.
+interface UrlLike {
+  protocol: string;
+  hash: string;
+  search: string;
+  href: string;
+  searchParams: { forEach(cb: (value: string, key: string) => void): void };
+}
+declare const URL: { new (url: string, base?: string): UrlLike };
+
+const TRACKING_NAMES = new Set([
+  'gclid',
+  'fbclid',
+  'msclkid',
+  'mc_cid',
+  'mc_eid',
+  'gh_src',
+  'lever-source',
+  'source',
+  'src',
+  'ref',
+  'refid',
+  'trk',
+  'trackingid',
+]);
+
+function parseHttp(input: string, base?: string): UrlLike | undefined {
+  try {
+    const parsed = new URL(input, base);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isTrackingParam(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.startsWith('utm_') || TRACKING_NAMES.has(lower);
+}
+
+/**
+ * Returns a stable form of a job posting URL: fragment and tracking parameters
+ * removed, rel=canonical used when it is a valid http(s) URL. Never throws.
+ */
+export function canonicalizeUrl(url: string, relCanonical?: string): string {
+  const input = url.trim();
+  const rel = relCanonical?.trim() ?? '';
+  const parsed =
+    (rel !== '' ? parseHttp(rel, input) : undefined) ?? parseHttp(input);
+  if (!parsed) return input;
+
+  // A '#' or '?' cannot appear unencoded inside the path, so the first occurrence starts the fragment or query.
+  const href = parsed.href;
+  const hashIndex = href.indexOf('#');
+  const noHash = hashIndex >= 0 ? href.slice(0, hashIndex) : href;
+  const queryIndex = noHash.indexOf('?');
+  const base = queryIndex >= 0 ? noHash.slice(0, queryIndex) : noHash;
+
+  const kept: string[] = [];
+  parsed.searchParams.forEach((value, key) => {
+    if (!isTrackingParam(key)) {
+      kept.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+    }
+  });
+  return kept.length > 0 ? `${base}?${kept.join('&')}` : base;
+}
