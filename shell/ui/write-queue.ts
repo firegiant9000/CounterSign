@@ -21,7 +21,7 @@ export interface WriteQueue {
 const LOCK_NAME = 'countersign-write';
 
 /** Holds the cross-tab Web Lock around fn; runs without it where unavailable. */
-function withLock<T>(fn: () => Promise<T>): Promise<T> {
+export function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
   const locks =
     typeof navigator === 'undefined'
       ? undefined
@@ -34,7 +34,7 @@ export function createWriteQueue(repo: Repository): WriteQueue {
   let tail: Promise<unknown> = Promise.resolve();
 
   function turn<T>(fn: () => Promise<T>): Promise<T> {
-    const result = tail.then(() => withLock(fn));
+    const result = tail.then(() => withWriteLock(fn));
     tail = result.catch(() => undefined);
     return result;
   }

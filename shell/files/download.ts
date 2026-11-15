@@ -3,7 +3,11 @@ import { browser } from 'wxt/browser';
 export interface FileSaver {
   // Resolves only when the file is fully written; rejects when the download
   // is cancelled or interrupted.
-  save(path: string, text: string, options: { saveAs: boolean }): Promise<void>;
+  save(
+    path: string,
+    text: string,
+    options: { saveAs: boolean; conflictAction?: 'uniquify' | 'overwrite' },
+  ): Promise<void>;
 }
 
 interface DownloadDelta {
@@ -82,7 +86,7 @@ export function browserFileSaver(): FileSaver {
               url,
               filename: path,
               saveAs: options.saveAs,
-              conflictAction: 'uniquify',
+              conflictAction: options.conflictAction ?? 'uniquify',
             })
             .then(
               (id) => {
