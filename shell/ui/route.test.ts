@@ -12,6 +12,8 @@ describe('route', () => {
     ['#/data', { page: 'data' }],
     ['#/settings', { page: 'settings' }],
     ['#/settings/x', { page: 'applications' }],
+    ['#/quiet', { page: 'quiet' }],
+    ['#/quiet/x', { page: 'applications' }],
     ['#/nonsense', { page: 'applications' }],
   ])('parses %s', (hash, route) => expect(parseRoute(hash)).toEqual(route));
 
@@ -20,8 +22,13 @@ describe('route', () => {
       { page: 'application', id: 'a b' },
       { page: 'answers' },
       { page: 'settings' },
+      { page: 'quiet' },
     ] as Route[])
       expect(parseRoute(routeHref(r))).toEqual(r);
+  });
+
+  it('builds the quiet href', () => {
+    expect(routeHref({ page: 'quiet' })).toBe('#/quiet');
   });
 
   it('builds the settings href', () => {

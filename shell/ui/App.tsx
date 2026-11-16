@@ -5,6 +5,7 @@ import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
 import { BackupStatus } from './BackupStatus';
 import { DataPage } from './DataPage';
+import { QuietList } from './QuietList';
 import { parseRoute, routeHref } from './route';
 import { SettingsPage } from './SettingsPage';
 import type { Route } from './route';
@@ -20,6 +21,8 @@ function Page(props: { route: Route }): VNode {
       return <AnswersPage />;
     case 'data':
       return <DataPage />;
+    case 'quiet':
+      return <QuietList />;
     case 'settings':
       return <SettingsPage />;
   }
@@ -36,7 +39,7 @@ export function App(): VNode {
 
   const current = route.page === 'application' ? 'applications' : route.page;
   const link = (
-    page: 'applications' | 'answers' | 'data' | 'settings',
+    page: 'applications' | 'quiet' | 'answers' | 'data' | 'settings',
     label: string,
   ) => (
     <a
@@ -51,6 +54,7 @@ export function App(): VNode {
     <>
       <nav class="nav">
         {link('applications', 'Applications')}
+        {link('quiet', 'Quiet')}
         {link('answers', 'Answers')}
         {link('data', 'Data')}
         {link('settings', 'Settings')}
