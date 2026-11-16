@@ -1,3 +1,4 @@
+import type { FillOutcome, SiteType } from './formhand';
 import type { StatusKey } from './status';
 
 export type Id = string;
@@ -22,6 +23,9 @@ export interface Application extends BaseRecord {
   coverLetterDocumentId?: Id;
   notes?: string;
   jobId?: Id;
+  siteType?: SiteType;
+  fillOutcome?: FillOutcome;
+  fillNote?: string;
 }
 export interface StatusEvent extends BaseRecord {
   applicationId?: Id;

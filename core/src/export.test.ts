@@ -103,6 +103,52 @@ describe('parseExport', () => {
     });
   });
 
+  it('round-trips the Formhand fields and the cut-off', () => {
+    const snap: Snapshot = {
+      ...emptySnapshot(),
+      applications: [
+        {
+          id: 'a1',
+          createdAt: T,
+          companyId: 'c1',
+          siteType: 'workday',
+          fillOutcome: 'partly',
+          fillNote: 'Skipped the address step',
+        },
+      ],
+      statements: [
+        {
+          id: 's1',
+          createdAt: T,
+          applicationId: 'a1',
+          answerKey: 'notice-period',
+          value: { type: 'text', value: 'Two weeks' },
+          exception: true,
+        },
+      ],
+    };
+    const settings = { noResponseDays: 45 };
+    const parsed = parseExport(
+      JSON.stringify(buildExport(snap, settings, { now: () => T })),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.data).toEqual(snap);
+    expect(parsed.file.settings).toEqual(settings);
+  });
+
+  it('restores an export without the new fields', () => {
+    const result = parseExport(fixtureText);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    for (const app of result.file.data.applications) {
+      expect(app).not.toHaveProperty('siteType');
+      expect(app).not.toHaveProperty('fillOutcome');
+      expect(app).not.toHaveProperty('fillNote');
+    }
+    expect(result.file.settings).not.toHaveProperty('noResponseDays');
+  });
+
   it('reads the schema 1 fixture at schema 2', () => {
     const result = parseExport(fixtureText);
     expect(result.ok).toBe(true);

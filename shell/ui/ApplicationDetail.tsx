@@ -9,6 +9,14 @@ import {
 import type { ApplicationPatch } from '../../core/src/application-ops';
 import { isLocalDate, toLocalDate } from '../../core/src/dates';
 import {
+  FILL_OUTCOMES,
+  FILL_OUTCOME_LABELS,
+  SITE_TYPES,
+  SITE_TYPE_LABELS,
+  isFillOutcome,
+  isSiteType,
+} from '../../core/src/formhand';
+import {
   STATUS_KEYS,
   currentStatus,
   effectiveDate,
@@ -46,6 +54,13 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   const [urlError, setUrlError] = useState<string | undefined>(undefined);
   const [actorError, setActorError] = useState<string | undefined>(undefined);
   const [notesError, setNotesError] = useState<string | undefined>(undefined);
+  const [siteError, setSiteError] = useState<string | undefined>(undefined);
+  const [fillOutcomeError, setFillOutcomeError] = useState<string | undefined>(
+    undefined,
+  );
+  const [fillNoteError, setFillNoteError] = useState<string | undefined>(
+    undefined,
+  );
   const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
   const [nextError, setNextError] = useState<string | undefined>(undefined);
   const [eventError, setEventError] = useState<string | undefined>(undefined);
@@ -170,6 +185,9 @@ export function ApplicationDetail(props: { id: Id }): VNode {
     typeof app.nextActionDate === 'string' ? app.nextActionDate : '';
   const actor =
     app.nextActor === 'me' || app.nextActor === 'them' ? app.nextActor : '';
+  const siteType = isSiteType(app.siteType) ? app.siteType : '';
+  const fillOutcome = isFillOutcome(app.fillOutcome) ? app.fillOutcome : '';
+  const fillNote = typeof app.fillNote === 'string' ? app.fillNote : '';
 
   return (
     <div class="detail">
@@ -274,6 +292,74 @@ export function ApplicationDetail(props: { id: Id }): VNode {
 
       <h2>What I told them</h2>
       <StatementsSection applicationId={id} />
+
+      <h2>Formhand log</h2>
+      <div class="detail-fields">
+        <label>
+          Application site
+          <select
+            key={`site-${siteType}`}
+            value={siteType}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              void save(
+                {
+                  siteType: isSiteType(value) ? value : undefined,
+                },
+                setSiteError,
+              );
+            }}
+          >
+            <option value="">Not recorded</option>
+            {SITE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {SITE_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          {siteError ? <span class="field-error">{siteError}</span> : null}
+        </label>
+        <label>
+          How filling went
+          <select
+            key={`fill-${fillOutcome}`}
+            value={fillOutcome}
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              void save(
+                {
+                  fillOutcome: isFillOutcome(value) ? value : undefined,
+                },
+                setFillOutcomeError,
+              );
+            }}
+          >
+            <option value="">Not recorded</option>
+            {FILL_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {FILL_OUTCOME_LABELS[o]}
+              </option>
+            ))}
+          </select>
+          {fillOutcomeError ? (
+            <span class="field-error">{fillOutcomeError}</span>
+          ) : null}
+        </label>
+        <label>
+          Fill note
+          <input
+            key={`fill-note-${fillNote}`}
+            type="text"
+            defaultValue={fillNote}
+            onChange={(e) => {
+              void save({ fillNote: e.currentTarget.value }, setFillNoteError);
+            }}
+          />
+          {fillNoteError ? (
+            <span class="field-error">{fillNoteError}</span>
+          ) : null}
+        </label>
+      </div>
 
       <h2>Status history</h2>
       {history.length === 0 ? <p>No status yet.</p> : null}
