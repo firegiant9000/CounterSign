@@ -11,6 +11,11 @@ import type { Contact } from '../../core/src/types';
 import { useAppData } from './app-data';
 import { ContactForm } from './ContactForm';
 
+// Restored data may hold odd types; render only strings.
+function str(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
 function reasonOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -98,12 +103,12 @@ export function ContactsPage(): VNode {
       </li>
     ) : (
       <li key={contact.id}>
-        <strong>{contact.name || '(no name)'}</strong>
-        {contact.role ? `, ${contact.role}` : ''}
-        {contact.howKnown ? (
-          <div>How you know them: {contact.howKnown}</div>
+        <strong>{str(contact.name) || '(no name)'}</strong>
+        {str(contact.role) ? `, ${str(contact.role)}` : ''}
+        {str(contact.howKnown) ? (
+          <div>How you know them: {str(contact.howKnown)}</div>
         ) : null}
-        {contact.notes ? <div>{contact.notes}</div> : null}
+        {str(contact.notes) ? <div>{str(contact.notes)}</div> : null}
         <button
           type="button"
           disabled={busy}

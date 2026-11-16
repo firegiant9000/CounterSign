@@ -10,10 +10,12 @@ export function ContactForm(props: {
   onCancel?: () => void;
 }): VNode {
   const { initial, submitLabel, busy, onSubmit, onCancel } = props;
-  const [name, setName] = useState(initial?.name ?? '');
-  const [role, setRole] = useState(initial?.role ?? '');
-  const [howKnown, setHowKnown] = useState(initial?.howKnown ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
+  // Restored data may hold odd types; only strings seed the fields.
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+  const [name, setName] = useState(str(initial?.name));
+  const [role, setRole] = useState(str(initial?.role));
+  const [howKnown, setHowKnown] = useState(str(initial?.howKnown));
+  const [notes, setNotes] = useState(str(initial?.notes));
   const [nameError, setNameError] = useState<string | undefined>(undefined);
 
   const submit = (event: Event): void => {
