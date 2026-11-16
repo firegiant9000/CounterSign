@@ -1292,6 +1292,8 @@ S2-6 (pull request 2) is written out in full in `docs/superpowers/plans/2026-11-
 
 S2-7 to S2-10 (pull request 3) are written out in full in `docs/superpowers/plans/2026-11-15-countersign-stage2-pr3.md`.
 
+S2-11 to S2-14 (pull request 4) are written out in full in `docs/superpowers/plans/2026-11-16-countersign-stage2-pr4.md`.
+
 | # | Task | Model | Files | Produces and tests |
 |---|---|---|---|---|
 | S2-1 | Schema 2 | sonnet | `core/src/types.ts`, `schema.ts`, `migrations.ts`, `core/src/migrations.test.ts`, `shell/storage/idb-repository.test.ts` | Stores `jobs`, `statements`, `contacts`, `contactEvents`, `tasks`, `profileFields` with `since: 2`; `SCHEMA_VERSION = 2`; migration to 2. Tests: the schema 1 fixture parses at schema 2 with the new stores empty and old records unchanged; an IndexedDB database created at version 1 with records opens at version 2 with records intact and the new stores present. Add `core/fixtures/v2-export.fixture.json` at the end of the stage. |
