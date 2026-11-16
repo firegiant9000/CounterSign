@@ -26,6 +26,7 @@ import {
 import type { StatusKey } from '../../core/src/status';
 import type { Id } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { AnyoneHere } from './AnyoneHere';
 import { DocumentField } from './DocumentField';
 import { routeHref } from './route';
 import { StatementsSection } from './StatementsSection';
@@ -195,6 +196,14 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         <a href={routeHref({ page: 'applications' })}>Back to applications</a>
       </p>
       <h1>{company?.name ?? 'Unknown company'}</h1>
+      <section class="data-section">
+        <h2>People here</h2>
+        <AnyoneHere
+          companyName={
+            typeof company?.name === 'string' ? company.name : undefined
+          }
+        />
+      </section>
 
       <div class="detail-fields">
         <label>

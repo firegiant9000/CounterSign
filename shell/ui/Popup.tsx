@@ -13,6 +13,7 @@ import { capturePage } from '../capture/inject';
 import type { CaptureOutcome } from '../capture/inject';
 import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
+import { AnyoneHere } from './AnyoneHere';
 
 const PREVIEW_CHARS = 300;
 
@@ -25,6 +26,7 @@ type Facts = {
   jobId: string;
   match: 'already_applied' | 'possible_match' | undefined;
   repost: string | undefined;
+  companyName: string | undefined;
 };
 
 function messageOf(err: unknown): string {
@@ -99,7 +101,7 @@ export function Popup(): VNode {
     )?.text;
     app.apply(ops).then(
       () => {
-        setFacts({ jobId, match, repost });
+        setFacts({ jobId, match, repost, companyName: candidate.companyName });
         setSaving(false);
       },
       (err: unknown) => {
@@ -288,6 +290,7 @@ export function Popup(): VNode {
             </p>
           ) : null}
           {facts.repost ? <p>{facts.repost}</p> : null}
+          <AnyoneHere compact companyName={facts.companyName} />
           <div class="popup-actions">
             {created ? (
               <span>Application created.</span>
