@@ -11,7 +11,11 @@ import { createDataService } from '../data-service';
 import type { DataService } from '../data-service';
 import { recordWrite } from '../storage/backup-state';
 import { openIdbRepository } from '../storage/idb-repository';
-import { browserLocalArea, loadSettings } from '../storage/settings';
+import {
+  browserLocalArea,
+  loadSettings,
+  saveSettings as storeSettings,
+} from '../storage/settings';
 import { createWriteQueue } from './write-queue';
 import type { OpsBuilder } from './write-queue';
 
@@ -24,6 +28,8 @@ export interface AppData {
   apply(ops: readonly WriteOp[] | OpsBuilder): Promise<void>;
   /** Restores an export as one exclusive queue turn, so no write is lost. Call dataReplaced() afterwards. */
   restore(file: ExportFile): Promise<void>;
+  /** Merges patch into the stored settings in one exclusive queue turn (under the write lock), then reloads and tells other tabs. */
+  saveSettings(patch: Partial<Settings>): Promise<void>;
   /** Re-reads snapshot and settings. Does not broadcast. */
   reload(): Promise<void>;
   /** After a restore (Task 18): ensure default answers, reload snapshot and settings, tell other tabs. */
@@ -149,6 +155,15 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
       const restore: AppData['restore'] = (file) =>
         queue.exclusive(() => service.restore(file));
 
+      const saveSettings: AppData['saveSettings'] = async (patch) => {
+        await queue.exclusive(async () => {
+          const cur = await loadSettings(area);
+          await storeSettings(area, { ...cur, ...patch });
+        });
+        await reload();
+        tellOtherTabs();
+      };
+
       // Callbacks are created once; only data and settings change per publish.
       const view = (): AppData => ({
         data: current.data,
@@ -157,6 +172,7 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
         service,
         apply,
         restore,
+        saveSettings,
         reload,
         dataReplaced,
       });

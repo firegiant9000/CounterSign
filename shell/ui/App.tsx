@@ -6,6 +6,7 @@ import { ApplicationsPage } from './ApplicationsPage';
 import { BackupStatus } from './BackupStatus';
 import { DataPage } from './DataPage';
 import { parseRoute, routeHref } from './route';
+import { SettingsPage } from './SettingsPage';
 import type { Route } from './route';
 
 function Page(props: { route: Route }): VNode {
@@ -19,6 +20,8 @@ function Page(props: { route: Route }): VNode {
       return <AnswersPage />;
     case 'data':
       return <DataPage />;
+    case 'settings':
+      return <SettingsPage />;
   }
 }
 
@@ -32,7 +35,10 @@ export function App(): VNode {
   }, []);
 
   const current = route.page === 'application' ? 'applications' : route.page;
-  const link = (page: 'applications' | 'answers' | 'data', label: string) => (
+  const link = (
+    page: 'applications' | 'answers' | 'data' | 'settings',
+    label: string,
+  ) => (
     <a
       href={routeHref({ page })}
       class={current === page ? 'active' : undefined}
@@ -47,6 +53,7 @@ export function App(): VNode {
         {link('applications', 'Applications')}
         {link('answers', 'Answers')}
         {link('data', 'Data')}
+        {link('settings', 'Settings')}
       </nav>
       <BackupStatus />
       <main>

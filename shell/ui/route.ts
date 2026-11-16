@@ -2,7 +2,8 @@ export type Route =
   | { page: 'applications' }
   | { page: 'application'; id: string }
   | { page: 'answers' }
-  | { page: 'data' };
+  | { page: 'data' }
+  | { page: 'settings' };
 
 const APPLICATIONS: Route = { page: 'applications' };
 
@@ -15,6 +16,8 @@ export function parseRoute(hash: string): Route {
       return rest === undefined ? { page: 'answers' } : APPLICATIONS;
     case 'data':
       return rest === undefined ? { page: 'data' } : APPLICATIONS;
+    case 'settings':
+      return rest === undefined ? { page: 'settings' } : APPLICATIONS;
     case 'applications':
       if (rest === undefined || rest === '') return APPLICATIONS;
       try {
@@ -37,5 +40,7 @@ export function routeHref(route: Route): string {
       return '#/answers';
     case 'data':
       return '#/data';
+    case 'settings':
+      return '#/settings';
   }
 }
