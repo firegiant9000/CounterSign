@@ -16,6 +16,8 @@ describe('route', () => {
     ['#/quiet/x', { page: 'applications' }],
     ['#/contacts', { page: 'contacts' }],
     ['#/contacts/x', { page: 'applications' }],
+    ['#/details', { page: 'details' }],
+    ['#/details/x', { page: 'applications' }],
     ['#/deadlines', { page: 'deadlines' }],
     ['#/deadlines/x', { page: 'applications' }],
     ['#/nonsense', { page: 'applications' }],
@@ -42,6 +44,10 @@ describe('route', () => {
 
   it('builds the contacts href', () => {
     expect(routeHref({ page: 'contacts' })).toBe('#/contacts');
+  });
+
+  it('builds the details href', () => {
+    expect(routeHref({ page: 'details' })).toBe('#/details');
   });
 
   it('builds the settings href', () => {

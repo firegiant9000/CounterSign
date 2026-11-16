@@ -5,6 +5,7 @@ import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
 import { BackupStatus } from './BackupStatus';
 import { ContactsPage } from './ContactsPage';
+import { CopyPanel } from './CopyPanel';
 import { DataPage } from './DataPage';
 import { DeadlinesPage } from './DeadlinesPage';
 import { QuietList } from './QuietList';
@@ -29,6 +30,8 @@ function Page(props: { route: Route }): VNode {
       return <QuietList />;
     case 'contacts':
       return <ContactsPage />;
+    case 'details':
+      return <CopyPanel />;
     case 'settings':
       return <SettingsPage />;
   }
@@ -51,6 +54,7 @@ export function App(): VNode {
       | 'quiet'
       | 'contacts'
       | 'answers'
+      | 'details'
       | 'data'
       | 'settings',
     label: string,
@@ -71,6 +75,7 @@ export function App(): VNode {
         {link('quiet', 'Quiet')}
         {link('contacts', 'Contacts')}
         {link('answers', 'Answers')}
+        {link('details', 'My details')}
         {link('data', 'Data')}
         {link('settings', 'Settings')}
       </nav>
