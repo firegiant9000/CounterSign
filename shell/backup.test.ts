@@ -176,6 +176,54 @@ describe('runBackupCheck', () => {
     expect(state.writesSince).toBe(25);
   });
 
+  it('records a snapshot failure and backs off', async () => {
+    const { deps, area, calls } = await setup({ writesSince: 25 });
+    deps.repo = {
+      snapshot: () => Promise.reject(new Error('Database blocked')),
+    };
+    expect(await runBackupCheck(deps)).toBe('failed');
+    const state = await loadBackupState(area);
+    expect(state.lastAttemptAt).toBe(NOW);
+    expect(state.lastFailure?.message).toBe('Database blocked');
+    expect(calls).toHaveLength(0);
+    expect(await runBackupCheck(deps)).toBe('not_due');
+  });
+
+  it('reports when the saved file could not be recorded', async () => {
+    const { deps, area } = await setup({ writesSince: 25 });
+    let sets = 0;
+    deps.area = {
+      get: (key) => area.get(key),
+      set: (key, value) => {
+        sets += 1;
+        if (sets === 2) return Promise.reject(new Error('Storage full'));
+        return area.set(key, value);
+      },
+    };
+    await expect(runBackupCheck(deps)).rejects.toThrow(
+      'The backup file was saved, but its date was not recorded: Storage full',
+    );
+  });
+
+  it('does not overwrite the backup with an empty database', async () => {
+    const { deps, area, calls } = await setup({ writesSince: 25 });
+    const repo = createMemoryRepository();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'canonicalAnswers',
+        record: { id: 'a1', createdAt: '2026-03-01T00:00:00.000Z' },
+      },
+    ]);
+    deps.repo = repo;
+    expect(await runBackupCheck(deps)).toBe('empty');
+    expect(calls).toHaveLength(0);
+    const state = await loadBackupState(area);
+    expect(state.lastAttemptAt).toBe(NOW);
+    expect(state.lastFailure).toBeUndefined();
+    expect(state.writesSince).toBe(25);
+  });
+
   it('is busy when the backup lock is held', async () => {
     const { deps, area, calls } = await setup({ writesSince: 25, busy: true });
     const before = await loadBackupState(area);

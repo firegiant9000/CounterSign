@@ -7,6 +7,7 @@ import {
 } from '../core/src/backup';
 import { buildExport } from '../core/src/export';
 import type { Repository } from '../core/src/repository';
+import { STORES } from '../core/src/schema';
 import type { Deps } from '../core/src/types';
 import { browserFileSaver } from './files/download';
 import type { FileSaver } from './files/download';
@@ -31,7 +32,7 @@ export interface BackupDeps {
   tryBackupLock(fn: () => Promise<void>): Promise<boolean>;
 }
 
-export type BackupOutcome = 'not_due' | 'busy' | 'saved' | 'failed';
+export type BackupOutcome = 'not_due' | 'busy' | 'saved' | 'failed' | 'empty';
 
 export async function runBackupCheck(deps: BackupDeps): Promise<BackupOutcome> {
   const { repo, area, saver, clock } = deps;
@@ -41,15 +42,35 @@ export async function runBackupCheck(deps: BackupDeps): Promise<BackupOutcome> {
     const now = clock.now();
 
     // 1. Under the write lock: decide, snapshot, record the attempt.
-    const started = await deps.withWriteLock(async () => {
+    const step1 = await deps.withWriteLock(async () => {
       const state = await loadBackupState(area);
-      if (!backupDue(state, now)) return undefined;
-      const data = await repo.snapshot();
-      const settings = await loadSettings(area);
-      await saveBackupState(area, startAttempt(state, now));
-      return { data, settings, counted: state.writesSince };
+      if (!backupDue(state, now)) return { kind: 'not_due' as const };
+      const attempted = startAttempt(state, now);
+      await saveBackupState(area, attempted);
+      try {
+        const data = await repo.snapshot();
+        const settings = await loadSettings(area);
+        const hasRecords = STORES.some(
+          (s) => s.name !== 'canonicalAnswers' && data[s.name].length > 0,
+        );
+        if (!hasRecords) return { kind: 'empty' as const };
+        return {
+          kind: 'go' as const,
+          data,
+          settings,
+          counted: state.writesSince,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        await saveBackupState(area, afterFailure(attempted, now, message));
+        return { kind: 'failed' as const };
+      }
     });
-    if (started === undefined) return;
+    if (step1.kind !== 'go') {
+      outcome = step1.kind;
+      return;
+    }
+    const started = step1;
 
     // 2. Without the lock: save the file, so writes can continue meanwhile.
     let failure: string | undefined;
@@ -81,15 +102,23 @@ export async function runBackupCheck(deps: BackupDeps): Promise<BackupOutcome> {
     }
 
     // 3. Under the write lock: record the result against the current state.
-    await deps.withWriteLock(async () => {
-      const current = await loadBackupState(area);
-      await saveBackupState(
-        area,
-        failure === undefined
-          ? afterBackup(current, started.counted, now)
-          : afterFailure(current, now, failure),
+    try {
+      await deps.withWriteLock(async () => {
+        const current = await loadBackupState(area);
+        await saveBackupState(
+          area,
+          failure === undefined
+            ? afterBackup(current, started.counted, now)
+            : afterFailure(current, now, failure),
+        );
+      });
+    } catch (err) {
+      if (failure !== undefined) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `The backup file was saved, but its date was not recorded: ${message}`,
       );
-    });
+    }
     outcome = failure === undefined ? 'saved' : 'failed';
   });
 
@@ -117,7 +146,8 @@ export async function ensureBackupAlarm(alarms: AlarmApi): Promise<void> {
 export function browserBackupDeps(): BackupDeps {
   return {
     repo: {
-      // Fresh open per call: the event page holds no connection between wakes.
+      // A fresh connection is opened per snapshot and released when another
+      // context upgrades the database (blocking) or the event page unloads.
       snapshot: async () => (await openIdbRepository()).snapshot(),
     },
     area: browserLocalArea(),

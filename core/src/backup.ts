@@ -73,13 +73,20 @@ export function backupDue(state: BackupState, now: IsoInstant): boolean {
   const nowMs = ms(now);
   if (nowMs === undefined) return false;
   const attempt = ms(state.lastAttemptAt);
-  if (attempt !== undefined && nowMs - attempt < BACKUP_RETRY_HOURS * HOUR_MS) {
+  if (
+    attempt !== undefined &&
+    nowMs - attempt >= 0 &&
+    nowMs - attempt < BACKUP_RETRY_HOURS * HOUR_MS
+  ) {
     const backup = ms(state.lastBackupAt);
     if (backup === undefined || backup < attempt) return false;
   }
   if (state.writesSince >= BACKUP_EVERY_WRITES) return true;
   const since = ms(state.lastBackupAt) ?? ms(state.countingSince);
-  return since !== undefined && nowMs - since >= BACKUP_EVERY_DAYS * DAY_MS;
+  return (
+    since !== undefined &&
+    (since > nowMs || nowMs - since >= BACKUP_EVERY_DAYS * DAY_MS)
+  );
 }
 
 export function startAttempt(state: BackupState, at: IsoInstant): BackupState {
@@ -129,6 +136,10 @@ export function backupStatus(
     text = 'No automatic backup yet.';
     const counting = ms(state.countingSince);
     stale = counting !== undefined && days(counting) > BACKUP_WARN_DAYS;
+  } else if (nowMs !== undefined && lastMs > nowMs) {
+    stale = true;
+    text =
+      "The last automatic backup has a date later than this computer's clock.";
   } else {
     const d = days(lastMs);
     stale = d > BACKUP_WARN_DAYS;

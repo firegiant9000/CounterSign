@@ -17,9 +17,14 @@ export function BackupStatus(): VNode | null {
 
   useEffect(() => {
     let active = true;
+    let pushed = false;
+    const unsubscribe = onBackupStateChanged((state) => {
+      pushed = true;
+      if (active) setLoaded({ kind: 'ready', state });
+    });
     loadBackupState(browserLocalArea()).then(
       (state) => {
-        if (active) setLoaded({ kind: 'ready', state });
+        if (active && !pushed) setLoaded({ kind: 'ready', state });
       },
       (err: unknown) => {
         if (active) {
@@ -30,9 +35,6 @@ export function BackupStatus(): VNode | null {
         }
       },
     );
-    const unsubscribe = onBackupStateChanged((state) => {
-      if (active) setLoaded({ kind: 'ready', state });
-    });
     return () => {
       active = false;
       unsubscribe();
@@ -51,7 +53,7 @@ export function BackupStatus(): VNode | null {
   const status = backupStatus(loaded.state, deps.now());
   let text = status.text;
   if (status.failure !== undefined) {
-    text += ` The last attempt failed: ${status.failure}. It will try again within a day.`;
+    text += ` The last attempt failed: ${status.failure.replace(/\.$/, '')}. It will try again within a day.`;
   }
   if (status.warn) {
     text += ' Export from the Data page if you need a copy now.';

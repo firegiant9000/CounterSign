@@ -88,10 +88,16 @@ describe('backupDue', () => {
     ).toBe(true);
   });
 
-  it('is not due by time when lastBackupAt is in the future', () => {
-    expect(backupDue({ writesSince: 1, lastBackupAt: ago(-DAY) }, NOW)).toBe(
-      false,
-    );
+  it('is due by time when lastBackupAt is in the future', () => {
+    expect(
+      backupDue({ writesSince: 0, lastBackupAt: ago(-3 * DAY) }, NOW),
+    ).toBe(true);
+  });
+
+  it('gives no back-off for a lastAttemptAt in the future', () => {
+    expect(
+      backupDue({ writesSince: 30, lastAttemptAt: ago(-2 * DAY) }, NOW),
+    ).toBe(true);
   });
 
   it('backs off for 24 hours after an attempt without success', () => {
@@ -152,6 +158,15 @@ describe('transitions', () => {
 });
 
 describe('backupStatus', () => {
+  it('warns when lastBackupAt is later than now', () => {
+    expect(
+      backupStatus({ writesSince: 0, lastBackupAt: ago(-3 * DAY) }, NOW),
+    ).toEqual({
+      text: "The last automatic backup has a date later than this computer's clock.",
+      warn: true,
+    });
+  });
+
   it('says none yet without warning when nothing is counted', () => {
     expect(backupStatus({ writesSince: 0 }, NOW)).toEqual({
       text: 'No automatic backup yet.',
