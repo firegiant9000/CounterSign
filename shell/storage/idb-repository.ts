@@ -88,9 +88,22 @@ async function runWrite(
   await tx.done;
 }
 
+// Counting a write must never fail the write itself: the data is already committed.
+async function countWrite(
+  onWrite: (() => Promise<void>) | undefined,
+): Promise<void> {
+  if (!onWrite) return;
+  try {
+    await onWrite();
+  } catch (err) {
+    console.error('Countersign: could not count a write for the backup', err);
+  }
+}
+
 export async function openIdbRepository(
-  options: { dbName?: string } = {},
+  options: { dbName?: string; onWrite?: () => Promise<void> } = {},
 ): Promise<Repository> {
+  const onWrite = options.onWrite;
   let db: Db;
   try {
     db = await openDB<unknown>(
@@ -150,6 +163,7 @@ export async function openIdbRepository(
           queue(op.kind === 'put' ? store.put(op.record) : store.delete(op.id));
         }
       });
+      await countWrite(onWrite);
     },
 
     async replaceAll(incoming) {
@@ -165,6 +179,7 @@ export async function openIdbRepository(
           }
         },
       );
+      await countWrite(onWrite);
     },
   };
 }

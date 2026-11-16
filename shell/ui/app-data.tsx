@@ -9,6 +9,7 @@ import { browserDeps } from '../deps';
 import { browserFileSaver } from '../files/download';
 import { createDataService } from '../data-service';
 import type { DataService } from '../data-service';
+import { recordWrite } from '../storage/backup-state';
 import { openIdbRepository } from '../storage/idb-repository';
 import { browserLocalArea, loadSettings } from '../storage/settings';
 import { createWriteQueue } from './write-queue';
@@ -57,9 +58,11 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
     let channel: BroadcastChannel | undefined;
 
     async function start(): Promise<void> {
-      const repo = await openIdbRepository();
       const deps = browserDeps();
       const area = browserLocalArea();
+      const repo = await openIdbRepository({
+        onWrite: () => recordWrite(area, deps.now()),
+      });
       const service = createDataService({
         repo,
         area,

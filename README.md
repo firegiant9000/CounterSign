@@ -51,7 +51,7 @@ npm run import-sheet -- --applications <csv> --history <csv> --out <folder> [--u
 4. Run it without `--dry-run`, then use Data → Restore on the file it wrote.
 5. Check the application count against the sheet and spot-check about ten rows, including one employer-closed row and one unconfirmed row.
 6. Export from Countersign straight away and keep the file somewhere safe.
-7. Keep the sheet as a read-only archive. Until automatic backup ships, export after every session: uninstalling the extension deletes its data.
+7. Keep the sheet as a read-only archive. Countersign saves `Countersign/countersign-backup.json` in your downloads folder after every 25 changes or once a week, and the dashboard shows how old it is; export by hand before anything risky.
 
 The report prints cell values from your sheet, so do not paste it into public issues or pull requests.
 
@@ -91,13 +91,16 @@ The tool has failed if it does any of these:
 
 ## Permissions
 
-These are the permissions the built manifest contains today. The build test enforces a ceiling (the `ALLOWED` list in [`guard/build.test.ts`](guard/build.test.ts)), not this exact list. There is no `tabs` permission and no host access.
+These are the permissions the built manifest contains today. The build test ([`guard/build.test.ts`](guard/build.test.ts)) asserts exactly these six. There is no `tabs` permission and no host access.
 
-| Permission         | Why                                                                       |
-| ------------------ | ------------------------------------------------------------------------- |
-| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser. |
-| `storage`          | Saves settings (such as your status labels) in `storage.local`.           |
-| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.     |
+| Permission         | Why                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser.           |
+| `storage`          | Saves settings (such as your status labels) in `storage.local`.                     |
+| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.               |
+| `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S. |
+| `scripting`        | Runs the capture script on that tab.                                                |
+| `alarms`           | Runs a daily check for a due backup.                                                |
 
 The toolbar button finds an already open dashboard tab with `runtime.getContexts`, which needs no `tabs` permission ([`shell/open-dashboard.ts`](shell/open-dashboard.ts)). The manifest also declares `data_collection_permissions` as `none`.
 

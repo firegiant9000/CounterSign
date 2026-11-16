@@ -69,6 +69,11 @@ describe('built extension', () => {
   it('asks only for allowed permissions', () => {
     for (const p of manifest.permissions ?? []) expect(ALLOWED).toContain(p);
   });
+  it('asks for exactly the six permissions', () => {
+    expect([...(manifest.permissions ?? [])].sort()).toEqual(
+      [...ALLOWED].sort(),
+    );
+  });
   it('has no host access', () => {
     expect(manifest.host_permissions).toBeUndefined();
     expect(manifest.optional_host_permissions).toBeUndefined();
