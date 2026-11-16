@@ -50,6 +50,22 @@ export function daysBetween(
   return Math.round((utc(to) - utc(from)) / 86_400_000);
 }
 
+/** `day` shifted by `days` calendar days; undefined if `day` is not a real day. Timezone-free. */
+export function addDays(day: LocalDate, days: number): LocalDate | undefined {
+  if (!isLocalDate(day) || !Number.isFinite(days)) return undefined;
+  const shifted = new Date(
+    Date.UTC(
+      Number(day.slice(0, 4)),
+      Number(day.slice(5, 7)) - 1,
+      Number(day.slice(8, 10)) + Math.trunc(days),
+    ),
+  );
+  const year = String(shifted.getUTCFullYear()).padStart(4, '0');
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+  const date = String(shifted.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${date}`;
+}
+
 /** Negative if `a` is earlier, 0 if the same day, positive if later. */
 export function compareLocalDate(a: LocalDate, b: LocalDate): number {
   if (a < b) return -1;
