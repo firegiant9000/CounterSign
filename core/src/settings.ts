@@ -37,7 +37,7 @@ export function withStatusLabel(
 ): Partial<Record<StatusKey, string>> {
   const source: unknown = labels;
   const next: Partial<Record<StatusKey, string>> =
-    typeof source === 'object' && source !== null
+    typeof source === 'object' && source !== null && !Array.isArray(source)
       ? { ...(source as Partial<Record<StatusKey, string>>) }
       : {};
   const trimmed = text.trim();

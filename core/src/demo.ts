@@ -311,6 +311,14 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
       ops.push({ kind: 'delete', store: 'statusEvents', id });
     }
   }
+  for (const raw of list(data.statements)) {
+    const id = idOf(raw);
+    if (typeof id !== 'string') continue;
+    const appId = (raw as { applicationId?: unknown }).applicationId;
+    if (isDemoId(id) || (typeof appId === 'string' && removedApps.has(appId))) {
+      ops.push({ kind: 'delete', store: 'statements', id });
+    }
+  }
   for (const raw of list(data.documents)) {
     const id = idOf(raw);
     if (typeof id !== 'string' || kept.has(id)) continue;

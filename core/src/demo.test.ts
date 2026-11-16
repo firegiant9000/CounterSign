@@ -218,6 +218,37 @@ describe('demo data', () => {
     expect(after.applications.map((a) => a.id)).toEqual(['real-1']);
   });
 
+  it('removes statements on demo applications and keeps others', async () => {
+    const { repo, snap } = await demoSnapshot();
+    const app = snap.applications[0];
+    if (!app) throw new Error('no demo data');
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'applications',
+        record: { id: 'real-1', createdAt: T },
+      },
+      {
+        kind: 'put',
+        store: 'statements',
+        record: { id: 'uuid-st-1', createdAt: T, applicationId: app.id },
+      },
+      {
+        kind: 'put',
+        store: 'statements',
+        record: { id: 'demo-st-2', createdAt: T, applicationId: 'real-1' },
+      },
+      {
+        kind: 'put',
+        store: 'statements',
+        record: { id: 'uuid-st-3', createdAt: T, applicationId: 'real-1' },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(after.statements.map((s) => s.id)).toEqual(['uuid-st-3']);
+  });
+
   it('computes dates across a year boundary', () => {
     const ops = buildDemoOps('2026-01-02', fixedDeps());
     const event = ops.find(

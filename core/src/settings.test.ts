@@ -76,6 +76,13 @@ describe('withStatusLabel', () => {
     expect(labels).toEqual({ applied: 'Sent' });
   });
 
+  it('treats an array of labels as an empty object', () => {
+    const arr = ['x', 'y'] as unknown as Settings['statusLabels'];
+    const result = withStatusLabel(arr, 'applied', 'Sent');
+    expect(Array.isArray(result)).toBe(false);
+    expect(result).toEqual({ applied: 'Sent' });
+  });
+
   it('works from undefined and non-object labels', () => {
     expect(withStatusLabel(undefined, 'applied', 'Sent')).toEqual({
       applied: 'Sent',

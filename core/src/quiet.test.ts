@@ -149,6 +149,11 @@ describe('quietApplications', () => {
     expect(ids(data)).toEqual(['a1']);
   });
 
+  it('invalid occurredOn is never listed', () => {
+    const data = snap([ev('s1', 'a1', 'applied', 'not-a-date')]);
+    expect(ids(data)).toEqual([]);
+  });
+
   it('sorts oldest first, then by id', () => {
     const data = snap(
       [

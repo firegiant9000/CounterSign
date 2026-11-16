@@ -114,9 +114,14 @@ describe('resolveByUpdatingCanonical', () => {
     });
   });
 
+  it('does not share the value object with the statement', () => {
+    const ops = resolveByUpdatingCanonical(entry, canonical, fixedDeps());
+    const rec = (ops[0] as { record: CanonicalAnswer }).record;
+    expect(rec.value).not.toBe(entry.value);
+    expect(rec.value).toEqual(entry.value);
+  });
+
   it('never writes statements when updating the canonical', () => {
-    const data = emptySnapshot();
-    data.statements.push(entry, { ...entry, id: 's2', applicationId: 'a2' });
     const ops = resolveByUpdatingCanonical(entry, canonical, fixedDeps());
     expect(ops.length).toBeGreaterThan(0);
     for (const op of ops)

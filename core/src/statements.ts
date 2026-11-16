@@ -67,7 +67,7 @@ export function resolveByUpdatingCanonical(
   deps: Deps,
 ): WriteOp[] {
   if (!isPlainObject(statement.value)) return [];
-  const revised = reviseAnswer(answer, statement.value, deps);
+  const revised = reviseAnswer(answer, { ...statement.value }, deps);
   if (revised === answer) return [];
   return [{ kind: 'put', store: 'canonicalAnswers', record: revised }];
 }
