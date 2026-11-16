@@ -1,5 +1,5 @@
 import type { VNode } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { toLocalDate } from '../../core/src/dates';
 import { closeAsNoResponseOps, quietApplications } from '../../core/src/quiet';
 import { noResponseDays } from '../../core/src/settings';
@@ -15,6 +15,8 @@ export function QuietList(): VNode {
   const { data, settings, deps } = appData;
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [busy, setBusy] = useState(false);
+  // Set synchronously so a second click before re-render cannot start a write.
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState<string | undefined>(undefined);
 
@@ -24,8 +26,26 @@ export function QuietList(): VNode {
   const listed = new Set(rows.map((r) => r.id));
   const chosen = selected.filter((id) => listed.has(id));
 
+  // Drop ids that left the list so they never reappear pre-checked later.
+  const listKey = rows.map((r) => r.id).join('\n');
+  useEffect(() => {
+    setSelected((prev) => {
+      const kept = prev.filter((id) => listed.has(id));
+      return kept.length === prev.length ? prev : kept;
+    });
+  }, [listKey]);
+
   const close = async (ids: readonly string[]): Promise<void> => {
-    if (busy || ids.length === 0) return;
+    if (inFlight.current || ids.length === 0) return;
+    inFlight.current = true;
+    try {
+      await closeIds(ids);
+    } finally {
+      inFlight.current = false;
+    }
+  };
+
+  const closeIds = async (ids: readonly string[]): Promise<void> => {
     if (!confirm(`Close ${ids.length} application(s) as No response?`)) return;
     const today = toLocalDate(new Date());
     let closed = 0;

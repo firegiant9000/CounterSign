@@ -27,12 +27,10 @@ export function SettingsPage(): VNode {
       STATUS_KEYS.map((key) => [key, statusLabel(key, settings.statusLabels)]),
     ),
   );
-  // The texts last mounted or saved; only inputs that differ from these are
-  // written, so a stale form never overwrites another tab's changes.
-  const baseline = useRef<{ days: string; labels: Record<string, string> }>({
-    days,
-    labels,
-  });
+  // Fields the user has typed into since mount or the last successful save.
+  // Exactly these are written, so an untouched stale field never overwrites
+  // another tab's change.
+  const dirty = useRef<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [saved, setSaved] = useState(false);
@@ -40,8 +38,9 @@ export function SettingsPage(): VNode {
   const save = async (): Promise<void> => {
     if (busy) return;
     setSaved(false);
+    const sent = new Set(dirty.current);
     const edit: SettingsEdit = {};
-    if (days !== baseline.current.days) {
+    if (sent.has('days')) {
       const parsed = parseNoResponseDays(days);
       if (parsed === undefined) {
         setError(DAYS_ERROR);
@@ -52,9 +51,8 @@ export function SettingsPage(): VNode {
     const changedLabels: Partial<Record<StatusKey, string>> = {};
     let labelsChanged = false;
     for (const key of STATUS_KEYS) {
-      const text = labels[key] ?? '';
-      if (text !== (baseline.current.labels[key] ?? '')) {
-        changedLabels[key] = text;
+      if (sent.has('label:' + key)) {
+        changedLabels[key] = labels[key] ?? '';
         labelsChanged = true;
       }
     }
@@ -67,7 +65,7 @@ export function SettingsPage(): VNode {
     setBusy(true);
     try {
       await app.saveSettings((cur) => applySettingsEdit(cur, edit));
-      baseline.current = { days, labels };
+      dirty.current.clear();
       setSaved(true);
     } catch (err) {
       setError(reasonOf(err));
@@ -92,7 +90,10 @@ export function SettingsPage(): VNode {
               type="text"
               value={days}
               disabled={busy}
-              onInput={(e) => setDays(e.currentTarget.value)}
+              onInput={(e) => {
+                dirty.current.add('days');
+                setDays(e.currentTarget.value);
+              }}
             />
           </label>
         </section>
@@ -108,6 +109,7 @@ export function SettingsPage(): VNode {
                 disabled={busy}
                 onInput={(e) => {
                   const text = e.currentTarget.value;
+                  dirty.current.add('label:' + key);
                   setLabels((prev) => ({ ...prev, [key]: text }));
                 }}
               />

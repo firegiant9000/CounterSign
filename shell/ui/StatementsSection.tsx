@@ -107,6 +107,10 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
 
   const statements = statementsFor(data, applicationId);
   const answers = data.canonicalAnswers;
+  // Only answers with a usable key can be added; the key links the entry.
+  const addable = answers.filter(
+    (a) => typeof a.key === 'string' && a.key !== '',
+  );
 
   const setError = (key: string, message: string | undefined): void => {
     setErrors((prev) => {
@@ -154,14 +158,19 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
     draft: Statement,
     value: AnswerValue | undefined,
   ): Promise<void> => {
+    const seen = { gone: false };
     const ok = await run(draft.id, 'Could not save', () =>
-      appData.apply((d) =>
-        d.applications.some((a) => a.id === applicationId)
-          ? putStatementOps(draft, value)
-          : [],
-      ),
+      appData.apply((d) => {
+        if (!d.applications.some((a) => a.id === applicationId)) {
+          seen.gone = true;
+          return [];
+        }
+        return putStatementOps(draft, value);
+      }),
     );
-    if (ok) setAdding(undefined);
+    if (!ok) return;
+    if (seen.gone) setError(draft.id, 'This application no longer exists.');
+    else setAdding(undefined);
   };
 
   const onDelete = async (statement: Statement): Promise<void> => {
@@ -197,7 +206,7 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
   };
 
   const onStartAdd = (): void => {
-    const answer = answers.find((a) => a.id === pickId) ?? answers[0];
+    const answer = addable.find((a) => a.id === pickId) ?? addable[0];
     if (!answer) return;
     setError('add', undefined);
     setEditingId(undefined);
@@ -265,7 +274,10 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
                     onSave={(value) => {
                       void onSaveEdit(s, value);
                     }}
-                    onCancel={() => setEditingId(undefined)}
+                    onCancel={() => {
+                      setError(s.id, undefined);
+                      setEditingId(undefined);
+                    }}
                   />
                 ) : null}
                 {errors[s.id] ? (
@@ -327,14 +339,18 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
             </span>
           ) : null}
         </div>
-      ) : answers.length > 0 ? (
+      ) : addable.length > 0 ? (
         <p>
           <select
             aria-label="Answer to add"
-            value={pickId === '' ? (answers[0]?.id ?? '') : pickId}
+            value={
+              addable.some((a) => a.id === pickId)
+                ? pickId
+                : (addable[0]?.id ?? '')
+            }
             onChange={(e) => setPickId(e.currentTarget.value)}
           >
-            {answers.map((a) => (
+            {addable.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label ?? a.key ?? 'Unknown answer'}
               </option>

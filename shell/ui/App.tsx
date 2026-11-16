@@ -16,7 +16,7 @@ function Page(props: { route: Route }): VNode {
     case 'applications':
       return <ApplicationsPage />;
     case 'application':
-      return <ApplicationDetail id={route.id} />;
+      return <ApplicationDetail key={route.id} id={route.id} />;
     case 'answers':
       return <AnswersPage />;
     case 'data':
