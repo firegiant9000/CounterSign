@@ -1,0 +1,169 @@
+{
+  "app": "countersign",
+  "schemaVersion": 2,
+  "exportedAt": "2026-11-01T10:00:00.000Z",
+  "data": {
+    "companies": [
+      {
+        "id": "co-1",
+        "createdAt": "2026-10-05T09:00:00.000Z",
+        "name": "Example Robotics",
+        "anyoneHere": "checked_nobody"
+      },
+      {
+        "id": "co-2",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "name": "Sample Analytics Lab"
+      }
+    ],
+    "applications": [
+      {
+        "id": "app-1",
+        "createdAt": "2026-10-05T09:05:00.000Z",
+        "companyId": "co-1",
+        "title": "Platform Engineer",
+        "url": "https://example.com/jobs/2001",
+        "nextActionDate": "2026-11-20",
+        "nextActor": "them",
+        "resumeDocumentId": "doc-1",
+        "notes": "Invented posting for tests.",
+        "jobId": "job-1",
+        "siteType": "workday",
+        "fillOutcome": "partly",
+        "fillNote": "Skipped the address step"
+      },
+      {
+        "id": "app-2",
+        "createdAt": "2026-10-06T09:05:00.000Z",
+        "companyId": "co-2",
+        "title": "Data Analyst",
+        "url": "https://example.com/jobs/2002"
+      }
+    ],
+    "statusEvents": [
+      {
+        "id": "ev-1",
+        "createdAt": "2026-10-05T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "applied",
+        "occurredOn": "2026-10-05"
+      },
+      {
+        "id": "ev-2",
+        "createdAt": "2026-10-12T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "phone_screen",
+        "occurredOn": "2026-10-12",
+        "note": "Call with an invented recruiter."
+      },
+      {
+        "id": "ev-3",
+        "createdAt": "2026-10-06T09:06:00.000Z",
+        "applicationId": "app-2",
+        "status": "interested",
+        "occurredOn": "2026-10-06"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-1",
+        "createdAt": "2026-10-05T09:01:00.000Z",
+        "label": "Resume, October",
+        "fileName": "resume-october.pdf",
+        "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+      }
+    ],
+    "canonicalAnswers": [
+      {
+        "id": "ans-1",
+        "createdAt": "2026-10-05T09:02:00.000Z",
+        "key": "work_authorization",
+        "label": "Authorized to work?",
+        "type": "yes_no",
+        "value": { "type": "yes_no", "value": true }
+      }
+    ],
+    "jobs": [
+      {
+        "id": "job-1",
+        "createdAt": "2026-10-05T09:03:00.000Z",
+        "title": "Platform Engineer",
+        "companyName": "Example Robotics",
+        "location": "Remote",
+        "url": "https://example.com/jobs/2001?utm_source=example",
+        "canonicalUrl": "https://example.com/jobs/2001",
+        "text": "Invented job posting text for tests.",
+        "source": "jsonld"
+      }
+    ],
+    "statements": [
+      {
+        "id": "st-1",
+        "createdAt": "2026-10-05T09:04:00.000Z",
+        "applicationId": "app-1",
+        "answerKey": "notice_period",
+        "value": { "type": "text", "value": "Two weeks" },
+        "exception": true
+      }
+    ],
+    "contacts": [
+      {
+        "id": "con-1",
+        "createdAt": "2026-10-07T09:00:00.000Z",
+        "companyId": "co-1",
+        "name": "Jordan Example",
+        "role": "Recruiter",
+        "howKnown": "Invented meetup",
+        "notes": "Prefers email."
+      }
+    ],
+    "contactEvents": [
+      {
+        "id": "cev-1",
+        "createdAt": "2026-10-07T09:05:00.000Z",
+        "contactId": "con-1",
+        "applicationId": "app-1",
+        "kind": "reached_out",
+        "occurredOn": "2026-10-07",
+        "note": "Sent a short note."
+      }
+    ],
+    "tasks": [
+      {
+        "id": "task-1",
+        "createdAt": "2026-10-05T09:07:00.000Z",
+        "title": "Send a thank-you note",
+        "dueOn": "2026-10-08",
+        "doneAt": "2026-10-08T12:00:00.000Z",
+        "applicationId": "app-1"
+      },
+      {
+        "id": "task-2",
+        "createdAt": "2026-10-06T09:07:00.000Z",
+        "title": "Check for a reply",
+        "dueOn": "2026-11-20",
+        "applicationId": "app-2"
+      }
+    ],
+    "profileFields": [
+      {
+        "id": "pf-1",
+        "createdAt": "2026-10-01T09:00:00.000Z",
+        "key": "full_name",
+        "label": "Full name",
+        "value": "Alex Example"
+      },
+      {
+        "id": "pf-2",
+        "createdAt": "2026-10-01T09:01:00.000Z",
+        "key": "email",
+        "label": "Email",
+        "value": "alex@example.com"
+      }
+    ]
+  },
+  "settings": {
+    "noResponseDays": 45,
+    "statusLabels": { "applied": "Sent" }
+  }
+}
