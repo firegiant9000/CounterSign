@@ -128,4 +128,5 @@ export interface Deps {
 }
 export interface Settings {
   statusLabels?: Partial<Record<StatusKey, string>>;
+  noResponseDays?: number;
 }
