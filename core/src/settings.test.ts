@@ -3,6 +3,7 @@ import {
   NO_RESPONSE_DAYS_DEFAULT,
   noResponseDays,
   parseNoResponseDays,
+  applySettingsEdit,
   withStatusLabel,
 } from './settings';
 import type { Settings } from './types';
@@ -83,5 +84,72 @@ describe('withStatusLabel', () => {
     expect(withStatusLabel(junk, 'applied', 'Sent')).toEqual({
       applied: 'Sent',
     });
+  });
+});
+
+describe('applySettingsEdit', () => {
+  const current = {
+    noResponseDays: 45,
+    statusLabels: { applied: 'Sent' },
+  } as Settings;
+
+  it('keeps the cut-off and other labels when only one label is edited', () => {
+    const next = applySettingsEdit(current, {
+      statusLabels: { interested: 'Watching' },
+    });
+    expect(next.noResponseDays).toBe(45);
+    expect(next.statusLabels).toEqual({
+      applied: 'Sent',
+      interested: 'Watching',
+    });
+  });
+
+  it('keeps the labels when only the cut-off is edited', () => {
+    const next = applySettingsEdit(current, { noResponseDays: 60 });
+    expect(next.noResponseDays).toBe(60);
+    expect(next.statusLabels).toEqual({ applied: 'Sent' });
+  });
+
+  it('removes a label edited to blank or to its default', () => {
+    const blank = applySettingsEdit(current, {
+      statusLabels: { applied: ' ' },
+    });
+    expect(blank.statusLabels).toEqual({});
+    const dflt = applySettingsEdit(current, {
+      statusLabels: { applied: 'Applied' },
+    });
+    expect(dflt.statusLabels).toEqual({});
+  });
+
+  it('keeps unknown top-level and label keys', () => {
+    const odd = {
+      noResponseDays: 45,
+      future: 'x',
+      statusLabels: { applied: 'Sent', mystery: 'Keep' },
+    } as unknown as Settings;
+    const next = applySettingsEdit(odd, {
+      statusLabels: { interested: 'Watching' },
+    }) as unknown as Record<string, unknown>;
+    expect(next.future).toBe('x');
+    expect(next.statusLabels).toEqual({
+      applied: 'Sent',
+      mystery: 'Keep',
+      interested: 'Watching',
+    });
+  });
+
+  it('does not mutate current', () => {
+    const before = JSON.stringify(current);
+    applySettingsEdit(current, {
+      noResponseDays: 10,
+      statusLabels: { applied: '' },
+    });
+    expect(JSON.stringify(current)).toBe(before);
+  });
+
+  it('returns settings equal to current for an empty edit', () => {
+    const next = applySettingsEdit(current, {});
+    expect(next).toEqual(current);
+    expect(next).not.toBe(current);
   });
 });

@@ -28,8 +28,8 @@ export interface AppData {
   apply(ops: readonly WriteOp[] | OpsBuilder): Promise<void>;
   /** Restores an export as one exclusive queue turn, so no write is lost. Call dataReplaced() afterwards. */
   restore(file: ExportFile): Promise<void>;
-  /** Merges patch into the stored settings in one exclusive queue turn (under the write lock), then reloads and tells other tabs. */
-  saveSettings(patch: Partial<Settings>): Promise<void>;
+  /** Loads the stored settings, applies update to them and saves the result in one exclusive queue turn (under the write lock), then reloads and tells other tabs. Other tabs are told even if the reload fails; that error is then rethrown. */
+  saveSettings(update: (current: Settings) => Settings): Promise<void>;
   /** Re-reads snapshot and settings. Does not broadcast. */
   reload(): Promise<void>;
   /** After a restore (Task 18): ensure default answers, reload snapshot and settings, tell other tabs. */
@@ -155,13 +155,16 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
       const restore: AppData['restore'] = (file) =>
         queue.exclusive(() => service.restore(file));
 
-      const saveSettings: AppData['saveSettings'] = async (patch) => {
+      const saveSettings: AppData['saveSettings'] = async (update) => {
         await queue.exclusive(async () => {
-          const cur = await loadSettings(area);
-          await storeSettings(area, { ...cur, ...patch });
+          const loaded = await loadSettings(area);
+          await storeSettings(area, update(loaded));
         });
-        await reload();
-        tellOtherTabs();
+        try {
+          await reload();
+        } finally {
+          tellOtherTabs();
+        }
       };
 
       // Callbacks are created once; only data and settings change per publish.

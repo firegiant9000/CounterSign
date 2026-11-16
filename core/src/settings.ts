@@ -48,3 +48,32 @@ export function withStatusLabel(
   }
   return next;
 }
+
+/** What the user changed on the settings page. Label values are the raw input text. */
+export interface SettingsEdit {
+  noResponseDays?: number;
+  statusLabels?: Partial<Record<StatusKey, string>>;
+}
+
+/**
+ * Returns a new settings object with only the edited fields changed; everything else in
+ * `current`, including unknown keys, is kept. Labels are folded through `withStatusLabel`
+ * for the edited keys only. `current` is not mutated.
+ */
+export function applySettingsEdit(
+  current: Settings,
+  edit: SettingsEdit,
+): Settings {
+  const next: Settings = { ...current };
+  if (edit.noResponseDays !== undefined) {
+    next.noResponseDays = edit.noResponseDays;
+  }
+  if (edit.statusLabels !== undefined) {
+    let labels = current.statusLabels;
+    for (const key of Object.keys(edit.statusLabels) as StatusKey[]) {
+      labels = withStatusLabel(labels, key, edit.statusLabels[key] ?? '');
+    }
+    next.statusLabels = labels;
+  }
+  return next;
+}

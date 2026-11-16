@@ -1,11 +1,13 @@
 import type { VNode } from 'preact';
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import {
+  applySettingsEdit,
   noResponseDays,
   parseNoResponseDays,
-  withStatusLabel,
 } from '../../core/src/settings';
+import type { SettingsEdit } from '../../core/src/settings';
 import { STATUS_KEYS, statusLabel } from '../../core/src/status';
+import type { StatusKey } from '../../core/src/status';
 import { useAppData } from './app-data';
 
 const DAYS_ERROR = 'Enter a whole number of days from 1 to 365.';
@@ -25,6 +27,12 @@ export function SettingsPage(): VNode {
       STATUS_KEYS.map((key) => [key, statusLabel(key, settings.statusLabels)]),
     ),
   );
+  // The texts last mounted or saved; only inputs that differ from these are
+  // written, so a stale form never overwrites another tab's changes.
+  const baseline = useRef<{ days: string; labels: Record<string, string> }>({
+    days,
+    labels,
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [saved, setSaved] = useState(false);
@@ -32,19 +40,34 @@ export function SettingsPage(): VNode {
   const save = async (): Promise<void> => {
     if (busy) return;
     setSaved(false);
-    const parsed = parseNoResponseDays(days);
-    if (parsed === undefined) {
-      setError(DAYS_ERROR);
+    const edit: SettingsEdit = {};
+    if (days !== baseline.current.days) {
+      const parsed = parseNoResponseDays(days);
+      if (parsed === undefined) {
+        setError(DAYS_ERROR);
+        return;
+      }
+      edit.noResponseDays = parsed;
+    }
+    const changedLabels: Partial<Record<StatusKey, string>> = {};
+    let labelsChanged = false;
+    for (const key of STATUS_KEYS) {
+      const text = labels[key] ?? '';
+      if (text !== (baseline.current.labels[key] ?? '')) {
+        changedLabels[key] = text;
+        labelsChanged = true;
+      }
+    }
+    if (labelsChanged) edit.statusLabels = changedLabels;
+    setError(undefined);
+    if (edit.noResponseDays === undefined && !labelsChanged) {
+      setSaved(true);
       return;
     }
-    setError(undefined);
     setBusy(true);
     try {
-      let statusLabels = settings.statusLabels;
-      for (const key of STATUS_KEYS) {
-        statusLabels = withStatusLabel(statusLabels, key, labels[key] ?? '');
-      }
-      await app.saveSettings({ noResponseDays: parsed, statusLabels });
+      await app.saveSettings((cur) => applySettingsEdit(cur, edit));
+      baseline.current = { days, labels };
       setSaved(true);
     } catch (err) {
       setError(reasonOf(err));
