@@ -31,6 +31,8 @@ export function CopyPanel(): VNode {
   const [draft, setDraft] = useState<Record<string, string> | undefined>(
     undefined,
   );
+  // Values as they were when Edit opened; only fields changed since are saved.
+  const [base, setBase] = useState<Record<string, string>>({});
   const [copy, setCopy] = useState<CopyState | undefined>(undefined);
 
   const values = profileValues(data);
@@ -39,6 +41,8 @@ export function CopyPanel(): VNode {
     const next: Record<string, string> = {};
     for (const f of PROFILE_FIELDS) next[f.key] = values[f.key] ?? '';
     setError(undefined);
+    setCopy(undefined);
+    setBase(next);
     setDraft(next);
   };
 
@@ -49,10 +53,13 @@ export function CopyPanel(): VNode {
     setError(undefined);
     try {
       await appData.apply((d) =>
-        PROFILE_FIELDS.flatMap((f) =>
+        PROFILE_FIELDS.filter(
+          (f) => (draft[f.key] ?? '').trim() !== (base[f.key] ?? '').trim(),
+        ).flatMap((f) =>
           setProfileFieldOps(d, f.key, draft[f.key] ?? '', deps),
         ),
       );
+      setCopy(undefined);
       setDraft(undefined);
     } catch (err) {
       setError(reasonOf(err));
@@ -66,12 +73,7 @@ export function CopyPanel(): VNode {
   const doCopy = (id: string, text: string): void => {
     copyText(text).then(
       () => setCopy({ id, ok: true, message: 'Copied' }),
-      (err: unknown) =>
-        setCopy({
-          id,
-          ok: false,
-          message: err instanceof Error ? err.message : 'Could not copy.',
-        }),
+      () => setCopy({ id, ok: false, message: 'Could not copy.' }),
     );
   };
 

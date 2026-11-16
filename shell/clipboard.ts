@@ -4,8 +4,14 @@
  * transient activation.
  */
 export function copyText(text: string): Promise<void> {
-  if (typeof navigator === 'undefined' || !navigator.clipboard) {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      throw new Error('Could not copy.');
+    }
+    return navigator.clipboard
+      .writeText(text)
+      .catch(() => Promise.reject(new Error('Could not copy.')));
+  } catch {
     return Promise.reject(new Error('Could not copy.'));
   }
-  return navigator.clipboard.writeText(text);
 }
