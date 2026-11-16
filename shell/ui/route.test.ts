@@ -10,6 +10,10 @@ describe('route', () => {
     ['#/applications/a%20b', { page: 'application', id: 'a b' }],
     ['#/answers', { page: 'answers' }],
     ['#/data', { page: 'data' }],
+    ['#/settings', { page: 'settings' }],
+    ['#/settings/x', { page: 'applications' }],
+    ['#/quiet', { page: 'quiet' }],
+    ['#/quiet/x', { page: 'applications' }],
     ['#/nonsense', { page: 'applications' }],
   ])('parses %s', (hash, route) => expect(parseRoute(hash)).toEqual(route));
 
@@ -17,7 +21,17 @@ describe('route', () => {
     for (const r of [
       { page: 'application', id: 'a b' },
       { page: 'answers' },
+      { page: 'settings' },
+      { page: 'quiet' },
     ] as Route[])
       expect(parseRoute(routeHref(r))).toEqual(r);
+  });
+
+  it('builds the quiet href', () => {
+    expect(routeHref({ page: 'quiet' })).toBe('#/quiet');
+  });
+
+  it('builds the settings href', () => {
+    expect(routeHref({ page: 'settings' })).toBe('#/settings');
   });
 });

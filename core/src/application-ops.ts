@@ -163,6 +163,11 @@ export function deleteApplicationOps(
   const ops: WriteOp[] = data.statusEvents
     .filter((e) => e.applicationId === applicationId)
     .map((e): WriteOp => ({ kind: 'delete', store: 'statusEvents', id: e.id }));
+  for (const s of data.statements) {
+    if (s.applicationId === applicationId) {
+      ops.push({ kind: 'delete', store: 'statements', id: s.id });
+    }
+  }
   ops.push({ kind: 'delete', store: 'applications', id: applicationId });
   return ops;
 }

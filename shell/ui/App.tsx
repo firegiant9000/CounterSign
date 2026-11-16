@@ -5,7 +5,9 @@ import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
 import { BackupStatus } from './BackupStatus';
 import { DataPage } from './DataPage';
+import { QuietList } from './QuietList';
 import { parseRoute, routeHref } from './route';
+import { SettingsPage } from './SettingsPage';
 import type { Route } from './route';
 
 function Page(props: { route: Route }): VNode {
@@ -14,11 +16,15 @@ function Page(props: { route: Route }): VNode {
     case 'applications':
       return <ApplicationsPage />;
     case 'application':
-      return <ApplicationDetail id={route.id} />;
+      return <ApplicationDetail key={route.id} id={route.id} />;
     case 'answers':
       return <AnswersPage />;
     case 'data':
       return <DataPage />;
+    case 'quiet':
+      return <QuietList />;
+    case 'settings':
+      return <SettingsPage />;
   }
 }
 
@@ -32,7 +38,10 @@ export function App(): VNode {
   }, []);
 
   const current = route.page === 'application' ? 'applications' : route.page;
-  const link = (page: 'applications' | 'answers' | 'data', label: string) => (
+  const link = (
+    page: 'applications' | 'quiet' | 'answers' | 'data' | 'settings',
+    label: string,
+  ) => (
     <a
       href={routeHref({ page })}
       class={current === page ? 'active' : undefined}
@@ -45,8 +54,10 @@ export function App(): VNode {
     <>
       <nav class="nav">
         {link('applications', 'Applications')}
+        {link('quiet', 'Quiet')}
         {link('answers', 'Answers')}
         {link('data', 'Data')}
+        {link('settings', 'Settings')}
       </nav>
       <BackupStatus />
       <main>

@@ -11,7 +11,11 @@ import { createDataService } from '../data-service';
 import type { DataService } from '../data-service';
 import { recordWrite } from '../storage/backup-state';
 import { openIdbRepository } from '../storage/idb-repository';
-import { browserLocalArea, loadSettings } from '../storage/settings';
+import {
+  browserLocalArea,
+  loadSettings,
+  saveSettings as storeSettings,
+} from '../storage/settings';
 import { createWriteQueue } from './write-queue';
 import type { OpsBuilder } from './write-queue';
 
@@ -24,6 +28,8 @@ export interface AppData {
   apply(ops: readonly WriteOp[] | OpsBuilder): Promise<void>;
   /** Restores an export as one exclusive queue turn, so no write is lost. Call dataReplaced() afterwards. */
   restore(file: ExportFile): Promise<void>;
+  /** Loads the stored settings, applies update to them and saves the result in one exclusive queue turn (under the write lock), then reloads and tells other tabs. Other tabs are told even if the reload fails; that error is then rethrown. */
+  saveSettings(update: (current: Settings) => Settings): Promise<void>;
   /** Re-reads snapshot and settings. Does not broadcast. */
   reload(): Promise<void>;
   /** After a restore (Task 18): ensure default answers, reload snapshot and settings, tell other tabs. */
@@ -149,6 +155,18 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
       const restore: AppData['restore'] = (file) =>
         queue.exclusive(() => service.restore(file));
 
+      const saveSettings: AppData['saveSettings'] = async (update) => {
+        await queue.exclusive(async () => {
+          const loaded = await loadSettings(area);
+          await storeSettings(area, update(loaded));
+        });
+        try {
+          await reload();
+        } finally {
+          tellOtherTabs();
+        }
+      };
+
       // Callbacks are created once; only data and settings change per publish.
       const view = (): AppData => ({
         data: current.data,
@@ -157,6 +175,7 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
         service,
         apply,
         restore,
+        saveSettings,
         reload,
         dataReplaced,
       });
