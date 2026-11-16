@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { AnswersPage } from './AnswersPage';
 import { ApplicationDetail } from './ApplicationDetail';
 import { ApplicationsPage } from './ApplicationsPage';
+import { BackupStatus } from './BackupStatus';
 import { DataPage } from './DataPage';
 import { parseRoute, routeHref } from './route';
 import type { Route } from './route';
@@ -47,6 +48,7 @@ export function App(): VNode {
         {link('answers', 'Answers')}
         {link('data', 'Data')}
       </nav>
+      <BackupStatus />
       <main>
         <Page route={route} />
       </main>

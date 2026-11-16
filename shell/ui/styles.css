@@ -33,6 +33,18 @@ body > #app > p {
   text-decoration: underline;
 }
 
+.backup-status {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.backup-status.warn {
+  font-weight: bold;
+  opacity: 1;
+}
+
 h1 {
   font-size: 1.4rem;
   margin: 0 0 1rem;
