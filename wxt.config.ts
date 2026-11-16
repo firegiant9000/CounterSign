@@ -14,6 +14,7 @@ export default defineConfig({
       'downloads',
       'activeTab',
       'scripting',
+      'alarms',
     ],
     action: { default_title: 'Countersign', default_icon: 'icon.svg' },
     commands: {
