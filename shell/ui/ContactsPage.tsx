@@ -31,6 +31,8 @@ export function ContactsPage(): VNode {
   // Bumped after a successful add so the form remounts empty.
   const [formKey, setFormKey] = useState(0);
   const [editingId, setEditingId] = useState<string | undefined>(undefined);
+  // The contact as it was when Edit opened; the form seeds from this too.
+  const [opened, setOpened] = useState<Contact | undefined>(undefined);
 
   const run = async (write: () => Promise<void>): Promise<boolean> => {
     if (inFlight.current) return false;
@@ -60,10 +62,21 @@ export function ContactsPage(): VNode {
   };
 
   const save = async (id: string, input: ContactInput): Promise<void> => {
+    // Send only the fields changed since the form opened, so another tab's
+    // edits to untouched fields survive.
+    const base = opened?.id === id ? opened : undefined;
+    const patch: ContactInput = {};
+    for (const key of ['name', 'role', 'howKnown', 'notes'] as const) {
+      if (!base || input[key] !== str(base[key])) patch[key] = input[key];
+    }
+    if (Object.keys(patch).length === 0) {
+      setEditingId(undefined);
+      return;
+    }
     const ok = await run(() =>
       appData.apply((d) => {
         const fresh = d.contacts.find((c) => c.id === id);
-        return fresh ? updateContactOps(fresh, input) : [];
+        return fresh ? updateContactOps(fresh, patch) : [];
       }),
     );
     if (ok) setEditingId(undefined);
@@ -82,7 +95,7 @@ export function ContactsPage(): VNode {
   const companies = data.companies
     .map((company) => ({
       id: company.id,
-      name: company.name ?? '',
+      name: typeof company.name === 'string' ? company.name : '',
       contacts: contactsAt(data, company.id),
     }))
     .filter((c) => c.contacts.length > 0)
@@ -94,7 +107,7 @@ export function ContactsPage(): VNode {
     editingId === contact.id ? (
       <li key={contact.id}>
         <ContactForm
-          initial={contact}
+          initial={opened?.id === contact.id ? opened : contact}
           submitLabel="Save"
           busy={busy}
           onSubmit={(input) => void save(contact.id, input)}
@@ -112,7 +125,10 @@ export function ContactsPage(): VNode {
         <button
           type="button"
           disabled={busy}
-          onClick={() => setEditingId(contact.id)}
+          onClick={() => {
+            setOpened(contact);
+            setEditingId(contact.id);
+          }}
         >
           Edit
         </button>{' '}

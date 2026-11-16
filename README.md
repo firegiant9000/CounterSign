@@ -7,7 +7,7 @@ A local-only Firefox extension that records your job applications, what you sent
 ## The three claims
 
 - **Local only.** All data stays on your machine. The extension makes no network requests.
-- **Nothing reads a page until you click.** It has no content scripts. It reads the current tab only after you click the toolbar button or press Alt+Shift+S. The one thing that runs without a click is the local automatic backup check.
+- **Nothing reads a page until you click.** It has no content scripts. It reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. The one thing that runs without a click is the local automatic backup check.
 - **It never submits anything.** It does not fill forms, apply for jobs or send data anywhere.
 
 ## How the claims are enforced
@@ -31,9 +31,9 @@ Files are saved only through [`shell/files/download.ts`](shell/files/download.ts
 Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, plus quiet, deadlines, contacts and copy tools. Everything is still your own data, stored locally.
 
 - **Applications list** with search, filters, manual entry, and a next-action date and who acts next.
-- **Save a job.** After you click the toolbar button (or press Alt+Shift+S), the popup reads the current tab once and offers the job for saving. Nothing is read before the click.
+- **Save a job.** After you click the toolbar button (or press Alt+Shift+S by default; you can rebind it in about:addons), the popup reads the current tab once and offers the job for saving. Nothing is read before the click.
 - **Duplicate and repost facts.** When a job matches an application you already have, the popup says so ("already applied" or "possible match"). It also states the fact when you saved the same posting earlier, without judging it.
-- **Automatic backup.** Countersign saves `Countersign/countersign-backup.json` to your downloads folder, and the dashboard shows how old the last backup is.
+- **Automatic backup.** Countersign saves `Countersign/countersign-backup.json` to your downloads folder, and the dashboard shows how old the last backup is. The backup file holds all your data, including your details and contacts, as plain text, so keep your downloads folder out of cloud sync if that matters to you.
 - **What I told them.** Per application, record the answers you gave. A warning appears when one differs from your canonical answer.
 - **Quiet list** (`#/quiet`) of applications with no response for a set number of days (a setting). You can close several at once.
 - **Formhand log.** On an application, record the application site type and how filling went. You enter it by hand.
@@ -101,18 +101,18 @@ The tool has failed if it does any of these:
 
 These are the permissions the built manifest contains today. The build test ([`guard/build.test.ts`](guard/build.test.ts)) asserts exactly these six. There is no `tabs` permission and no host access.
 
-| Permission         | Why                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser.           |
-| `storage`          | Saves settings (such as your status labels) in `storage.local`.                     |
-| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.               |
-| `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S. |
-| `scripting`        | Runs the capture script on that tab.                                                |
-| `alarms`           | Runs a daily check for a due backup.                                                |
+| Permission         | Why                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser.                      |
+| `storage`          | Saves settings (such as your status labels) in `storage.local`.                                |
+| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.                          |
+| `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. |
+| `scripting`        | Runs the capture script on that tab.                                                           |
+| `alarms`           | Runs a daily check for a due backup.                                                           |
 
 Copy buttons use `navigator.clipboard.writeText` from a click ([`shell/clipboard.ts`](shell/clipboard.ts)), so no `clipboardWrite` permission is needed.
 
-The popup's "Open dashboard" button finds an already open dashboard tab with `runtime.getContexts`, which needs no `tabs` permission ([`shell/open-dashboard.ts`](shell/open-dashboard.ts)). The manifest also declares `data_collection_permissions` as `none`.
+The popup's "Open dashboard" button finds an already open dashboard tab with `runtime.getContexts` where available, otherwise it opens a new tab. This needs no `tabs` permission ([`shell/open-dashboard.ts`](shell/open-dashboard.ts)). The manifest also declares `data_collection_permissions` as `none`.
 
 ## Build and run
 

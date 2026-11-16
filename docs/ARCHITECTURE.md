@@ -55,7 +55,7 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## The privacy guard
 
-Three parts keep "no network, nothing runs until you click" true:
+Three parts keep "no network, nothing reads a page until you click" true. The local automatic backup check is the one thing that runs without a click.
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
 2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.

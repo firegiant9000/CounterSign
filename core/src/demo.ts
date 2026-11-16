@@ -1,7 +1,7 @@
 import type { WriteOp } from './repository';
 import type { StatusKey } from './status';
 import type { FillOutcome, SiteType } from './formhand';
-import type { Deps, Id, LocalDate, Snapshot } from './types';
+import type { Company, Deps, Id, LocalDate, Snapshot } from './types';
 
 export const DEMO_PREFIX = 'demo-';
 
@@ -415,6 +415,15 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
     const id = idOf(raw);
     if (isDemoId(id) && !kept.has(id)) {
       ops.push({ kind: 'delete', store: 'companies', id });
+    } else if (isDemoId(id) && 'anyoneHere' in (raw as object)) {
+      // Kept because real data uses it: drop the answer the user never gave.
+      const rest = { ...(raw as Record<string, unknown>) };
+      delete rest['anyoneHere'];
+      ops.push({
+        kind: 'put',
+        store: 'companies',
+        record: rest as unknown as Company,
+      });
     }
   }
   for (const raw of list(data.applications)) {

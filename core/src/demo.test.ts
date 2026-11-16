@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fixedDeps } from '../testing/fixed-deps';
 import { applicationRows } from './application-list';
+import { anyoneHerePrompt } from './contacts';
 import { isLocalDate } from './dates';
 import {
   buildDemoOps,
@@ -400,6 +401,44 @@ describe('demo data', () => {
     await repo.apply(removeDemoOps(await repo.snapshot()));
     const after = await repo.snapshot();
     expect(after.contactEvents.map((e) => e.id)).toEqual(['ev-real']);
+  });
+
+  it('drops the demo anyoneHere answer from a kept company', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'applications',
+        record: {
+          id: 'real-a1',
+          createdAt: T,
+          companyId: 'demo-company-2',
+        },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    const kept = after.companies.find((c) => c.id === 'demo-company-2');
+    expect(kept).toBeDefined();
+    expect(kept).not.toHaveProperty('anyoneHere');
+    expect(anyoneHerePrompt(after, 'demo-company-2')).toBe('ask');
+  });
+
+  it('removal stays idempotent after a kept company is cleaned', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'applications',
+        record: {
+          id: 'real-a1',
+          createdAt: T,
+          companyId: 'demo-company-2',
+        },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    expect(removeDemoOps(await repo.snapshot())).toEqual([]);
   });
 
   it('removing twice writes nothing', async () => {
