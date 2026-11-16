@@ -170,6 +170,10 @@ h1 {
   margin-left: 0.5rem;
 }
 
+.warning {
+  color: #8a5a00;
+}
+
 .data-page {
   max-width: 40rem;
 }
