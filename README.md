@@ -7,18 +7,18 @@ A local-only Firefox extension that records your job applications, what you sent
 ## The three claims
 
 - **Local only.** All data stays on your machine. The extension makes no network requests.
-- **Nothing runs until you click.** It has no content scripts and no access to web pages. The toolbar button opens its own dashboard tab.
+- **Nothing reads a page until you click.** It has no content scripts. It reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. The one thing that runs without a click is the local automatic backup check.
 - **It never submits anything.** It does not fill forms, apply for jobs or send data anywhere.
 
 ## How the claims are enforced
 
 Each claim is checked by the gate (`npm run gate`), which CI also runs.
 
-| Claim                        | How it is enforced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Local only                   | [`guard/build.test.ts`](guard/build.test.ts) scans every built `.js` and `.html` file for network APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `WebTransport`, `RTCPeerConnection`), checks that no built page loads a remote `src` or `href`, and asserts the manifest has no host permissions. [`eslint.config.js`](eslint.config.js) bans the same APIs in source (`no-restricted-globals`, `no-restricted-properties`, `no-restricted-syntax`). The Content Security Policy in [`wxt.config.ts`](wxt.config.ts) sets `default-src 'self'; ... connect-src 'none'`. |
-| Nothing runs until you click | [`guard/build.test.ts`](guard/build.test.ts) asserts the built manifest declares no content scripts and no web-accessible resources. The stage 1 permissions are listed below. The background event page only registers a toolbar-click listener ([`entrypoints/background.ts`](entrypoints/background.ts)).                                                                                                                                                                                                                                                                                         |
-| It never submits anything    | There is no code path that sends a request (see the first row), the manifest has no host access, and the CSP sets `form-action 'none'`, so a form on an extension page cannot post anywhere. The test asserts the exact CSP in the built manifest.                                                                                                                                                                                                                                                                                                                                                   |
+| Claim                                | How it is enforced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local only                           | [`guard/build.test.ts`](guard/build.test.ts) scans every built `.js` and `.html` file for network APIs (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `sendBeacon`, `WebTransport`, `RTCPeerConnection`), checks that no built page loads a remote `src` or `href`, and asserts the manifest has no host permissions. [`eslint.config.js`](eslint.config.js) bans the same APIs in source (`no-restricted-globals`, `no-restricted-properties`, `no-restricted-syntax`). The Content Security Policy in [`wxt.config.ts`](wxt.config.ts) sets `default-src 'self'; ... connect-src 'none'`. |
+| Nothing reads a page until you click | [`guard/build.test.ts`](guard/build.test.ts) asserts the built manifest declares no content scripts and no web-accessible resources. The permissions are listed below. The background event page runs only the local automatic backup check (on startup, install, a daily alarm and backup-counter changes) and never reads a tab ([`entrypoints/background.ts`](entrypoints/background.ts)).                                                                                                                                                                                                        |
+| It never submits anything            | There is no code path that sends a request (see the first row), the manifest has no host access, and the CSP sets `form-action 'none'`, so a form on an extension page cannot post anywhere. The test asserts the exact CSP in the built manifest.                                                                                                                                                                                                                                                                                                                                                   |
 
 Files are saved only through [`shell/files/download.ts`](shell/files/download.ts), which builds a local `blob:` URL. A lint rule in [`eslint.config.js`](eslint.config.js) rejects any other use of `downloads`, and [`guard/source-rules.test.ts`](guard/source-rules.test.ts) tests that rule.
 
@@ -28,9 +28,18 @@ Files are saved only through [`shell/files/download.ts`](shell/files/download.ts
 
 ## What it does today
 
-Stage 1 is the dashboard. You enter everything by hand.
+Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, plus quiet, deadlines, contacts and copy tools. Everything is still your own data, stored locally.
 
 - **Applications list** with search, filters, manual entry, and a next-action date and who acts next.
+- **Save a job.** After you click the toolbar button (or press Alt+Shift+S by default; you can rebind it in about:addons), the popup reads the current tab once and offers the job for saving. Nothing is read before the click.
+- **Duplicate and repost facts.** When a job matches an application you already have, the popup says so ("already applied" or "possible match"). It also states the fact when you saved the same posting earlier, without judging it.
+- **Automatic backup.** Countersign saves `Countersign/countersign-backup.json` to your downloads folder, and the dashboard shows how old the last backup is. The backup file holds all your data, including your details and contacts, as plain text, so keep your downloads folder out of cloud sync if that matters to you.
+- **What I told them.** Per application, record the answers you gave. A warning appears when one differs from your canonical answer.
+- **Quiet list** (`#/quiet`) of applications with no response for a set number of days (a setting). You can close several at once.
+- **Formhand log.** On an application, record the application site type and how filling went. You enter it by hand.
+- **Contacts** (`#/contacts`) with a log of reaching out, replies and referrals. The popup and the application page ask "anyone here?" and let you record that you checked and nobody was there.
+- **Deadlines** (`#/deadlines`): open tasks, next-action dates and quiet applications on one list, dated rows first.
+- **My details** (`#/details`): 12 profile fields (name, email, phone, address, links) and your canonical answers, each with a copy button. Copying uses a click only, and nothing is typed into a page.
 - **Application detail** with a status history. Entries can be backdated, and a mistaken status can be undone without deleting history.
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
 - **Canonical answers** (for example work authorisation or salary range), each with its history of earlier values.
@@ -73,10 +82,9 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-- Stage 2: saving a job with a duplicate warning, automatic backup, "what I told them" with a mismatch warning, a quiet-application list, a deadlines view, simple contacts and a copy panel.
 - Stage 3: follow-up tracking, an interview pack, a story bank, a weekly review and target companies.
 
-Nothing in stages 2 and 3 exists yet. See the [design spec](docs/superpowers/specs/2026-11-13-countersign-design.md) for the plan.
+Nothing in stage 3 exists yet. See the [design spec](docs/superpowers/specs/2026-11-13-countersign-design.md) for the plan.
 
 ## What it will never do
 
@@ -93,16 +101,18 @@ The tool has failed if it does any of these:
 
 These are the permissions the built manifest contains today. The build test ([`guard/build.test.ts`](guard/build.test.ts)) asserts exactly these six. There is no `tabs` permission and no host access.
 
-| Permission         | Why                                                                                 |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser.           |
-| `storage`          | Saves settings (such as your status labels) in `storage.local`.                     |
-| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.               |
-| `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S. |
-| `scripting`        | Runs the capture script on that tab.                                                |
-| `alarms`           | Runs a daily check for a due backup.                                                |
+| Permission         | Why                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `unlimitedStorage` | Keeps the IndexedDB database from being evicted or capped by the browser.                      |
+| `storage`          | Saves settings (such as your status labels) in `storage.local`.                                |
+| `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.                          |
+| `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. |
+| `scripting`        | Runs the capture script on that tab.                                                           |
+| `alarms`           | Runs a daily check for a due backup.                                                           |
 
-The toolbar button finds an already open dashboard tab with `runtime.getContexts`, which needs no `tabs` permission ([`shell/open-dashboard.ts`](shell/open-dashboard.ts)). The manifest also declares `data_collection_permissions` as `none`.
+Copy buttons use `navigator.clipboard.writeText` from a click ([`shell/clipboard.ts`](shell/clipboard.ts)), so no `clipboardWrite` permission is needed.
+
+The popup's "Open dashboard" button finds an already open dashboard tab with `runtime.getContexts` where available, otherwise it opens a new tab. This needs no `tabs` permission ([`shell/open-dashboard.ts`](shell/open-dashboard.ts)). The manifest also declares `data_collection_permissions` as `none`.
 
 ## Build and run
 

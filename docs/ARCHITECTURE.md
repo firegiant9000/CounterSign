@@ -34,7 +34,11 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## Record types
 
-`core/src/types.ts` defines five record types: company, application, status event, document and canonical answer.
+`core/src/types.ts` defines the record types. Stage 1 has company, application, status event, document and canonical answer. Stage 2 adds job, statement ("what I told them"), contact, contact event, task and profile field. The stage 2 stores are `jobs`, `statements`, `contacts`, `contactEvents`, `tasks` and `profileFields`.
+
+- `Company.anyoneHere` is `'checked_nobody'` when you have recorded that nobody you know works there. Contacts are otherwise linked by `companyId`.
+- The deadlines list (`core/src/deadlines.ts`) is derived on read from open tasks, application next-action dates and quiet applications. It has no store of its own.
+- The copy buttons call `copyText` in `shell/clipboard.ts`, which wraps `navigator.clipboard.writeText` and is only called from a click.
 
 - Only `id` and `createdAt` are required on any record. Everything else is optional.
 - Reason: records come from hand entry and from restored files. Every function that reads records must tolerate missing fields, links to records that no longer exist and status keys this build does not know. A restore of your own file must always work, and the list must never break on one odd record.
@@ -43,15 +47,15 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## Schema versions and migrations
 
-- `SCHEMA_VERSION` is 1 (`core/src/schema.ts`). Each store records the schema it first appeared in.
+- `SCHEMA_VERSION` is 2 (`core/src/schema.ts`). Each store records the schema it first appeared in.
 - Export files carry `app: "countersign"` and `schemaVersion`. A file from a newer version is rejected, not guessed at.
-- `core/src/migrations.ts` holds forward-only migrations, each lifting a file from schema `n - 1` to `n`. The list is empty at schema 1 because there is nothing older.
+- `core/src/migrations.ts` holds forward-only migrations, each lifting a file from schema `n - 1` to `n`. The one migration so far lifts schema 1 to 2: it sets the version, and the stage 2 stores are empty in an older file.
 - Stores are created per stage (schema 1 in stage 1, 2 in stage 2, 3 in stage 3). Every stage therefore ships a real migration with a test before a risky one is needed.
 - Restore validation is structural: envelope, version, arrays, `id` and `createdAt`. Restore saves a pre-restore copy of existing data first, and if that save fails the restore stops before replacing anything.
 
 ## The privacy guard
 
-Three parts keep "no network, nothing runs until you click" true:
+Three parts keep "no network, nothing reads a page until you click" true. The local automatic backup check is the one thing that runs without a click.
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
 2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.

@@ -45,27 +45,33 @@ export function findCompanyByName(
   );
 }
 
+export function findOrCreateCompanyOps(
+  data: Snapshot,
+  name: string,
+  deps: Deps,
+): { ops: WriteOp[]; companyId: Id | undefined } {
+  if (isBlank(name)) return { ops: [], companyId: undefined };
+  const existing = findCompanyByName(data.companies, name);
+  if (existing) return { ops: [], companyId: existing.id };
+  const company: Company = {
+    id: deps.newId(),
+    createdAt: deps.now(),
+    name: collapse(name),
+  };
+  return {
+    ops: [{ kind: 'put', store: 'companies', record: company }],
+    companyId: company.id,
+  };
+}
+
 export function newApplicationOps(
   input: NewApplicationInput,
   data: Snapshot,
   deps: Deps,
 ): { ops: WriteOp[]; applicationId: Id } {
-  const ops: WriteOp[] = [];
-  let companyId: Id | undefined;
-  if (input.companyName !== undefined && !isBlank(input.companyName)) {
-    const existing = findCompanyByName(data.companies, input.companyName);
-    if (existing) {
-      companyId = existing.id;
-    } else {
-      const company: Company = {
-        id: deps.newId(),
-        createdAt: deps.now(),
-        name: collapse(input.companyName),
-      };
-      companyId = company.id;
-      ops.push({ kind: 'put', store: 'companies', record: company });
-    }
-  }
+  const found = findOrCreateCompanyOps(data, input.companyName ?? '', deps);
+  const ops: WriteOp[] = [...found.ops];
+  const companyId = found.companyId;
 
   const app: Application = { id: deps.newId(), createdAt: deps.now() };
   if (companyId !== undefined) app.companyId = companyId;

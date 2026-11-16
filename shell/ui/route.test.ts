@@ -14,6 +14,12 @@ describe('route', () => {
     ['#/settings/x', { page: 'applications' }],
     ['#/quiet', { page: 'quiet' }],
     ['#/quiet/x', { page: 'applications' }],
+    ['#/contacts', { page: 'contacts' }],
+    ['#/contacts/x', { page: 'applications' }],
+    ['#/details', { page: 'details' }],
+    ['#/details/x', { page: 'applications' }],
+    ['#/deadlines', { page: 'deadlines' }],
+    ['#/deadlines/x', { page: 'applications' }],
     ['#/nonsense', { page: 'applications' }],
   ])('parses %s', (hash, route) => expect(parseRoute(hash)).toEqual(route));
 
@@ -23,12 +29,25 @@ describe('route', () => {
       { page: 'answers' },
       { page: 'settings' },
       { page: 'quiet' },
+      { page: 'deadlines' },
     ] as Route[])
       expect(parseRoute(routeHref(r))).toEqual(r);
   });
 
   it('builds the quiet href', () => {
     expect(routeHref({ page: 'quiet' })).toBe('#/quiet');
+  });
+
+  it('builds the deadlines href', () => {
+    expect(routeHref({ page: 'deadlines' })).toBe('#/deadlines');
+  });
+
+  it('builds the contacts href', () => {
+    expect(routeHref({ page: 'contacts' })).toBe('#/contacts');
+  });
+
+  it('builds the details href', () => {
+    expect(routeHref({ page: 'details' })).toBe('#/details');
   });
 
   it('builds the settings href', () => {

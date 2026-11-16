@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: ({ command }) => ({
     name: 'Countersign',
     description:
-      'A local-only job search companion. Nothing runs until you click, and nothing leaves your machine.',
+      'A local-only job search companion. Nothing reads a page until you click, and nothing leaves your machine.',
     permissions: [
       'unlimitedStorage',
       'storage',

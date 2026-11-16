@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../fixtures/v1-export.fixture.json';
+import v2Fixture from '../fixtures/v2-export.fixture.json';
 import {
   buildExport,
   emptiedStores,
@@ -14,6 +15,8 @@ import type { Snapshot, StoreName } from './types';
 
 const T = '2026-01-05T09:00:00.000Z';
 const fixtureText = JSON.stringify(fixture);
+const v2Text = JSON.stringify(v2Fixture);
+const V2_SETTINGS = { noResponseDays: 45, statusLabels: { applied: 'Sent' } };
 const NEW_STORES = [
   'jobs',
   'statements',
@@ -185,6 +188,33 @@ describe('parseExport', () => {
         .map((e) => e.id),
     ).toEqual(['ev-4']);
     expect(result.file.data.documents[0]?.sha256).toHaveLength(64);
+  });
+
+  it('parses the schema 2 fixture', () => {
+    const result = parseExport(v2Text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.file.schemaVersion).toBe(2);
+    const raw = v2Fixture.data as unknown as Record<string, unknown[]>;
+    for (const { name } of STORES) {
+      const records = raw[name] ?? [];
+      expect(records.length).toBeGreaterThan(0);
+      expect(result.file.data[name]).toEqual(records);
+      expect(result.counts[name]).toBe(records.length);
+    }
+    expect(result.file.settings).toEqual(V2_SETTINGS);
+  });
+
+  it('round-trips the stage 2 fixture', () => {
+    const snap = v2Fixture.data as unknown as Snapshot;
+    const text = JSON.stringify(
+      buildExport(snap, V2_SETTINGS, { now: () => T }),
+    );
+    const parsed = parseExport(text);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.data).toEqual(snap);
+    expect(parsed.file.settings).toEqual(V2_SETTINGS);
   });
 
   it('keeps fields it does not know', () => {
