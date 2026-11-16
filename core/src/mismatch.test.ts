@@ -34,6 +34,18 @@ describe('checkStatement', () => {
     ).toBe('exception');
   });
 
+  it('exception true wins over a missing answer and a type difference', () => {
+    expect(checkStatement(stmt(yn(true), { exception: true }), undefined)).toBe(
+      'exception',
+    );
+    expect(
+      checkStatement(
+        stmt(date('2026-01-01'), { exception: true }),
+        canon(yn(true)),
+      ),
+    ).toBe('exception');
+  });
+
   it("exception 'yes' falls through to the normal rules", () => {
     expect(
       checkStatement(stmt(yn(true), { exception: 'yes' }), canon(yn(false))),
@@ -60,6 +72,21 @@ describe('checkStatement', () => {
     ).toBe('ok');
   });
 
+  it('choice trims the canonical side and is case-sensitive', () => {
+    expect(checkStatement(stmt(choice('Yes')), canon(choice(' Yes ')))).toBe(
+      'ok',
+    );
+    expect(checkStatement(stmt(choice('yes')), canon(choice('Yes')))).toBe(
+      'mismatch',
+    );
+  });
+
+  it("yes/no with a string 'true' on one side gives compare", () => {
+    const bad = { type: 'yes_no', value: 'true' } as unknown as AnswerValue;
+    expect(checkStatement(stmt(bad), canon(yn(true)))).toBe('compare');
+    expect(checkStatement(stmt(yn(true)), canon(bad))).toBe('compare');
+  });
+
   describe('money with a full canonical range', () => {
     const c = canon(money(100000, 130000));
     it('single figure outside the range is a mismatch', () => {
@@ -72,6 +99,22 @@ describe('checkStatement', () => {
     it('a told range sticking out is a mismatch, inside is ok', () => {
       expect(checkStatement(stmt(money(110000, 140000)), c)).toBe('mismatch');
       expect(checkStatement(stmt(money(110000, 120000)), c)).toBe('ok');
+    });
+    it('figures exactly on a bound are ok', () => {
+      expect(checkStatement(stmt(money(100000)), c)).toBe('ok');
+      expect(checkStatement(stmt(money(130000)), c)).toBe('ok');
+      expect(checkStatement(stmt(money(100000, 130000)), c)).toBe('ok');
+    });
+    it('a non-finite statement figure is absent, so nothing to compare', () => {
+      expect(checkStatement(stmt(money(Number.NaN)), c)).toBe('compare');
+    });
+    it('currency is trimmed before comparing', () => {
+      expect(
+        checkStatement(
+          stmt(money(120000, undefined, { currency: ' USD ' })),
+          canon(money(100000, 130000, { currency: 'usd' })),
+        ),
+      ).toBe('ok');
     });
   });
 
@@ -145,6 +188,11 @@ describe('checkStatement', () => {
     it('equal and later are ok', () => {
       expect(checkStatement(stmt(date('2027-01-04')), c)).toBe('ok');
       expect(checkStatement(stmt(date('2027-02-01')), c)).toBe('ok');
+    });
+    it('an invalid canonical date gives compare', () => {
+      expect(
+        checkStatement(stmt(date('2027-01-04')), canon(date('2027-13-45'))),
+      ).toBe('compare');
     });
     it('an invalid date gives compare', () => {
       expect(checkStatement(stmt(date('soon')), c)).toBe('compare');
