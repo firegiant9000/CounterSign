@@ -12,6 +12,7 @@ export interface BaseRecord {
 
 export interface Company extends BaseRecord {
   name?: string;
+  anyoneHere?: 'checked_nobody';
 }
 export interface Application extends BaseRecord {
   companyId?: Id;
