@@ -23,8 +23,9 @@ countersign-export-*.json
 .env.*
 !.env.example
 
-# Local handoff notes (untracked on purpose)
-docs/superpowers/prompts/
+# Local planning material: specs, plans and handoff notes (untracked on purpose)
+docs/superpowers/
+.superpowers/
 
 # Editor and OS
 .vscode/
