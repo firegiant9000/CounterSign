@@ -1,7 +1,7 @@
 import { addDays, compareLocalDate, isLocalDate } from './dates';
 import { contactEventDate, isLiveEvent } from './followups';
 import type { WriteOp } from './repository';
-import { effectiveDate, type StatusKey } from './status';
+import type { StatusKey } from './status';
 import type {
   Deps,
   LocalDate,
@@ -30,9 +30,9 @@ export interface WeeklyCounts {
 
 function statusDate(e: StatusEvent): LocalDate {
   const on: unknown = e.occurredOn;
+  if (typeof on === 'string' && on !== '') return on;
   const created: unknown = e.createdAt;
-  if (typeof on !== 'string' && typeof created !== 'string') return '';
-  return effectiveDate(e);
+  return typeof created === 'string' ? created.slice(0, 10) : '';
 }
 
 function countBetween(
@@ -43,7 +43,9 @@ function countBetween(
   const inRange = (day: LocalDate): boolean =>
     from === undefined ||
     to === undefined ||
-    (compareLocalDate(day, from) >= 0 && compareLocalDate(day, to) <= 0);
+    (isLocalDate(day) &&
+      compareLocalDate(day, from) >= 0 &&
+      compareLocalDate(day, to) <= 0);
   const counts: WeeklyCounts = {
     outreach: 0,
     conversations: 0,

@@ -138,6 +138,35 @@ describe('weeklyCounts', () => {
     expect(totalCounts(data).outreach).toBe(0);
   });
 
+  it('odd status dates never throw and fall out of weekly ranges', () => {
+    const data = snap({
+      statusEvents: [
+        {
+          id: 'o1',
+          applicationId: 'a1',
+          status: 'applied',
+          occurredOn: '',
+          createdAt: 5,
+        },
+        { id: 'o2', applicationId: 'a2', status: 'applied' },
+        se('a3', 'applied', 'soon'),
+      ],
+    });
+    expect(weeklyCounts(data, MON).applications).toBe(0);
+    expect(totalCounts(data).applications).toBe(3);
+  });
+
+  it('a voided interview status is not a conversation', () => {
+    const data = snap({
+      statusEvents: [
+        se('a1', 'interview', '2026-11-17', {
+          voidedAt: '2026-11-18T00:00:00.000Z',
+        }),
+      ],
+    });
+    expect(weeklyCounts(data, MON).conversations).toBe(0);
+  });
+
   it('totalCounts has no date range', () => {
     const data = snap({
       contactEvents: [
