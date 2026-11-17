@@ -1,4 +1,5 @@
 import type { FillOutcome, SiteType } from './formhand';
+import type { RoundKind } from './round-kinds';
 import type { StatusKey } from './status';
 
 export type Id = string;
@@ -13,6 +14,7 @@ export interface BaseRecord {
 export interface Company extends BaseRecord {
   name?: string;
   anyoneHere?: 'checked_nobody';
+  isTarget?: boolean;
 }
 export interface Application extends BaseRecord {
   companyId?: Id;
@@ -27,6 +29,7 @@ export interface Application extends BaseRecord {
   siteType?: SiteType;
   fillOutcome?: FillOutcome;
   fillNote?: string;
+  projectsShown?: string;
 }
 export interface StatusEvent extends BaseRecord {
   applicationId?: Id;
@@ -90,6 +93,8 @@ export interface Contact extends BaseRecord {
   role?: string;
   howKnown?: string;
   notes?: string;
+  followUpOn?: LocalDate;
+  followUpApplicationId?: Id;
 }
 export type ContactEventKind =
   'reached_out' | 'replied' | 'referred' | 'followed_up' | 'call_held';
@@ -99,6 +104,7 @@ export interface ContactEvent extends BaseRecord {
   kind?: ContactEventKind;
   occurredOn?: LocalDate;
   note?: string;
+  voidedAt?: IsoInstant;
 }
 export interface Task extends BaseRecord {
   title?: string;
@@ -110,6 +116,32 @@ export interface ProfileField extends BaseRecord {
   key?: string;
   label?: string;
   value?: string;
+}
+
+export interface Round extends BaseRecord {
+  applicationId?: Id;
+  kind?: RoundKind;
+  date?: LocalDate;
+  time?: string; // 'HH:MM'
+  interviewerIds?: Id[];
+  notes?: string;
+  debriefAsked?: string;
+  debriefWentWell?: string;
+  debriefToChange?: string;
+  debriefStoriesUsed?: string;
+}
+export interface Story extends BaseRecord {
+  title?: string;
+  situation?: string;
+  task?: string;
+  action?: string;
+  result?: string;
+  tags?: string[];
+}
+export interface WeeklyReview extends BaseRecord {
+  weekStart?: LocalDate;
+  outreachTarget?: number;
+  applicationCap?: number;
 }
 
 export interface StoreMap {
@@ -124,6 +156,9 @@ export interface StoreMap {
   contactEvents: ContactEvent;
   tasks: Task;
   profileFields: ProfileField;
+  rounds: Round;
+  stories: Story;
+  weeklyReviews: WeeklyReview;
 }
 export type StoreName = keyof StoreMap;
 export type Snapshot = { [S in StoreName]: StoreMap[S][] };

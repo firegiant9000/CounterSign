@@ -87,15 +87,63 @@ describe('indexeddb repository', () => {
     expect(snap.companies).toEqual([company]);
     expect(snap.applications).toEqual([application]);
     for (const { name, since } of STORES) {
-      if (since === 2) expect(snap[name]).toEqual([]);
+      if (since >= 2) expect(snap[name]).toEqual([]);
     }
 
     const db = await rawOpen(dbName);
     const version = db.version;
     const names = Array.from(db.objectStoreNames);
     db.close();
-    expect(version).toBe(2);
+    expect(version).toBe(SCHEMA_VERSION);
     for (const { name } of STORES) expect(names).toContain(name);
+  });
+
+  it('upgrades a version 2 database without losing records', async () => {
+    const dbName = freshName();
+    const contact = {
+      id: 'k1',
+      createdAt: '2026-01-05T09:00:00.000Z',
+      name: 'Sam Example',
+    };
+    const application = {
+      id: 'a1',
+      createdAt: '2026-01-06T09:00:00.000Z',
+      companyId: 'c1',
+    };
+    const v2 = await rawOpen(dbName, 2, (db) => {
+      for (const { name, since } of STORES) {
+        if (since <= 2) db.createObjectStore(name, { keyPath: 'id' });
+      }
+    });
+    await new Promise<void>((resolve, reject) => {
+      const tx = v2.transaction(['contacts', 'applications'], 'readwrite');
+      tx.objectStore('contacts').put(contact);
+      tx.objectStore('applications').put(application);
+      tx.oncomplete = () => resolve();
+      const fail = () =>
+        reject(new Error(tx.error?.message ?? 'transaction failed'));
+      tx.onerror = fail;
+      tx.onabort = fail;
+    });
+    v2.close();
+
+    const repo = await openIdbRepository({ dbName });
+    const snap = await repo.snapshot();
+    expect(snap.contacts).toEqual([contact]);
+    expect(snap.applications).toEqual([application]);
+    for (const name of ['rounds', 'stories', 'weeklyReviews'] as const) {
+      expect(snap[name]).toEqual([]);
+    }
+
+    const db = await rawOpen(dbName);
+    const version = db.version;
+    const names = Array.from(db.objectStoreNames);
+    db.close();
+    expect(version).toBe(3);
+    for (const { name } of STORES) expect(names).toContain(name);
+    for (const name of ['rounds', 'stories', 'weeklyReviews']) {
+      expect(names).toContain(name);
+    }
   });
 
   it('keeps the original data when replaceAll cannot store a record', async () => {

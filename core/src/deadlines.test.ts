@@ -9,7 +9,15 @@ import {
   newTaskOps,
   reopenTaskOps,
 } from './tasks';
-import type { Application, Deps, Snapshot, StatusEvent, Task } from './types';
+import type {
+  Application,
+  Contact,
+  Deps,
+  Round,
+  Snapshot,
+  StatusEvent,
+  Task,
+} from './types';
 
 const TODAY = '2026-11-16';
 
@@ -219,5 +227,187 @@ describe('deadlines', () => {
     const rows = deadlines(data, {}, TODAY);
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.date === undefined && !r.overdue)).toBe(true);
+  });
+});
+
+describe('deadlines: rounds and follow-ups', () => {
+  it('rounds from today on', () => {
+    const data = snap({
+      applications: [
+        app('a1', { title: 'Sample Engineer' }),
+        app('a2', { title: 'Gone' }),
+      ],
+      rounds: [
+        {
+          id: 'r1',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: '2026-11-16',
+        },
+        {
+          id: 'r2',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: '2026-11-15',
+        },
+        {
+          id: 'r3',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a2',
+          date: '2026-11-17',
+        },
+        {
+          id: 'r4',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: 'soon',
+        },
+      ],
+      statusEvents: [ev('e1', 'a2', 'rejected', '2026-11-01')],
+    });
+    const rows = deadlines(data, {}, TODAY).filter((r) => r.kind === 'round');
+    expect(rows.map((r) => r.key)).toEqual(['round:r1']);
+    expect(rows[0]).toMatchObject({
+      date: '2026-11-16',
+      overdue: false,
+      actor: 'me',
+      applicationId: 'a1',
+      roundId: 'r1',
+    });
+  });
+
+  it('round label', () => {
+    const data = snap({
+      companies: [
+        { id: 'c1', createdAt: at('2026-01-01'), name: 'Example Robotics' },
+      ],
+      applications: [app('a1', { title: 'Sample Engineer' })],
+      rounds: [
+        {
+          id: 'r1',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: '2026-11-20',
+          kind: 'technical',
+          time: '14:30',
+        },
+        {
+          id: 'r2',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: '2026-11-21',
+          kind: 'zoom' as unknown as Round['kind'],
+          time: '25:00',
+        },
+      ],
+    });
+    const labels = deadlines(data, {}, TODAY)
+      .filter((r) => r.kind === 'round')
+      .map((r) => r.label);
+    expect(labels).toEqual([
+      'Example Robotics — Sample Engineer: Technical at 14:30',
+      'Example Robotics — Sample Engineer: Other',
+    ]);
+  });
+
+  it('follow-up rows', () => {
+    const data = snap({
+      companies: [
+        { id: 'c1', createdAt: at('2026-01-01'), name: 'Example Robotics' },
+      ],
+      contacts: [
+        {
+          id: 'k1',
+          createdAt: at('2026-01-01'),
+          companyId: 'c1',
+          name: 'Sam Sample',
+          followUpOn: '2026-11-15',
+        },
+        { id: 'k2', createdAt: at('2026-01-01'), followUpOn: '2026-11-16' },
+        {
+          id: 'k3',
+          createdAt: at('2026-01-01'),
+          name: 'Later',
+          followUpOn: 'soon',
+        },
+      ],
+    });
+    const rows = deadlines(data, {}, TODAY).filter(
+      (r) => r.kind === 'follow_up',
+    );
+    expect(rows.map((r) => r.key)).toEqual(['follow_up:k1', 'follow_up:k2']);
+    expect(rows[0]).toMatchObject({
+      label: 'Follow up with Sam Sample at Example Robotics',
+      actor: 'me',
+      contactId: 'k1',
+      date: '2026-11-15',
+      overdue: true,
+    });
+    expect(rows[1]).toMatchObject({
+      label: 'Follow up with Unnamed contact at Unknown company',
+      overdue: false,
+    });
+  });
+
+  it('orders ties on one date as round, task, follow_up, next_action, quiet', () => {
+    const data = snap({
+      // Quiet rows sit on or before today, so the shared tie date is today.
+      applications: [
+        app('a1', { nextActionDate: TODAY }),
+        app('a2'),
+        app('a3', { title: 'Round role' }),
+      ],
+      statusEvents: [ev('e1', 'a2', 'applied', '2026-10-16')],
+      tasks: [task('t1', { title: 'z', dueOn: TODAY })],
+      rounds: [
+        {
+          id: 'r1',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a3',
+          date: TODAY,
+        },
+      ],
+      contacts: [
+        {
+          id: 'k1',
+          createdAt: at('2026-01-01'),
+          name: 'Sam',
+          followUpOn: TODAY,
+        },
+      ],
+    });
+    expect(
+      deadlines(data, { noResponseDays: 30 }, TODAY).map((r) => r.kind),
+    ).toEqual(['round', 'task', 'follow_up', 'next_action', 'quiet']);
+  });
+
+  it('reads odd restored round and contact values safely', () => {
+    const data = snap({
+      applications: [app('a1', { title: 'Role' })],
+      rounds: [
+        {
+          id: 'r1',
+          createdAt: at('2026-11-01'),
+          applicationId: 'a1',
+          date: '2026-11-20',
+          kind: 5,
+          time: 1430,
+        } as unknown as Round,
+      ],
+      contacts: [
+        {
+          id: 'k1',
+          createdAt: at('2026-01-01'),
+          name: 3,
+          companyId: 9,
+          followUpOn: 20261120,
+        } as unknown as Contact,
+      ],
+    });
+    const rows = deadlines(data, {}, TODAY);
+    expect(rows.find((r) => r.kind === 'round')?.label).toBe(
+      'Example Co — Role: Other',
+    );
+    expect(rows.some((r) => r.kind === 'follow_up')).toBe(false);
   });
 });

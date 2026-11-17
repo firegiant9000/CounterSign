@@ -10,7 +10,9 @@ export interface Migration {
   migrate(file: RawExport): RawExport;
 }
 
-// Schema 1 -> 2 adds six stores; missing stores already read as empty.
+// Schema 1 -> 2 adds six stores; 2 -> 3 adds three more. Missing stores
+// already read as empty, so each step only bumps the version.
 export const MIGRATIONS: readonly Migration[] = [
   { to: 2, migrate: (file) => ({ ...file, schemaVersion: 2 }) },
+  { to: 3, migrate: (file) => ({ ...file, schemaVersion: 3 }) },
 ];
