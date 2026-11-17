@@ -7,6 +7,7 @@ import {
   updateContactOps,
   type ContactInput,
 } from '../../core/src/contacts';
+import { isTarget, setTargetOps } from '../../core/src/targets';
 import type { Contact } from '../../core/src/types';
 import { useAppData } from './app-data';
 import { ContactActivity } from './ContactActivity';
@@ -93,10 +94,20 @@ export function ContactsPage(): VNode {
     );
   };
 
+  const toggleTarget = async (id: string, flag: boolean): Promise<void> => {
+    await run(() =>
+      appData.apply((d) => {
+        const fresh = d.companies.find((c) => c.id === id);
+        return fresh ? setTargetOps(fresh, flag) : [];
+      }),
+    );
+  };
+
   const companies = data.companies
     .map((company) => ({
       id: company.id,
       name: typeof company.name === 'string' ? company.name : '',
+      isTarget: isTarget(company),
       contacts: contactsAt(data, company.id),
     }))
     .filter((c) => c.contacts.length > 0)
@@ -184,6 +195,13 @@ export function ContactsPage(): VNode {
         companies.map((company) => (
           <section class="data-section" key={company.id}>
             <h2>{company.name || '(no company)'}</h2>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void toggleTarget(company.id, !company.isTarget)}
+            >
+              {company.isTarget ? 'Remove target' : 'Mark as target'}
+            </button>
             <ul>{company.contacts.map(row)}</ul>
           </section>
         ))
