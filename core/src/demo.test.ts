@@ -154,7 +154,7 @@ describe('demo data', () => {
     expect(DEMO_PREFIX).toBe('demo-');
   });
 
-  it('removes user-added records that hang off a demo application', async () => {
+  it('keeps user-added records that hang off a demo application', async () => {
     const { repo, snap } = await demoSnapshot();
     const app = snap.applications[0];
     if (!app) throw new Error('no demo data');
@@ -211,15 +211,20 @@ describe('demo data', () => {
     ]);
     await repo.apply(removeDemoOps(await repo.snapshot()));
     const after = await repo.snapshot();
-    expect(after.statusEvents).toEqual([]);
+    // The user's event keeps demo-application-1 (and the document it uses).
+    expect(after.statusEvents.map((e) => e.id)).toEqual(['uuid-event-1']);
     expect(after.documents.map((d) => d.id).sort()).toEqual([
+      'uuid-doc-1',
       'uuid-doc-2',
       'uuid-doc-3',
     ]);
-    expect(after.applications.map((a) => a.id)).toEqual(['real-1']);
+    expect(after.applications.map((a) => a.id).sort()).toEqual([
+      'demo-application-1',
+      'real-1',
+    ]);
   });
 
-  it('removes statements on demo applications and keeps others', async () => {
+  it('removes demo statements and keeps the user statements', async () => {
     const { repo, snap } = await demoSnapshot();
     const app = snap.applications[0];
     if (!app) throw new Error('no demo data');
@@ -247,7 +252,10 @@ describe('demo data', () => {
     ]);
     await repo.apply(removeDemoOps(await repo.snapshot()));
     const after = await repo.snapshot();
-    expect(after.statements.map((s) => s.id)).toEqual(['uuid-st-3']);
+    expect(after.statements.map((s) => s.id).sort()).toEqual([
+      'uuid-st-1',
+      'uuid-st-3',
+    ]);
   });
 
   it('computes dates across a year boundary', () => {
@@ -622,6 +630,89 @@ describe('demo data', () => {
     const after = await repo.snapshot();
     expect(after.rounds.map((r) => r.id)).toEqual(['real-r1']);
     expect(after.applications.map((a) => a.id)).toEqual(['demo-application-3']);
+  });
+
+  it('keeps a user status event and statement on a demo application', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'statusEvents',
+        record: {
+          id: 'real-s1',
+          createdAt: T,
+          applicationId: 'demo-application-2',
+          status: 'interview',
+        },
+      },
+      {
+        kind: 'put',
+        store: 'statements',
+        record: {
+          id: 'real-st1',
+          createdAt: T,
+          applicationId: 'demo-application-2',
+        },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(after.statusEvents.map((e) => e.id)).toEqual(['real-s1']);
+    expect(after.statements.map((s) => s.id)).toEqual(['real-st1']);
+    expect(after.applications.map((a) => a.id)).toEqual(['demo-application-2']);
+    expect(after.companies.map((c) => c.id)).toEqual(['demo-company-2']);
+  });
+
+  it('reports no demo data once only kept records remain', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'rounds',
+        record: {
+          id: 'real-r1',
+          createdAt: T,
+          applicationId: 'demo-application-2',
+        },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(hasDemoData(after)).toBe(false);
+    expect(removeDemoOps(after)).toEqual([]);
+    expect(canLoadDemo(after)).toBe(false);
+  });
+
+  it('drops the demo projectsShown text from a kept application only', async () => {
+    const run = async (text?: string) => {
+      const { repo, snap } = await demoSnapshot();
+      const app = snap.applications.find((a) => a.id === 'demo-application-2');
+      if (!app) throw new Error('no demo data');
+      await repo.apply([
+        {
+          kind: 'put',
+          store: 'applications',
+          record: text === undefined ? app : { ...app, projectsShown: text },
+        },
+        {
+          kind: 'put',
+          store: 'rounds',
+          record: {
+            id: 'real-r1',
+            createdAt: T,
+            applicationId: 'demo-application-2',
+          },
+        },
+      ]);
+      await repo.apply(removeDemoOps(await repo.snapshot()));
+      return repo.snapshot();
+    };
+    const demoText = await run();
+    expect(demoText.applications[0]).not.toHaveProperty('projectsShown');
+    const edited = await run('My own project');
+    expect(edited.applications[0]).toMatchObject({
+      projectsShown: 'My own project',
+    });
   });
 
   it("leaves the user's weekly plan alone", async () => {

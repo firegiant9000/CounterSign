@@ -201,7 +201,7 @@ export function WeeklyPage(): VNode {
         <CountsList counts={weeklyCounts(data, thisMonday)} plan={thisPlan} />
         {editing ? (
           <PlanForm
-            key={planKey(thisPlan)}
+            key={`${thisMonday}:${planKey(thisPlan)}`}
             monday={thisMonday}
             plan={thisPlan}
             onSaved={() => setEditing(false)}
@@ -223,7 +223,11 @@ export function WeeklyPage(): VNode {
       </section>
       <section class="data-section">
         <h2>Plan for next week (from {nextMonday})</h2>
-        <PlanForm key={planKey(nextPlan)} monday={nextMonday} plan={nextPlan} />
+        <PlanForm
+          key={`${nextMonday}:${planKey(nextPlan)}`}
+          monday={nextMonday}
+          plan={nextPlan}
+        />
       </section>
       <details>
         <summary>Totals and stages</summary>

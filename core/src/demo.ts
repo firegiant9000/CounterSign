@@ -1,7 +1,14 @@
 import type { WriteOp } from './repository';
 import type { StatusKey } from './status';
 import type { FillOutcome, SiteType } from './formhand';
-import type { Company, Deps, Id, LocalDate, Snapshot } from './types';
+import type {
+  Application,
+  Company,
+  Deps,
+  Id,
+  LocalDate,
+  Snapshot,
+} from './types';
 
 export const DEMO_PREFIX = 'demo-';
 
@@ -20,6 +27,8 @@ function daysAfter(today: LocalDate, days: number): LocalDate {
 const DEMO_TARGET_COMPANY_IDS: ReadonlySet<string> = new Set([
   'demo-company-1',
 ]);
+
+const DEMO_PROJECTS_SHOWN = 'Sample project: a route planner demo';
 
 const COMPANIES: readonly {
   id: Id;
@@ -331,7 +340,7 @@ export function buildDemoOps(
         ...(a.fillOutcome !== undefined ? { fillOutcome: a.fillOutcome } : {}),
         ...(a.fillNote !== undefined ? { fillNote: a.fillNote } : {}),
         ...(a.id === 'demo-application-2'
-          ? { projectsShown: 'Sample project: a route planner demo' }
+          ? { projectsShown: DEMO_PROJECTS_SHOWN }
           : {}),
       },
     });
@@ -445,22 +454,9 @@ export function canLoadDemo(data: Snapshot): boolean {
   );
 }
 
+/** True while a removal would still change something; kept records don't count. */
 export function hasDemoData(data: Snapshot): boolean {
-  return (
-    [
-      'companies',
-      'applications',
-      'statusEvents',
-      'documents',
-      'contacts',
-      'tasks',
-      'statements',
-      'rounds',
-      'stories',
-    ] as const
-  ).some((store) =>
-    list(data[store]).some((r) => isDemoId((r as { id?: unknown } | null)?.id)),
-  );
+  return removeDemoOps(data).length > 0;
 }
 
 /**
@@ -479,6 +475,14 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
     if (!round || isDemoId(round['id'])) continue;
     const ref = round['applicationId'];
     if (isDemoId(ref)) keptApps.add(ref);
+  }
+  for (const store of ['statusEvents', 'statements'] as const) {
+    for (const raw of list(data[store])) {
+      const rec = raw as Record<string, unknown> | null;
+      if (!rec || isDemoId(rec['id'])) continue;
+      const ref = rec['applicationId'];
+      if (isDemoId(ref)) keptApps.add(ref);
+    }
   }
   const keptContacts = new Set<string>();
   for (const raw of list(data.contactEvents)) {
@@ -559,6 +563,18 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
     const id = idOf(raw);
     if (isDemoId(id) && !keptApps.has(id)) {
       ops.push({ kind: 'delete', store: 'applications', id });
+    } else if (
+      isDemoId(id) &&
+      (raw as Record<string, unknown>)['projectsShown'] === DEMO_PROJECTS_SHOWN
+    ) {
+      // Kept for the user's records: drop the demo text, not one they edited.
+      const rest = { ...(raw as Record<string, unknown>) };
+      delete rest['projectsShown'];
+      ops.push({
+        kind: 'put',
+        store: 'applications',
+        record: rest as unknown as Application,
+      });
     }
   }
   for (const raw of list(data.rounds)) {
