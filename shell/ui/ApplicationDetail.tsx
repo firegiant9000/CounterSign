@@ -29,6 +29,7 @@ import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
 import { DocumentField } from './DocumentField';
 import { routeHref } from './route';
+import { RoundsSection } from './RoundsSection';
 import { StatementsSection } from './StatementsSection';
 
 function messageOf(err: unknown): string {
@@ -55,6 +56,9 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   const [urlError, setUrlError] = useState<string | undefined>(undefined);
   const [actorError, setActorError] = useState<string | undefined>(undefined);
   const [notesError, setNotesError] = useState<string | undefined>(undefined);
+  const [projectsError, setProjectsError] = useState<string | undefined>(
+    undefined,
+  );
   const [siteError, setSiteError] = useState<string | undefined>(undefined);
   const [fillOutcomeError, setFillOutcomeError] = useState<string | undefined>(
     undefined,
@@ -182,6 +186,8 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   const url = typeof app.url === 'string' ? app.url : '';
   const title = typeof app.title === 'string' ? app.title : '';
   const notes = typeof app.notes === 'string' ? app.notes : '';
+  const projectsShown =
+    typeof app.projectsShown === 'string' ? app.projectsShown : '';
   const nextDate =
     typeof app.nextActionDate === 'string' ? app.nextActionDate : '';
   const actor =
@@ -293,6 +299,22 @@ export function ApplicationDetail(props: { id: Id }): VNode {
           />
           {notesError ? <span class="field-error">{notesError}</span> : null}
         </label>
+        <label>
+          Projects shown
+          <textarea
+            key={`projects-${projectsShown}`}
+            defaultValue={projectsShown}
+            onChange={(e) => {
+              void save(
+                { projectsShown: e.currentTarget.value },
+                setProjectsError,
+              );
+            }}
+          />
+          {projectsError ? (
+            <span class="field-error">{projectsError}</span>
+          ) : null}
+        </label>
       </div>
 
       <h2>Documents</h2>
@@ -301,6 +323,9 @@ export function ApplicationDetail(props: { id: Id }): VNode {
 
       <h2>What I told them</h2>
       <StatementsSection applicationId={id} />
+
+      <h2>Interview rounds</h2>
+      <RoundsSection applicationId={id} companyId={app.companyId} />
 
       <h2>Formhand log</h2>
       <div class="detail-fields">
