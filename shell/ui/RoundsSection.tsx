@@ -73,8 +73,8 @@ function formFrom(round: Round): FormState {
   const ids: unknown = round.interviewerIds;
   return {
     kind: kindOf(round),
-    date: text(round.date),
-    time: text(round.time),
+    date: isLocalDate(text(round.date)) ? text(round.date) : '',
+    time: TIME_PATTERN.test(text(round.time)) ? text(round.time) : '',
     interviewerIds: Array.isArray(ids)
       ? (ids as unknown[]).filter((i): i is string => typeof i === 'string')
       : [],
@@ -108,9 +108,18 @@ export function RoundsSection(props: {
   // undefined = form closed, null = adding, string = editing that round id.
   const [editing, setEditing] = useState<Id | null | undefined>(undefined);
   const [form, setForm] = useState<FormState>(blankForm);
+  // The values the edit form opened with; only changes are saved.
+  const [start, setStart] = useState<FormState | undefined>(undefined);
 
   const rounds = roundsFor(data, applicationId);
   const contacts = companyId === undefined ? [] : contactsAt(data, companyId);
+  // Selected interviewers who exist but are no longer at this company.
+  const listed = new Set(contacts.map((c) => c.id));
+  const elsewhere = form.interviewerIds.flatMap((id) => {
+    const c = data.contacts.find((x) => x.id === id);
+    return c && !listed.has(id) ? [c] : [];
+  });
+  const choices = [...contacts, ...elsewhere];
 
   const patchForm = (patch: Partial<FormState>): void =>
     setForm((f) => ({ ...f, ...patch }));
@@ -135,12 +144,15 @@ export function RoundsSection(props: {
   const openAdd = (): void => {
     setError(undefined);
     setForm(blankForm());
+    setStart(undefined);
     setEditing(null);
   };
 
   const openEdit = (round: Round): void => {
     setError(undefined);
-    setForm(formFrom(round));
+    const opened = formFrom(round);
+    setForm(opened);
+    setStart(opened);
     setEditing(round.id);
   };
 
@@ -157,7 +169,7 @@ export function RoundsSection(props: {
       setError(BAD_TIME);
       return;
     }
-    const input: RoundInput = {
+    const full: RoundInput = {
       kind: form.kind,
       date,
       time,
@@ -168,6 +180,21 @@ export function RoundsSection(props: {
       debriefToChange: form.debriefToChange,
       debriefStoriesUsed: form.debriefStoriesUsed,
     };
+    let input: RoundInput = full;
+    if (editing !== null && start !== undefined) {
+      // Send only what the user changed, so another tab's edits are kept.
+      const changed: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(full)) {
+        const before = start[key as keyof FormState];
+        const same = Array.isArray(value)
+          ? Array.isArray(before) &&
+            value.length === before.length &&
+            value.every((v, i) => v === before[i])
+          : value === before;
+        if (!same) changed[key] = value;
+      }
+      input = changed;
+    }
     const target = editing;
     const ok = await run(() =>
       appData.apply((d) => {
@@ -288,10 +315,10 @@ export function RoundsSection(props: {
           </label>
           <fieldset>
             <legend>Interviewers</legend>
-            {contacts.length === 0 ? (
+            {choices.length === 0 ? (
               <p>Add interviewers under People here.</p>
             ) : (
-              contacts.map((c) => (
+              choices.map((c) => (
                 <label key={c.id}>
                   <input
                     type="checkbox"

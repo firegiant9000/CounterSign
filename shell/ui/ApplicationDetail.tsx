@@ -163,7 +163,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
     if (busy) return;
     if (
       !confirm(
-        'Delete this application, its status history and what you told them?',
+        'Delete this application, its status history, what you told them and its interview rounds?',
       )
     )
       return;
