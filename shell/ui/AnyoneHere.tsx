@@ -97,7 +97,10 @@ export function AnyoneHere(props: {
           submitLabel="Add contact"
           busy={busy}
           onSubmit={(input) => void add(input)}
-          onCancel={() => setAdding(false)}
+          onCancel={() => {
+            setError(undefined);
+            setAdding(false);
+          }}
         />
       ) : (
         <div class="popup-actions">

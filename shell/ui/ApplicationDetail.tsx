@@ -7,6 +7,7 @@ import {
   voidStatusEventOps,
 } from '../../core/src/application-ops';
 import type { ApplicationPatch } from '../../core/src/application-ops';
+import { anyoneHereForName } from '../../core/src/contacts';
 import { isLocalDate, toLocalDate } from '../../core/src/dates';
 import {
   FILL_OUTCOMES,
@@ -203,14 +204,19 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         <a href={routeHref({ page: 'pack', id })}>Interview pack</a>
       </p>
       <h1>{company?.name ?? 'Unknown company'}</h1>
-      <section class="data-section">
-        <h2>People here</h2>
-        <AnyoneHere
-          companyName={
-            typeof company?.name === 'string' ? company.name : undefined
-          }
-        />
-      </section>
+      {anyoneHereForName(
+        data,
+        typeof company?.name === 'string' ? company.name : undefined,
+      ).prompt === 'none' ? null : (
+        <section class="data-section">
+          <h2>People here</h2>
+          <AnyoneHere
+            companyName={
+              typeof company?.name === 'string' ? company.name : undefined
+            }
+          />
+        </section>
+      )}
 
       <div class="detail-fields">
         <label>

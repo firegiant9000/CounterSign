@@ -115,6 +115,16 @@ export function ContactsPage(): VNode {
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     );
 
+  // Contacts whose company is missing still show, in a last group.
+  const knownIds = new Set(data.companies.map((c) => c.id));
+  const orphans = data.contacts
+    .filter((c) => c.companyId === undefined || !knownIds.has(c.companyId))
+    .sort((a, b) =>
+      str(a.name).localeCompare(str(b.name), undefined, {
+        sensitivity: 'base',
+      }),
+    );
+
   const row = (contact: Contact): VNode =>
     editingId === contact.id ? (
       <li key={contact.id}>
@@ -123,7 +133,10 @@ export function ContactsPage(): VNode {
           submitLabel="Save"
           busy={busy}
           onSubmit={(input) => void save(contact.id, input)}
-          onCancel={() => setEditingId(undefined)}
+          onCancel={() => {
+            setError(undefined);
+            setEditingId(undefined);
+          }}
         />
       </li>
     ) : (
@@ -160,36 +173,37 @@ export function ContactsPage(): VNode {
       <h1>Contacts</h1>
       <section class="data-section">
         <h2>Add a contact</h2>
-        <label>
-          Company
-          <input
-            type="text"
-            list="contact-companies"
-            value={companyName}
-            disabled={busy}
-            onInput={(e) => setCompanyName(e.currentTarget.value)}
-          />
-        </label>
-        <datalist id="contact-companies">
-          {data.companies
-            .filter((c) => c.name)
-            .map((c) => (
-              <option key={c.id} value={c.name} />
-            ))}
-        </datalist>
         <ContactForm
           key={formKey}
           submitLabel="Add contact"
           busy={busy}
           onSubmit={(input) => void add(input)}
-        />
+        >
+          <label>
+            Company
+            <input
+              type="text"
+              list="contact-companies"
+              value={companyName}
+              disabled={busy}
+              onInput={(e) => setCompanyName(e.currentTarget.value)}
+            />
+          </label>
+          <datalist id="contact-companies">
+            {data.companies
+              .filter((c) => c.name)
+              .map((c) => (
+                <option key={c.id} value={c.name} />
+              ))}
+          </datalist>
+        </ContactForm>
       </section>
       {error ? (
         <span class="field-error" role="alert">
           {error}
         </span>
       ) : null}
-      {companies.length === 0 ? (
+      {companies.length === 0 && orphans.length === 0 ? (
         <p>No contacts yet.</p>
       ) : (
         companies.map((company) => (
@@ -206,6 +220,12 @@ export function ContactsPage(): VNode {
           </section>
         ))
       )}
+      {orphans.length > 0 ? (
+        <section class="data-section">
+          <h2>(unknown company)</h2>
+          <ul>{orphans.map(row)}</ul>
+        </section>
+      ) : null}
     </div>
   );
 }
