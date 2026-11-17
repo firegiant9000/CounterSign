@@ -62,7 +62,8 @@ export function DeadlinesPage(): VNode {
     if (inFlight.current) return;
     const trimmed = title.trim();
     const badTitle = trimmed === '';
-    const badDate = dueOn !== '' && !isLocalDate(dueOn);
+    const dueTrimmed = dueOn.trim();
+    const badDate = dueTrimmed !== '' && !isLocalDate(dueTrimmed);
     setTitleError(badTitle ? 'Enter a title.' : undefined);
     setDateError(badDate ? 'Enter a valid date (YYYY-MM-DD).' : undefined);
     if (badTitle || badDate) return;
@@ -70,7 +71,10 @@ export function DeadlinesPage(): VNode {
       appData.apply(
         () =>
           newTaskOps(
-            { title: trimmed, ...(dueOn !== '' ? { dueOn } : {}) },
+            {
+              title: trimmed,
+              ...(dueTrimmed !== '' ? { dueOn: dueTrimmed } : {}),
+            },
             deps,
           ).ops,
       ),

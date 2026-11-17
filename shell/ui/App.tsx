@@ -12,6 +12,8 @@ import { PackPage } from './PackPage';
 import { QuietList } from './QuietList';
 import { parseRoute, routeHref } from './route';
 import { SettingsPage } from './SettingsPage';
+import { StoriesPage } from './StoriesPage';
+import { TargetsPage } from './TargetsPage';
 import type { Route } from './route';
 
 function Page(props: { route: Route }): VNode {
@@ -33,6 +35,10 @@ function Page(props: { route: Route }): VNode {
       return <QuietList />;
     case 'contacts':
       return <ContactsPage />;
+    case 'stories':
+      return <StoriesPage />;
+    case 'targets':
+      return <TargetsPage />;
     case 'details':
       return <CopyPanel />;
     case 'settings':
@@ -59,6 +65,8 @@ export function App(): VNode {
       | 'deadlines'
       | 'quiet'
       | 'contacts'
+      | 'targets'
+      | 'stories'
       | 'answers'
       | 'details'
       | 'data'
@@ -80,6 +88,8 @@ export function App(): VNode {
         {link('deadlines', 'Deadlines')}
         {link('quiet', 'Quiet')}
         {link('contacts', 'Contacts')}
+        {link('targets', 'Targets')}
+        {link('stories', 'Stories')}
         {link('answers', 'Answers')}
         {link('details', 'My details')}
         {link('data', 'Data')}

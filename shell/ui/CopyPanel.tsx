@@ -184,13 +184,17 @@ export function CopyPanel(): VNode {
             {answers.map((a) => (
               <li key={a.id}>
                 <strong>{a.label}</strong>: {a.text}{' '}
-                <button
-                  type="button"
-                  onClick={() => doCopy(`answer:${a.id}`, a.text)}
-                >
-                  Copy
-                </button>
-                {status(`answer:${a.id}`)}
+                {a.text.trim() === '' ? null : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => doCopy(`answer:${a.id}`, a.text)}
+                    >
+                      Copy
+                    </button>
+                    {status(`answer:${a.id}`)}
+                  </>
+                )}
               </li>
             ))}
           </ul>

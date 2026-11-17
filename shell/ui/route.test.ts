@@ -20,6 +20,10 @@ describe('route', () => {
     ['#/details/x', { page: 'applications' }],
     ['#/deadlines', { page: 'deadlines' }],
     ['#/deadlines/x', { page: 'applications' }],
+    ['#/stories', { page: 'stories' }],
+    ['#/stories/x', { page: 'applications' }],
+    ['#/targets', { page: 'targets' }],
+    ['#/targets/x', { page: 'applications' }],
     ['#/pack/abc', { page: 'pack', id: 'abc' }],
     ['#/pack/a%2F1', { page: 'pack', id: 'a/1' }],
     ['#/pack', { page: 'applications' }],
@@ -37,6 +41,8 @@ describe('route', () => {
       { page: 'settings' },
       { page: 'quiet' },
       { page: 'deadlines' },
+      { page: 'stories' },
+      { page: 'targets' },
     ] as Route[])
       expect(parseRoute(routeHref(r))).toEqual(r);
   });
@@ -55,6 +61,14 @@ describe('route', () => {
 
   it('builds the details href', () => {
     expect(routeHref({ page: 'details' })).toBe('#/details');
+  });
+
+  it('builds the stories href', () => {
+    expect(routeHref({ page: 'stories' })).toBe('#/stories');
+  });
+
+  it('builds the targets href', () => {
+    expect(routeHref({ page: 'targets' })).toBe('#/targets');
   });
 
   it('builds the settings href', () => {

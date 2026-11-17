@@ -1,4 +1,4 @@
-import type { VNode } from 'preact';
+import type { ComponentChildren, VNode } from 'preact';
 import { useState } from 'preact/hooks';
 import type { ContactInput } from '../../core/src/contacts';
 
@@ -8,8 +8,10 @@ export function ContactForm(props: {
   busy: boolean;
   onSubmit: (input: ContactInput) => void;
   onCancel?: () => void;
+  // Extra fields rendered first, inside the form so Enter submits it.
+  children?: ComponentChildren;
 }): VNode {
-  const { initial, submitLabel, busy, onSubmit, onCancel } = props;
+  const { initial, submitLabel, busy, onSubmit, onCancel, children } = props;
   // Restored data may hold odd types; only strings seed the fields.
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
   const [name, setName] = useState(str(initial?.name));
@@ -32,6 +34,7 @@ export function ContactForm(props: {
 
   return (
     <form class="app-form" onSubmit={submit}>
+      {children}
       <label>
         Name
         <input

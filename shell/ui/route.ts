@@ -7,6 +7,8 @@ export type Route =
   | { page: 'data' }
   | { page: 'quiet' }
   | { page: 'contacts' }
+  | { page: 'stories' }
+  | { page: 'targets' }
   | { page: 'details' }
   | { page: 'settings' };
 
@@ -27,6 +29,10 @@ export function parseRoute(hash: string): Route {
       return rest === undefined ? { page: 'quiet' } : APPLICATIONS;
     case 'contacts':
       return rest === undefined ? { page: 'contacts' } : APPLICATIONS;
+    case 'stories':
+      return rest === undefined ? { page: 'stories' } : APPLICATIONS;
+    case 'targets':
+      return rest === undefined ? { page: 'targets' } : APPLICATIONS;
     case 'details':
       return rest === undefined ? { page: 'details' } : APPLICATIONS;
     case 'settings':
@@ -68,6 +74,10 @@ export function routeHref(route: Route): string {
       return '#/quiet';
     case 'contacts':
       return '#/contacts';
+    case 'stories':
+      return '#/stories';
+    case 'targets':
+      return '#/targets';
     case 'details':
       return '#/details';
     case 'settings':
