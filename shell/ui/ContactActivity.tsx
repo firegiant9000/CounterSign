@@ -1,5 +1,5 @@
 import type { VNode } from 'preact';
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 import { applicationRows } from '../../core/src/application-list';
 import { isLocalDate, toLocalDate } from '../../core/src/dates';
 import {
@@ -36,6 +36,8 @@ export function ContactActivity(props: { contact: Contact }): VNode {
     data.contacts.find((c) => c.id === contactId) ?? props.contact;
 
   const [busy, setBusy] = useState(false);
+  // Set synchronously so a second click before re-render cannot start a write.
+  const inFlight = useRef(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [kind, setKind] = useState<ContactEventKind>('reached_out');
   const [occurredOn, setOccurredOn] = useState(() => toLocalDate(new Date()));
@@ -63,7 +65,8 @@ export function ContactActivity(props: { contact: Contact }): VNode {
     id === undefined ? '' : (rows.get(id)?.title ?? '');
 
   const run = async (write: () => Promise<void>): Promise<boolean> => {
-    if (busy) return false;
+    if (inFlight.current) return false;
+    inFlight.current = true;
     setError(undefined);
     setBusy(true);
     try {
@@ -73,13 +76,14 @@ export function ContactActivity(props: { contact: Contact }): VNode {
       setError(messageOf(err));
       return false;
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
 
   const onLog = async (event: Event): Promise<void> => {
     event.preventDefault();
-    if (busy) return;
+    if (inFlight.current) return;
     if (!isLocalDate(occurredOn)) {
       setError(BAD_DATE);
       return;
@@ -98,7 +102,7 @@ export function ContactActivity(props: { contact: Contact }): VNode {
   };
 
   const onUndo = async (eventId: Id): Promise<void> => {
-    if (busy) return;
+    if (inFlight.current) return;
     if (!confirm('Undo this entry?')) return;
     await run(() =>
       appData.apply((d) => {
@@ -110,7 +114,7 @@ export function ContactActivity(props: { contact: Contact }): VNode {
 
   const onSetFollowUp = async (event: Event): Promise<void> => {
     event.preventDefault();
-    if (busy) return;
+    if (inFlight.current) return;
     if (!isLocalDate(followOn)) {
       setError(BAD_DATE);
       return;
@@ -123,7 +127,7 @@ export function ContactActivity(props: { contact: Contact }): VNode {
   };
 
   const onClear = async (): Promise<void> => {
-    if (busy) return;
+    if (inFlight.current) return;
     await run(() =>
       appData.apply((d) => {
         const fresh = d.contacts.find((c) => c.id === contactId);

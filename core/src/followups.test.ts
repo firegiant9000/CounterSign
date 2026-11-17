@@ -101,6 +101,56 @@ describe('follow-up limit', () => {
     expect(other).toHaveLength(1);
   });
 
+  it('a dangling application id does not clear an unlinked date', () => {
+    const contact: Contact = {
+      id: 'A',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      name: 'Sam',
+      followUpOn: '2026-02-01',
+    };
+    const ops = logContactEventOps(
+      snap({ contacts: [contact] }),
+      'A',
+      { kind: 'followed_up', occurredOn: '2026-01-10', applicationId: 'gone' },
+      fixedDeps(),
+    );
+    expect(ops).toHaveLength(1);
+    const rec = (ops[0] as { record: ContactEvent }).record;
+    expect('applicationId' in rec).toBe(false);
+    expect(contact.followUpOn).toBe('2026-02-01');
+  });
+
+  it('logging clears a date whose application was deleted', () => {
+    const contact: Contact = {
+      id: 'A',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      name: 'Sam',
+      followUpOn: '2026-02-01',
+      followUpApplicationId: 'gone',
+    };
+    const ops = logContactEventOps(
+      snap({ contacts: [contact] }),
+      'A',
+      { kind: 'followed_up', occurredOn: '2026-01-10' },
+      fixedDeps(),
+    );
+    expect(ops).toHaveLength(2);
+    const rec = (ops[1] as { record: Contact }).record;
+    expect(rec.name).toBe('Sam');
+    expect('followUpOn' in rec).toBe(false);
+    expect('followUpApplicationId' in rec).toBe(false);
+  });
+
+  it('no pending date, no contact write', () => {
+    const ops = logContactEventOps(
+      snap(),
+      'A',
+      { kind: 'followed_up', occurredOn: '2026-01-10' },
+      fixedDeps(),
+    );
+    expect(ops).toHaveLength(1);
+  });
+
   it('logging is never blocked', () => {
     const data = snap({ contactEvents: twoOn1 });
     const ops = logContactEventOps(

@@ -104,9 +104,22 @@ export function logContactEventOps(
   const ops: WriteOp[] = [
     { kind: 'put', store: 'contactEvents', record: event },
   ];
+  const storedId: unknown = contact.followUpApplicationId;
+  const storedApp =
+    typeof storedId === 'string' &&
+    data.applications.some((a) => a.id === storedId)
+      ? storedId
+      : undefined;
+  const inputDangling =
+    input.applicationId !== undefined && applicationId === undefined;
+  const pending =
+    contact.followUpOn !== undefined ||
+    contact.followUpApplicationId !== undefined;
   if (
     input.kind === 'followed_up' &&
-    applicationId === contact.followUpApplicationId
+    pending &&
+    !inputDangling &&
+    applicationId === storedApp
   ) {
     const record: Contact = { ...contact };
     delete record.followUpOn;
