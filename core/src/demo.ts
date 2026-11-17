@@ -1,7 +1,14 @@
 import type { WriteOp } from './repository';
 import type { StatusKey } from './status';
 import type { FillOutcome, SiteType } from './formhand';
-import type { Company, Deps, Id, LocalDate, Snapshot } from './types';
+import type {
+  Application,
+  Company,
+  Deps,
+  Id,
+  LocalDate,
+  Snapshot,
+} from './types';
 
 export const DEMO_PREFIX = 'demo-';
 
@@ -15,6 +22,13 @@ function daysBefore(today: LocalDate, days: number): LocalDate {
 function daysAfter(today: LocalDate, days: number): LocalDate {
   return daysBefore(today, -days);
 }
+
+/** Demo companies the demo itself flags as targets; a user's own flag is any other. */
+const DEMO_TARGET_COMPANY_IDS: ReadonlySet<string> = new Set([
+  'demo-company-1',
+]);
+
+const DEMO_PROJECTS_SHOWN = 'Sample project: a route planner demo';
 
 const COMPANIES: readonly {
   id: Id;
@@ -211,6 +225,7 @@ export function buildDemoOps(
         createdAt: deps.now(),
         name: c.name,
         ...(c.anyoneHere !== undefined ? { anyoneHere: c.anyoneHere } : {}),
+        ...(DEMO_TARGET_COMPANY_IDS.has(c.id) ? { isTarget: true } : {}),
       },
     });
   }
@@ -228,6 +243,7 @@ export function buildDemoOps(
       name: 'Sample Engineer',
       role: 'Engineer',
       howKnown: 'Former colleague',
+      followUpOn: daysAfter(today, 2),
     },
   ];
   for (const c of contacts) {
@@ -323,6 +339,9 @@ export function buildDemoOps(
         ...(a.siteType !== undefined ? { siteType: a.siteType } : {}),
         ...(a.fillOutcome !== undefined ? { fillOutcome: a.fillOutcome } : {}),
         ...(a.fillNote !== undefined ? { fillNote: a.fillNote } : {}),
+        ...(a.id === 'demo-application-2'
+          ? { projectsShown: DEMO_PROJECTS_SHOWN }
+          : {}),
       },
     });
     a.history.forEach(([status, ago], i) => {
@@ -339,6 +358,84 @@ export function buildDemoOps(
       });
     });
   }
+  for (const [id, kind, ago] of [
+    ['demo-contact-event-1', 'reached_out', 10],
+    ['demo-contact-event-2', 'followed_up', 3],
+  ] as const) {
+    ops.push({
+      kind: 'put',
+      store: 'contactEvents',
+      record: {
+        id,
+        createdAt: deps.now(),
+        contactId: 'demo-contact-1',
+        applicationId: 'demo-application-2',
+        kind,
+        occurredOn: daysBefore(today, ago),
+      },
+    });
+  }
+  ops.push(
+    {
+      kind: 'put',
+      store: 'rounds',
+      record: {
+        id: 'demo-round-1',
+        createdAt: deps.now(),
+        applicationId: 'demo-application-2',
+        kind: 'phone_screen',
+        date: daysBefore(today, 5),
+        interviewerIds: ['demo-contact-1'],
+        notes: 'Sample notes: a friendly first call.',
+        debriefAsked:
+          'Sample answer: asked about dashboards I had built and how I checked the numbers.',
+        debriefWentWell:
+          'Sample answer: the walk through my reporting project.',
+        debriefToChange: 'Sample answer: give the headline result first.',
+        debriefStoriesUsed: 'Sample answer: the story about a data mix-up.',
+      },
+    },
+    {
+      kind: 'put',
+      store: 'rounds',
+      record: {
+        id: 'demo-round-2',
+        createdAt: deps.now(),
+        applicationId: 'demo-application-2',
+        kind: 'technical',
+        date: daysAfter(today, 3),
+        time: '10:00',
+      },
+    },
+    {
+      kind: 'put',
+      store: 'stories',
+      record: {
+        id: 'demo-story-1',
+        createdAt: deps.now(),
+        title: 'Sample story: settling a scope disagreement',
+        situation: 'Two teams wanted different things from one report.',
+        task: 'Agree on a single version before the deadline.',
+        action: 'Set up a short call and wrote down what each side needed.',
+        result: 'Both teams signed off on one report.',
+        tags: ['Leadership', 'Conflict'],
+      },
+    },
+    {
+      kind: 'put',
+      store: 'stories',
+      record: {
+        id: 'demo-story-2',
+        createdAt: deps.now(),
+        title: 'Sample story: tracing a data mix-up',
+        situation: 'A weekly figure suddenly looked far too high.',
+        task: 'Find the cause before the numbers went out.',
+        action: 'Compared each step of the pipeline against the source.',
+        result: 'Found a duplicated join and fixed it the same day.',
+        tags: ['Leadership', 'Debugging'],
+      },
+    },
+  );
   return ops;
 }
 
@@ -357,28 +454,55 @@ export function canLoadDemo(data: Snapshot): boolean {
   );
 }
 
+/** True while a removal would still change something; kept records don't count. */
 export function hasDemoData(data: Snapshot): boolean {
-  return (
-    [
-      'companies',
-      'applications',
-      'statusEvents',
-      'documents',
-      'contacts',
-      'tasks',
-      'statements',
-    ] as const
-  ).some((store) =>
-    list(data[store]).some((r) => isDemoId((r as { id?: unknown } | null)?.id)),
-  );
+  return removeDemoOps(data).length > 0;
 }
 
 /**
  * Deletes every record whose id starts with DEMO_PREFIX, except a demo company
- * or document that a non-demo application still references.
+ * or document that a non-demo application still references, a demo company the
+ * user flagged as a target, a demo application a non-demo round hangs on, and a
+ * demo contact a non-demo contact event hangs on (each with its company).
+ * Never touches weeklyReviews.
  */
 export function removeDemoOps(data: Snapshot): WriteOp[] {
   const kept = new Set<string>();
+  // Demo applications and contacts the user hung their own records on.
+  const keptApps = new Set<string>();
+  for (const raw of list(data.rounds)) {
+    const round = raw as Record<string, unknown> | null;
+    if (!round || isDemoId(round['id'])) continue;
+    const ref = round['applicationId'];
+    if (isDemoId(ref)) keptApps.add(ref);
+  }
+  for (const store of ['statusEvents', 'statements'] as const) {
+    for (const raw of list(data[store])) {
+      const rec = raw as Record<string, unknown> | null;
+      if (!rec || isDemoId(rec['id'])) continue;
+      const ref = rec['applicationId'];
+      if (isDemoId(ref)) keptApps.add(ref);
+    }
+  }
+  const keptContacts = new Set<string>();
+  for (const raw of list(data.contactEvents)) {
+    const event = raw as Record<string, unknown> | null;
+    if (!event || isDemoId(event['id'])) continue;
+    const ref = event['contactId'];
+    if (isDemoId(ref)) keptContacts.add(ref);
+  }
+  for (const raw of list(data.applications)) {
+    const app = raw as Record<string, unknown> | null;
+    if (!app || !keptApps.has(app['id'] as string)) continue;
+    const ref = app['companyId'];
+    if (typeof ref === 'string') kept.add(ref);
+  }
+  for (const raw of list(data.contacts)) {
+    const contact = raw as Record<string, unknown> | null;
+    if (!contact || !keptContacts.has(contact['id'] as string)) continue;
+    const ref = contact['companyId'];
+    if (typeof ref === 'string') kept.add(ref);
+  }
   for (const raw of list(data.applications)) {
     const app = raw as Record<string, unknown> | null;
     if (!app || isDemoId(app['id'])) continue;
@@ -402,7 +526,7 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
   const removedDocRefs = new Set<string>();
   for (const raw of list(data.applications)) {
     const app = raw as Record<string, unknown> | null;
-    if (!app || !isDemoId(app['id'])) continue;
+    if (!app || !isDemoId(app['id']) || keptApps.has(app['id'])) continue;
     removedApps.add(app['id']);
     for (const field of ['resumeDocumentId', 'coverLetterDocumentId']) {
       const ref = app[field];
@@ -413,12 +537,21 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
   const idOf = (raw: unknown): unknown => (raw as { id?: unknown } | null)?.id;
   for (const raw of list(data.companies)) {
     const id = idOf(raw);
-    if (isDemoId(id) && !kept.has(id)) {
+    if (!isDemoId(id)) continue;
+    const company = raw as Record<string, unknown>;
+    const demoFlagged = DEMO_TARGET_COMPANY_IDS.has(id);
+    // A target flag on a company the demo does not itself flag is the user's.
+    const userTarget = company['isTarget'] === true && !demoFlagged;
+    if (!kept.has(id) && !userTarget) {
       ops.push({ kind: 'delete', store: 'companies', id });
-    } else if (isDemoId(id) && 'anyoneHere' in (raw as object)) {
-      // Kept because real data uses it: drop the answer the user never gave.
-      const rest = { ...(raw as Record<string, unknown>) };
+    } else if (
+      'anyoneHere' in company ||
+      (demoFlagged && 'isTarget' in company)
+    ) {
+      // Kept because real data uses it: drop the answers the user never gave.
+      const rest = { ...company };
       delete rest['anyoneHere'];
+      if (demoFlagged) delete rest['isTarget'];
       ops.push({
         kind: 'put',
         store: 'companies',
@@ -428,7 +561,33 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
   }
   for (const raw of list(data.applications)) {
     const id = idOf(raw);
-    if (isDemoId(id)) ops.push({ kind: 'delete', store: 'applications', id });
+    if (isDemoId(id) && !keptApps.has(id)) {
+      ops.push({ kind: 'delete', store: 'applications', id });
+    } else if (
+      isDemoId(id) &&
+      (raw as Record<string, unknown>)['projectsShown'] === DEMO_PROJECTS_SHOWN
+    ) {
+      // Kept for the user's records: drop the demo text, not one they edited.
+      const rest = { ...(raw as Record<string, unknown>) };
+      delete rest['projectsShown'];
+      ops.push({
+        kind: 'put',
+        store: 'applications',
+        record: rest as unknown as Application,
+      });
+    }
+  }
+  for (const raw of list(data.rounds)) {
+    const id = idOf(raw);
+    if (typeof id !== 'string') continue;
+    const appId = (raw as { applicationId?: unknown }).applicationId;
+    if (isDemoId(id) || (typeof appId === 'string' && removedApps.has(appId))) {
+      ops.push({ kind: 'delete', store: 'rounds', id });
+    }
+  }
+  for (const raw of list(data.stories)) {
+    const id = idOf(raw);
+    if (isDemoId(id)) ops.push({ kind: 'delete', store: 'stories', id });
   }
   for (const raw of list(data.statusEvents)) {
     const id = idOf(raw);
@@ -449,7 +608,7 @@ export function removeDemoOps(data: Snapshot): WriteOp[] {
   const removedContacts = new Set<string>();
   for (const raw of list(data.contacts)) {
     const id = idOf(raw);
-    if (isDemoId(id)) {
+    if (isDemoId(id) && !keptContacts.has(id)) {
       removedContacts.add(id);
       ops.push({ kind: 'delete', store: 'contacts', id });
     }

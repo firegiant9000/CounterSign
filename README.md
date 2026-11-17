@@ -4,7 +4,7 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
-> **Status:** v0.2.0, in active development. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+> **Status:** v1.0.0. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
 
 ## The three claims
 
@@ -30,7 +30,7 @@ Files are saved only through [`shell/files/download.ts`](shell/files/download.ts
 
 ## What it does today
 
-Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, plus quiet, deadlines, contacts and copy tools. Everything is still your own data, stored locally.
+Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, plus quiet, deadlines, contacts and copy tools. Stage 3 adds follow-ups, an interview pack, a story bank, a weekly review and targets. Everything is still your own data, stored locally.
 
 - **Applications list** with search, filters, manual entry, and a next-action date and who acts next.
 - **Save a job.** After you click the toolbar button (or press Alt+Shift+S by default; you can rebind it in about:addons), the popup reads the current tab once and offers the job for saving. Nothing is read before the click.
@@ -46,6 +46,12 @@ Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, pl
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
 - **Canonical answers** (for example work authorisation or salary range), each with its history of earlier values.
 - **Export and restore.** Export saves all data and settings to a JSON file. Restore checks the file first and saves a pre-restore copy of your current data (if there is any) before replacing it. A file that fails validation leaves your data untouched.
+- **Contact activity.** Each contact has a log of reaching out, replies and follow-ups. You can undo an entry (it is hidden, not deleted).
+- **Follow-up dates.** Each contact has one follow-up date. Each contact takes at most two follow-ups per application: once two are logged for the linked application, a new date cannot be set (logging itself is never blocked). Follow-up dates and interview rounds also appear on the Deadlines list.
+- **Interview pack.** On an application page, record interview rounds (kind, date, time, interviewers, notes) and a debrief for each. "Interview pack" opens a printable page (`#/pack/<id>`) with the posting, your statements and any unresolved mismatches.
+- **Story bank** (`#/stories`): situation, task, action and result for each story, searchable by tag.
+- **Weekly review** (`#/weekly`): this week's and last week's counts (outreach, conversations, applications, follow-ups) and your plan. Going over your application cap shows a note, not a limit.
+- **Targets** (`#/targets`): flag companies you most want to work at, here or from Contacts.
 - **Demo data.** A synthetic data set so you can try it without typing in your own.
 
 ## Moving from a spreadsheet
@@ -84,9 +90,16 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-- Stage 3: follow-up tracking, an interview pack, a story bank, a weekly review and target companies.
+After version 1, in this order:
 
-Nothing in stage 3 exists yet.
+1. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
+2. Resume profiles: several resume variants. Canonical answers stay global.
+3. Own form filling, review-first, if the Formhand log justifies it. Workday first.
+4. Story bank: who heard which story.
+5. Application windows on target companies.
+6. A dated activity export.
+
+None of these exists yet.
 
 ## What it will never do
 
@@ -127,7 +140,7 @@ npm run dev
 
 `npm run dev` starts the extension in Firefox. The dev build has no CSP, so check changes in the built extension too.
 
-`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. On `main` at `70d7a22` (2026-11-16) CI passed 619 unit tests in 36 files and 14 build tests. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
+`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
 
 The extension runs on Firefox 140 or later (`strict_min_version`). To run it from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
 

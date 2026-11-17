@@ -24,6 +24,8 @@ describe('route', () => {
     ['#/stories/x', { page: 'applications' }],
     ['#/targets', { page: 'targets' }],
     ['#/targets/x', { page: 'applications' }],
+    ['#/weekly', { page: 'weekly' }],
+    ['#/weekly/x', { page: 'applications' }],
     ['#/pack/abc', { page: 'pack', id: 'abc' }],
     ['#/pack/a%2F1', { page: 'pack', id: 'a/1' }],
     ['#/pack', { page: 'applications' }],
@@ -43,6 +45,7 @@ describe('route', () => {
       { page: 'deadlines' },
       { page: 'stories' },
       { page: 'targets' },
+      { page: 'weekly' },
     ] as Route[])
       expect(parseRoute(routeHref(r))).toEqual(r);
   });
@@ -69,6 +72,10 @@ describe('route', () => {
 
   it('builds the targets href', () => {
     expect(routeHref({ page: 'targets' })).toBe('#/targets');
+  });
+
+  it('builds the weekly href', () => {
+    expect(routeHref({ page: 'weekly' })).toBe('#/weekly');
   });
 
   it('builds the settings href', () => {

@@ -1,0 +1,244 @@
+{
+  "app": "countersign",
+  "schemaVersion": 3,
+  "exportedAt": "2026-11-01T10:00:00.000Z",
+  "data": {
+    "companies": [
+      {
+        "id": "co-1",
+        "createdAt": "2026-10-05T09:00:00.000Z",
+        "name": "Example Robotics",
+        "anyoneHere": "checked_nobody",
+        "isTarget": true
+      },
+      {
+        "id": "co-2",
+        "createdAt": "2026-10-06T09:00:00.000Z",
+        "name": "Sample Analytics Lab",
+        "isTarget": false
+      }
+    ],
+    "applications": [
+      {
+        "id": "app-1",
+        "createdAt": "2026-10-05T09:05:00.000Z",
+        "companyId": "co-1",
+        "title": "Platform Engineer",
+        "url": "https://example.com/jobs/2001",
+        "nextActionDate": "2026-11-20",
+        "nextActor": "them",
+        "resumeDocumentId": "doc-1",
+        "notes": "Invented posting for tests.",
+        "jobId": "job-1",
+        "siteType": "workday",
+        "fillOutcome": "partly",
+        "fillNote": "Skipped the address step",
+        "projectsShown": "Invented migration tool; sample dashboard"
+      },
+      {
+        "id": "app-2",
+        "createdAt": "2026-10-06T09:05:00.000Z",
+        "companyId": "co-2",
+        "title": "Data Analyst",
+        "url": "https://example.com/jobs/2002"
+      }
+    ],
+    "statusEvents": [
+      {
+        "id": "ev-1",
+        "createdAt": "2026-10-05T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "applied",
+        "occurredOn": "2026-10-05"
+      },
+      {
+        "id": "ev-2",
+        "createdAt": "2026-10-12T09:06:00.000Z",
+        "applicationId": "app-1",
+        "status": "phone_screen",
+        "occurredOn": "2026-10-12",
+        "note": "Call with an invented recruiter."
+      },
+      {
+        "id": "ev-3",
+        "createdAt": "2026-10-06T09:06:00.000Z",
+        "applicationId": "app-2",
+        "status": "interested",
+        "occurredOn": "2026-10-06"
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc-1",
+        "createdAt": "2026-10-05T09:01:00.000Z",
+        "label": "Resume, October",
+        "fileName": "resume-october.pdf",
+        "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+      }
+    ],
+    "canonicalAnswers": [
+      {
+        "id": "ans-1",
+        "createdAt": "2026-10-05T09:02:00.000Z",
+        "key": "work_authorization",
+        "label": "Authorized to work?",
+        "type": "yes_no",
+        "value": { "type": "yes_no", "value": true }
+      }
+    ],
+    "jobs": [
+      {
+        "id": "job-1",
+        "createdAt": "2026-10-05T09:03:00.000Z",
+        "title": "Platform Engineer",
+        "companyName": "Example Robotics",
+        "location": "Remote",
+        "url": "https://example.com/jobs/2001?utm_source=example",
+        "canonicalUrl": "https://example.com/jobs/2001",
+        "text": "Invented job posting text for tests.",
+        "source": "jsonld"
+      }
+    ],
+    "statements": [
+      {
+        "id": "st-1",
+        "createdAt": "2026-10-05T09:04:00.000Z",
+        "applicationId": "app-1",
+        "answerKey": "notice_period",
+        "value": { "type": "text", "value": "Two weeks" },
+        "exception": true
+      }
+    ],
+    "contacts": [
+      {
+        "id": "con-1",
+        "createdAt": "2026-10-07T09:00:00.000Z",
+        "companyId": "co-1",
+        "name": "Jordan Example",
+        "role": "Recruiter",
+        "howKnown": "Invented meetup",
+        "notes": "Prefers email.",
+        "followUpOn": "2026-11-20",
+        "followUpApplicationId": "app-1"
+      },
+      {
+        "id": "con-2",
+        "createdAt": "2026-10-08T09:00:00.000Z",
+        "companyId": "co-1",
+        "name": "Riley Sample",
+        "role": "Engineering manager"
+      },
+      {
+        "id": "con-3",
+        "createdAt": "2026-10-08T09:01:00.000Z",
+        "companyId": "co-1",
+        "name": "Casey Demo",
+        "role": "Staff engineer"
+      }
+    ],
+    "contactEvents": [
+      {
+        "id": "cev-1",
+        "createdAt": "2026-10-07T09:05:00.000Z",
+        "contactId": "con-1",
+        "applicationId": "app-1",
+        "kind": "reached_out",
+        "occurredOn": "2026-10-07",
+        "note": "Sent a short note."
+      },
+      {
+        "id": "cev-2",
+        "createdAt": "2026-10-14T09:05:00.000Z",
+        "contactId": "con-1",
+        "applicationId": "app-1",
+        "kind": "replied",
+        "occurredOn": "2026-10-14",
+        "note": "Logged by mistake; voided.",
+        "voidedAt": "2026-10-15T08:00:00.000Z"
+      }
+    ],
+    "tasks": [
+      {
+        "id": "task-1",
+        "createdAt": "2026-10-05T09:07:00.000Z",
+        "title": "Send a thank-you note",
+        "dueOn": "2026-10-08",
+        "doneAt": "2026-10-08T12:00:00.000Z",
+        "applicationId": "app-1"
+      },
+      {
+        "id": "task-2",
+        "createdAt": "2026-10-06T09:07:00.000Z",
+        "title": "Check for a reply",
+        "dueOn": "2026-11-20",
+        "applicationId": "app-2"
+      }
+    ],
+    "profileFields": [
+      {
+        "id": "pf-1",
+        "createdAt": "2026-10-01T09:00:00.000Z",
+        "key": "full_name",
+        "label": "Full name",
+        "value": "Alex Example"
+      },
+      {
+        "id": "pf-2",
+        "createdAt": "2026-10-01T09:01:00.000Z",
+        "key": "email",
+        "label": "Email",
+        "value": "alex@example.com"
+      }
+    ],
+    "rounds": [
+      {
+        "id": "rnd-1",
+        "createdAt": "2026-10-12T09:10:00.000Z",
+        "applicationId": "app-1",
+        "kind": "technical",
+        "date": "2026-10-20",
+        "time": "10:30",
+        "interviewerIds": ["con-2", "con-3"],
+        "notes": "Invented panel of two interviewers.",
+        "debriefAsked": "How would you size the migration?",
+        "debriefWentWell": "Walked through the rollout plan.",
+        "debriefToChange": "Spend less time on the schema diagram.",
+        "debriefStoriesUsed": "story-1"
+      },
+      {
+        "id": "rnd-2",
+        "createdAt": "2026-10-06T09:10:00.000Z",
+        "applicationId": "app-2",
+        "kind": "recruiter_screen",
+        "date": "2026-10-22",
+        "time": "09:00",
+        "notes": "Invented recruiter screen with no debrief yet."
+      }
+    ],
+    "stories": [
+      {
+        "id": "story-1",
+        "createdAt": "2026-10-09T09:00:00.000Z",
+        "title": "Invented migration project",
+        "situation": "A sample service ran on an outdated queue.",
+        "task": "Move it to a new queue without downtime.",
+        "action": "Ran both queues in parallel for a week.",
+        "result": "Cut over with no dropped messages.",
+        "tags": ["example", "migration"]
+      }
+    ],
+    "weeklyReviews": [
+      {
+        "id": "wr-1",
+        "createdAt": "2026-10-26T09:00:00.000Z",
+        "weekStart": "2026-10-26",
+        "outreachTarget": 5,
+        "applicationCap": 3
+      }
+    ]
+  },
+  "settings": {
+    "noResponseDays": 45,
+    "statusLabels": { "applied": "Sent" }
+  }
+}

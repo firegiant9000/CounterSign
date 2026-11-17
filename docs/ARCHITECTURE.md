@@ -34,7 +34,11 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## Record types
 
-`core/src/types.ts` defines the record types. Stage 1 has company, application, status event, document and canonical answer. Stage 2 adds job, statement ("what I told them"), contact, contact event, task and profile field. The stage 2 stores are `jobs`, `statements`, `contacts`, `contactEvents`, `tasks` and `profileFields`.
+`core/src/types.ts` defines the record types. Stage 1 has company, application, status event, document and canonical answer. Stage 2 adds job, statement ("what I told them"), contact, contact event, task and profile field. The stage 2 stores are `jobs`, `statements`, `contacts`, `contactEvents`, `tasks` and `profileFields`. Stage 3 adds round, story and weekly review. The stage 3 stores are `rounds`, `stories` and `weeklyReviews`.
+
+- A round (`Round`) belongs to an application and holds a kind, date, time, interviewer ids and four flat debrief fields. A story (`Story`) holds situation, task, action, result and tags. A weekly review (`WeeklyReview`) holds a week start, an outreach target and an application cap.
+- New optional fields: `Company.isTarget`, `Application.projectsShown`, `Contact.followUpOn`, `Contact.followUpApplicationId` and `ContactEvent.voidedAt`. A contact event is undone by setting `voidedAt`; voided events are hidden and never counted.
+- Weekly counts (`core/src/weekly.ts`) are derived on read from live contact events and status events whose date falls in Monday to Sunday. Nothing is stored except the plan.
 
 - `Company.anyoneHere` is `'checked_nobody'` when you have recorded that nobody you know works there. Contacts are otherwise linked by `companyId`.
 - The deadlines list (`core/src/deadlines.ts`) is derived on read from open tasks, application next-action dates and quiet applications. It has no store of its own.
@@ -47,9 +51,9 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## Schema versions and migrations
 
-- `SCHEMA_VERSION` is 2 (`core/src/schema.ts`). Each store records the schema it first appeared in.
+- `SCHEMA_VERSION` is 3 (`core/src/schema.ts`). Each store records the schema it first appeared in.
 - Export files carry `app: "countersign"` and `schemaVersion`. A file from a newer version is rejected, not guessed at.
-- `core/src/migrations.ts` holds forward-only migrations, each lifting a file from schema `n - 1` to `n`. The one migration so far lifts schema 1 to 2: it sets the version, and the stage 2 stores are empty in an older file.
+- `core/src/migrations.ts` holds forward-only migrations, each lifting a file from schema `n - 1` to `n`. The migration from 1 to 2 sets the version, and the stage 2 stores are empty in an older file. The migration from 2 to 3 also only sets the version, because the stage 3 stores and fields read as empty when missing. A schema 3 export cannot be opened by 0.2.0.
 - Stores are created per stage (schema 1 in stage 1, 2 in stage 2, 3 in stage 3). Every stage therefore ships a real migration with a test before a risky one is needed.
 - Restore validation is structural: envelope, version, arrays, `id` and `createdAt`. Restore saves a pre-restore copy of existing data first, and if that save fails the restore stops before replacing anything.
 
