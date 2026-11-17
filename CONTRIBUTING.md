@@ -41,7 +41,7 @@ CI runs the same gate on every pull request and on pushes to `main`.
 - Never commit to `main`. Branch from `main`.
 - Open a pull request for every change, including documentation changes.
 - Commits and pull requests carry no AI attribution lines.
-- Do not commit anything under `docs/superpowers/prompts/`. It is local handoff material and is gitignored.
+- Do not commit anything under `docs/superpowers/` or `.superpowers/`. Specs, plans and handoff notes are local planning material and are gitignored.
 - Keep the gate green before you ask for review.
 
 ## Test data
@@ -55,8 +55,7 @@ CI runs the same gate on every pull request and on pushes to `main`.
 - Never commit credentials or `.env` files. `.env.example` lists the variable names only.
 - Real values live in the shell that runs `web-ext sign`, or in an ignored `.env.local`.
 
-## Design and specification
+## Design
 
-- Spec: [docs/superpowers/specs/2026-11-13-countersign-design.md](docs/superpowers/specs/2026-11-13-countersign-design.md)
-- Implementation plan: [docs/superpowers/plans/2026-11-14-countersign-v1.md](docs/superpowers/plans/2026-11-14-countersign-v1.md)
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) describes the structure and the record types.
 - `core/` must stay free of DOM and `browser.*` APIs.

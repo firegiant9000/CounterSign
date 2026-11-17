@@ -84,7 +84,7 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 - Stage 3: follow-up tracking, an interview pack, a story bank, a weekly review and target companies.
 
-Nothing in stage 3 exists yet. See the [design spec](docs/superpowers/specs/2026-11-13-countersign-design.md) for the plan.
+Nothing in stage 3 exists yet.
 
 ## What it will never do
 
@@ -131,8 +131,6 @@ The extension runs on Firefox 140 or later (`strict_min_version`). To run it fro
 
 ## More
 
-- [Design spec](docs/superpowers/specs/2026-11-13-countersign-design.md)
-- [Implementation plan](docs/superpowers/plans/2026-11-14-countersign-v1.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Releasing](docs/RELEASING.md)
 - [Contributing](CONTRIBUTING.md)
