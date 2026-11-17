@@ -46,7 +46,8 @@ Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, pl
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
 - **Canonical answers** (for example work authorisation or salary range), each with its history of earlier values.
 - **Export and restore.** Export saves all data and settings to a JSON file. Restore checks the file first and saves a pre-restore copy of your current data (if there is any) before replacing it. A file that fails validation leaves your data untouched.
-- **Follow-ups.** The contact activity log lets you undo an entry (it is hidden, not deleted). Each contact has one follow-up date, and an application takes at most two follow-ups. Follow-up dates and interview rounds also appear on the Deadlines list.
+- **Contact activity.** Each contact has a log of reaching out, replies and follow-ups. You can undo an entry (it is hidden, not deleted).
+- **Follow-up dates.** Each contact has one follow-up date. Each contact takes at most two follow-ups per application: once two are logged for the linked application, a new date cannot be set (logging itself is never blocked). Follow-up dates and interview rounds also appear on the Deadlines list.
 - **Interview pack.** On an application page, record interview rounds (kind, date, time, interviewers, notes) and a debrief for each. "Interview pack" opens a printable page (`#/pack/<id>`) with the posting, your statements and any unresolved mismatches.
 - **Story bank** (`#/stories`): situation, task, action and result for each story, searchable by tag.
 - **Weekly review** (`#/weekly`): this week's and last week's counts (outreach, conversations, applications, follow-ups) and your plan. Going over your application cap shows a note, not a limit.
@@ -139,7 +140,7 @@ npm run dev
 
 `npm run dev` starts the extension in Firefox. The dev build has no CSP, so check changes in the built extension too.
 
-`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. On `main` at `70d7a22` (2026-11-16) CI passed 619 unit tests in 36 files and 14 build tests. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
+`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
 
 The extension runs on Firefox 140 or later (`strict_min_version`). To run it from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
