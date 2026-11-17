@@ -14,6 +14,7 @@ import { parseRoute, routeHref } from './route';
 import { SettingsPage } from './SettingsPage';
 import { StoriesPage } from './StoriesPage';
 import { TargetsPage } from './TargetsPage';
+import { WeeklyPage } from './WeeklyPage';
 import type { Route } from './route';
 
 function Page(props: { route: Route }): VNode {
@@ -39,6 +40,8 @@ function Page(props: { route: Route }): VNode {
       return <StoriesPage />;
     case 'targets':
       return <TargetsPage />;
+    case 'weekly':
+      return <WeeklyPage />;
     case 'details':
       return <CopyPanel />;
     case 'settings':
@@ -67,6 +70,7 @@ export function App(): VNode {
       | 'contacts'
       | 'targets'
       | 'stories'
+      | 'weekly'
       | 'answers'
       | 'details'
       | 'data'
@@ -90,6 +94,7 @@ export function App(): VNode {
         {link('contacts', 'Contacts')}
         {link('targets', 'Targets')}
         {link('stories', 'Stories')}
+        {link('weekly', 'Weekly')}
         {link('answers', 'Answers')}
         {link('details', 'My details')}
         {link('data', 'Data')}
