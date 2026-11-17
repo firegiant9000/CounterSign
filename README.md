@@ -4,6 +4,8 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
+> **Status:** v0.2.0, in active development. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+
 ## The three claims
 
 - **Local only.** All data stays on your machine. The extension makes no network requests.
@@ -22,9 +24,9 @@ Each claim is checked by the gate (`npm run gate`), which CI also runs.
 
 Files are saved only through [`shell/files/download.ts`](shell/files/download.ts), which builds a local `blob:` URL. A lint rule in [`eslint.config.js`](eslint.config.js) rejects any other use of `downloads`, and [`guard/source-rules.test.ts`](guard/source-rules.test.ts) tests that rule.
 
-<!-- Screenshot taken from the synthetic demo data (Data page, "Load demo data"). The image is added in Task 20. -->
-
+<!-- Screenshot pending (Task 20): take it from the synthetic demo data (Data page, "Load demo data"), save it as docs/screenshots/applications.png, then restore this line:
 ![The applications list, showing synthetic demo data](docs/screenshots/applications.png)
+-->
 
 ## What it does today
 
@@ -125,7 +127,7 @@ npm run dev
 
 `npm run dev` starts the extension in Firefox. The dev build has no CSP, so check changes in the built extension too.
 
-`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
+`npm run gate` runs lint, typecheck, unit tests, the build, the build tests and `web-ext lint`. On `main` at `70d7a22` (2026-11-16) CI passed 619 unit tests in 36 files and 14 build tests. To load a build by hand, run `npm run build`, open `about:debugging#/runtime/this-firefox`, choose "Load Temporary Add-on" and select `.output/firefox-mv3/manifest.json`.
 
 The extension runs on Firefox 140 or later (`strict_min_version`). To run it from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
