@@ -20,12 +20,19 @@ describe('route', () => {
     ['#/details/x', { page: 'applications' }],
     ['#/deadlines', { page: 'deadlines' }],
     ['#/deadlines/x', { page: 'applications' }],
+    ['#/pack/abc', { page: 'pack', id: 'abc' }],
+    ['#/pack/a%2F1', { page: 'pack', id: 'a/1' }],
+    ['#/pack', { page: 'applications' }],
+    ['#/pack/', { page: 'applications' }],
+    ['#/pack/x/y', { page: 'applications' }],
+    ['#/pack/%E0%A4%A', { page: 'applications' }],
     ['#/nonsense', { page: 'applications' }],
   ])('parses %s', (hash, route) => expect(parseRoute(hash)).toEqual(route));
 
   it('round-trips through routeHref', () => {
     for (const r of [
       { page: 'application', id: 'a b' },
+      { page: 'pack', id: 'a/1' },
       { page: 'answers' },
       { page: 'settings' },
       { page: 'quiet' },

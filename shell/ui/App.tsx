@@ -8,6 +8,7 @@ import { ContactsPage } from './ContactsPage';
 import { CopyPanel } from './CopyPanel';
 import { DataPage } from './DataPage';
 import { DeadlinesPage } from './DeadlinesPage';
+import { PackPage } from './PackPage';
 import { QuietList } from './QuietList';
 import { parseRoute, routeHref } from './route';
 import { SettingsPage } from './SettingsPage';
@@ -20,6 +21,8 @@ function Page(props: { route: Route }): VNode {
       return <ApplicationsPage />;
     case 'application':
       return <ApplicationDetail key={route.id} id={route.id} />;
+    case 'pack':
+      return <PackPage key={route.id} id={route.id} />;
     case 'answers':
       return <AnswersPage />;
     case 'data':
@@ -46,7 +49,10 @@ export function App(): VNode {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
-  const current = route.page === 'application' ? 'applications' : route.page;
+  const current =
+    route.page === 'application' || route.page === 'pack'
+      ? 'applications'
+      : route.page;
   const link = (
     page:
       | 'applications'

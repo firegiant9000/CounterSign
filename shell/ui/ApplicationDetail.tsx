@@ -199,7 +199,8 @@ export function ApplicationDetail(props: { id: Id }): VNode {
   return (
     <div class="detail">
       <p>
-        <a href={routeHref({ page: 'applications' })}>Back to applications</a>
+        <a href={routeHref({ page: 'applications' })}>Back to applications</a>{' '}
+        <a href={routeHref({ page: 'pack', id })}>Interview pack</a>
       </p>
       <h1>{company?.name ?? 'Unknown company'}</h1>
       <section class="data-section">
