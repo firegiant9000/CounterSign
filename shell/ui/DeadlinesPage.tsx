@@ -112,45 +112,56 @@ export function DeadlinesPage(): VNode {
   const rows = deadlines(data, settings, toLocalDate(new Date()));
   const done = doneTasks(data);
 
-  const rowItem = (row: DeadlineRow): VNode => (
-    <li key={row.key}>
-      <strong>{str(row.date) || 'No date'}</strong>
-      {row.overdue ? <> (Overdue)</> : null}{' '}
-      {row.applicationId !== undefined ? (
-        <a href={routeHref({ page: 'application', id: row.applicationId })}>
-          {str(row.label)}
-        </a>
-      ) : (
-        str(row.label)
-      )}{' '}
-      <span>Next: {actorLabel(row.actor)}</span>
-      {row.kind === 'quiet' ? (
-        <>
-          {' '}
-          <a href={routeHref({ page: 'quiet' })}>Quiet applications</a>
-        </>
-      ) : null}
-      {row.kind === 'task' && row.taskId !== undefined ? (
-        <>
-          {' '}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void complete(row.taskId as string)}
-          >
-            Done
-          </button>{' '}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void remove(row.taskId as string)}
-          >
-            Delete
-          </button>
-        </>
-      ) : null}
-    </li>
-  );
+  // Round rows open their application; follow-up rows open the contacts list.
+  const rowHref = (row: DeadlineRow): string | undefined => {
+    if (row.applicationId !== undefined) {
+      return routeHref({ page: 'application', id: row.applicationId });
+    }
+    return row.kind === 'follow_up'
+      ? routeHref({ page: 'contacts' })
+      : undefined;
+  };
+
+  const rowItem = (row: DeadlineRow): VNode => {
+    const href = rowHref(row);
+    return (
+      <li key={row.key}>
+        <strong>{str(row.date) || 'No date'}</strong>
+        {row.overdue ? <> (Overdue)</> : null}{' '}
+        {href !== undefined ? (
+          <a href={href}>{str(row.label)}</a>
+        ) : (
+          str(row.label)
+        )}{' '}
+        <span>Next: {actorLabel(row.actor)}</span>
+        {row.kind === 'quiet' ? (
+          <>
+            {' '}
+            <a href={routeHref({ page: 'quiet' })}>Quiet applications</a>
+          </>
+        ) : null}
+        {row.kind === 'task' && row.taskId !== undefined ? (
+          <>
+            {' '}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void complete(row.taskId as string)}
+            >
+              Done
+            </button>{' '}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void remove(row.taskId as string)}
+            >
+              Delete
+            </button>
+          </>
+        ) : null}
+      </li>
+    );
+  };
 
   const doneItem = (task: Task): VNode => (
     <li key={task.id}>
