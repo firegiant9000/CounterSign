@@ -385,7 +385,7 @@ describe('demo data', () => {
       {
         kind: 'put',
         store: 'contactEvents',
-        record: { id: 'ev-demo', createdAt: T, contactId: 'demo-contact-1' },
+        record: { id: 'demo-ev-x', createdAt: T, contactId: 'demo-contact-1' },
       },
       {
         kind: 'put',
@@ -445,6 +445,200 @@ describe('demo data', () => {
     const { repo } = await demoSnapshot();
     await repo.apply(removeDemoOps(await repo.snapshot()));
     expect(removeDemoOps(await repo.snapshot())).toEqual([]);
+  });
+
+  it('writes the stage 3 demo records', async () => {
+    const { snap } = await demoSnapshot();
+    expect(snap.companies.find((c) => c.id === 'demo-company-1')).toMatchObject(
+      { isTarget: true },
+    );
+    const events = snap.contactEvents.filter(
+      (e) => e.contactId === 'demo-contact-1',
+    );
+    expect(events).toHaveLength(2);
+    expect(events.find((e) => e.kind === 'reached_out')).toMatchObject({
+      applicationId: 'demo-application-2',
+      occurredOn: '2026-11-04',
+    });
+    expect(events.find((e) => e.kind === 'followed_up')).toMatchObject({
+      applicationId: 'demo-application-2',
+      occurredOn: '2026-11-11',
+    });
+    const c2 = snap.contacts.find((c) => c.id === 'demo-contact-2');
+    expect(c2).toMatchObject({ followUpOn: '2026-11-16' });
+    expect(c2?.followUpApplicationId).toBeUndefined();
+    expect(
+      snap.applications.find((a) => a.id === 'demo-application-2'),
+    ).toMatchObject({ projectsShown: 'Sample project: a route planner demo' });
+    const r1 = snap.rounds.find((r) => r.id === 'demo-round-1');
+    expect(r1).toMatchObject({
+      applicationId: 'demo-application-2',
+      kind: 'phone_screen',
+      date: '2026-11-09',
+      interviewerIds: ['demo-contact-1'],
+    });
+    for (const k of [
+      'debriefAsked',
+      'debriefWentWell',
+      'debriefToChange',
+      'debriefStoriesUsed',
+    ] as const) {
+      expect(typeof r1?.[k]).toBe('string');
+    }
+    expect(snap.rounds.find((r) => r.id === 'demo-round-2')).toMatchObject({
+      applicationId: 'demo-application-2',
+      kind: 'technical',
+      date: '2026-11-17',
+      time: '10:00',
+    });
+    expect(snap.stories.find((s) => s.id === 'demo-story-1')?.tags).toEqual([
+      'Leadership',
+      'Conflict',
+    ]);
+    expect(snap.stories.find((s) => s.id === 'demo-story-2')?.tags).toEqual([
+      'Leadership',
+      'Debugging',
+    ]);
+    expect(snap.weeklyReviews).toEqual([]);
+    for (const store of ['contactEvents', 'rounds', 'stories'] as const) {
+      for (const r of snap[store]) expect(r.id.startsWith('demo-')).toBe(true);
+    }
+  });
+
+  it('counts a lone demo round or story as demo data', () => {
+    expect(
+      hasDemoData({
+        ...emptySnapshot(),
+        rounds: [{ id: 'demo-round-1', createdAt: T }],
+      }),
+    ).toBe(true);
+    expect(
+      hasDemoData({
+        ...emptySnapshot(),
+        stories: [{ id: 'demo-story-1', createdAt: T }],
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps what the user hung on demo records', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'rounds',
+        record: {
+          id: 'real-r1',
+          createdAt: T,
+          applicationId: 'demo-application-2',
+        },
+      },
+      {
+        kind: 'put',
+        store: 'contactEvents',
+        record: { id: 'real-e1', createdAt: T, contactId: 'demo-contact-1' },
+      },
+      {
+        kind: 'put',
+        store: 'statusEvents',
+        record: {
+          id: 'real-s1',
+          createdAt: T,
+          applicationId: 'demo-application-2',
+          status: 'interview',
+        },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(after.rounds.map((r) => r.id)).toEqual(['real-r1']);
+    expect(after.contactEvents.map((e) => e.id)).toEqual(['real-e1']);
+    expect(after.applications.map((a) => a.id)).toEqual(['demo-application-2']);
+    expect(after.contacts.map((c) => c.id)).toEqual(['demo-contact-1']);
+    expect(after.companies.map((c) => c.id).sort()).toEqual([
+      'demo-company-1',
+      'demo-company-2',
+    ]);
+    // The non-demo status event on the kept application survives too.
+    expect(after.statusEvents.map((e) => e.id)).toEqual(['real-s1']);
+    expect(after.stories).toEqual([]);
+    expect(after.tasks).toEqual([]);
+    expect(after.statements).toEqual([]);
+    // demo-company-1 no longer carries the demo target flag.
+    expect(
+      after.companies.find((c) => c.id === 'demo-company-1'),
+    ).not.toHaveProperty('isTarget');
+    expect(removeDemoOps(after)).toEqual([]);
+  });
+
+  it('keeps a demo company the user flagged as a target', async () => {
+    const { repo } = await demoSnapshot();
+    const snap = await repo.snapshot();
+    const c2 = snap.companies.find((c) => c.id === 'demo-company-2');
+    if (!c2) throw new Error('no demo data');
+    await repo.apply([
+      { kind: 'put', store: 'companies', record: { ...c2, isTarget: true } },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(after.companies.map((c) => c.id)).toEqual(['demo-company-2']);
+    expect(after.companies[0]).toMatchObject({ isTarget: true });
+    expect(after.companies[0]).not.toHaveProperty('anyoneHere');
+    expect(removeDemoOps(after)).toEqual([]);
+  });
+
+  it('strips the demo target flag from demo-company-1 when something real keeps it', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'applications',
+        record: { id: 'real-a1', createdAt: T, companyId: 'demo-company-1' },
+      },
+    ]);
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    const kept = after.companies.find((c) => c.id === 'demo-company-1');
+    expect(kept).toBeDefined();
+    expect(kept).not.toHaveProperty('isTarget');
+    expect(kept).not.toHaveProperty('anyoneHere');
+    expect(removeDemoOps(after)).toEqual([]);
+  });
+
+  it('keeps a demo application that only a user round points at', async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'rounds',
+        record: {
+          id: 'real-r1',
+          createdAt: T,
+          applicationId: 'demo-application-3',
+        },
+      },
+    ]);
+    // Kept by the round, so the application survives with its round.
+    await repo.apply(removeDemoOps(await repo.snapshot()));
+    const after = await repo.snapshot();
+    expect(after.rounds.map((r) => r.id)).toEqual(['real-r1']);
+    expect(after.applications.map((a) => a.id)).toEqual(['demo-application-3']);
+  });
+
+  it("leaves the user's weekly plan alone", async () => {
+    const { repo } = await demoSnapshot();
+    await repo.apply([
+      {
+        kind: 'put',
+        store: 'weeklyReviews',
+        record: { id: 'real-w1', createdAt: T, weekStart: '2026-11-16' },
+      },
+    ]);
+    const ops = removeDemoOps(await repo.snapshot());
+    expect(ops.some((o) => o.store === 'weeklyReviews')).toBe(false);
+    await repo.apply(ops);
+    expect((await repo.snapshot()).weeklyReviews.map((w) => w.id)).toEqual([
+      'real-w1',
+    ]);
   });
 
   it('counts a lone demo task as demo data', () => {
