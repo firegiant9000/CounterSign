@@ -297,6 +297,93 @@ describe('deleteApplicationOps', () => {
       { kind: 'delete', store: 'applications', id: 'a1' },
     ]);
   });
+
+  it('deletes rounds, unlinks follow-ups and contact events, and deletes the application last', () => {
+    const data = {
+      ...emptySnapshot(),
+      applications: [
+        { id: 'a1', createdAt: T, companyId: 'c1' },
+        { id: 'a2', createdAt: T, companyId: 'c1' },
+      ],
+      rounds: [
+        { id: 'r1', createdAt: T, applicationId: 'a1' },
+        { id: 'r2', createdAt: T, applicationId: 'a1' },
+        { id: 'r3', createdAt: T, applicationId: 'a2' },
+      ],
+      contacts: [
+        {
+          id: 'k1',
+          createdAt: T,
+          name: 'Pat',
+          followUpOn: '2026-02-01',
+          followUpApplicationId: 'a1',
+        },
+        { id: 'k2', createdAt: T, name: 'Sam', followUpApplicationId: 'a2' },
+      ],
+      contactEvents: [
+        {
+          id: 'ce1',
+          createdAt: T,
+          contactId: 'k1',
+          applicationId: 'a1',
+          kind: 'reached_out' as const,
+          note: 'Sent note',
+        },
+        {
+          id: 'ce2',
+          createdAt: T,
+          contactId: 'k1',
+          applicationId: 'a1',
+          kind: 'replied' as const,
+          voidedAt: T,
+        },
+        {
+          id: 'ce3',
+          createdAt: T,
+          contactId: 'k2',
+          applicationId: 'a2',
+          kind: 'reached_out' as const,
+        },
+      ],
+    };
+    expect(deleteApplicationOps(data, 'a1')).toStrictEqual([
+      { kind: 'delete', store: 'rounds', id: 'r1' },
+      { kind: 'delete', store: 'rounds', id: 'r2' },
+      {
+        kind: 'put',
+        store: 'contactEvents',
+        record: {
+          id: 'ce1',
+          createdAt: T,
+          contactId: 'k1',
+          kind: 'reached_out',
+          note: 'Sent note',
+        },
+      },
+      {
+        kind: 'put',
+        store: 'contactEvents',
+        record: {
+          id: 'ce2',
+          createdAt: T,
+          contactId: 'k1',
+          kind: 'replied',
+          voidedAt: T,
+        },
+      },
+      {
+        kind: 'put',
+        store: 'contacts',
+        record: {
+          id: 'k1',
+          createdAt: T,
+          name: 'Pat',
+          followUpOn: '2026-02-01',
+        },
+      },
+      { kind: 'delete', store: 'applications', id: 'a1' },
+    ]);
+  });
 });
 
 describe('odd restored records and update trimming', () => {
