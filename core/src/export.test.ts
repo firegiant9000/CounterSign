@@ -8,7 +8,7 @@ import {
   parseExport,
 } from './export';
 import { MIGRATIONS } from './migrations';
-import type { Migration } from './migrations';
+import type { Migration, RawExport } from './migrations';
 import { createMemoryRepository } from './memory-repository';
 import { emptySnapshot, STORES } from './schema';
 import type { Snapshot, StoreName } from './types';
@@ -24,6 +24,9 @@ const NEW_STORES = [
   'contactEvents',
   'tasks',
   'profileFields',
+  'rounds',
+  'stories',
+  'weeklyReviews',
 ] as const;
 const NEW_ZERO = {
   jobs: 0,
@@ -32,7 +35,11 @@ const NEW_ZERO = {
   contactEvents: 0,
   tasks: 0,
   profileFields: 0,
+  rounds: 0,
+  stories: 0,
+  weeklyReviews: 0,
 };
+const STAGE3_STORES = ['rounds', 'stories', 'weeklyReviews'] as const;
 
 function envelope(data: unknown, extra: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -52,7 +59,7 @@ describe('buildExport and exportFileName', () => {
     );
     expect(file).toEqual({
       app: 'countersign',
-      schemaVersion: 2,
+      schemaVersion: 3,
       exportedAt: '2026-11-14T15:30:00.000Z',
       data: emptySnapshot(),
       settings: {},
@@ -152,11 +159,11 @@ describe('parseExport', () => {
     expect(result.file.settings).not.toHaveProperty('noResponseDays');
   });
 
-  it('reads the schema 1 fixture at schema 2', () => {
+  it('reads the schema 1 fixture at schema 3', () => {
     const result = parseExport(fixtureText);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.file.schemaVersion).toBe(2);
+    expect(result.file.schemaVersion).toBe(3);
     expect(result.counts).toEqual({
       companies: 2,
       applications: 3,
@@ -194,19 +201,27 @@ describe('parseExport', () => {
     const result = parseExport(v2Text);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.file.schemaVersion).toBe(2);
+    expect(result.file.schemaVersion).toBe(3);
     const raw = v2Fixture.data as unknown as Record<string, unknown[]>;
-    for (const { name } of STORES) {
+    for (const { name, since } of STORES) {
+      if (since > 2) continue;
       const records = raw[name] ?? [];
       expect(records.length).toBeGreaterThan(0);
       expect(result.file.data[name]).toEqual(records);
       expect(result.counts[name]).toBe(records.length);
     }
+    for (const name of STAGE3_STORES) {
+      expect(result.file.data[name]).toEqual([]);
+      expect(result.counts[name]).toBe(0);
+    }
     expect(result.file.settings).toEqual(V2_SETTINGS);
   });
 
   it('round-trips the stage 2 fixture', () => {
-    const snap = v2Fixture.data as unknown as Snapshot;
+    const snap = {
+      ...emptySnapshot(),
+      ...(v2Fixture.data as unknown as Partial<Snapshot>),
+    };
     const text = JSON.stringify(
       buildExport(snap, V2_SETTINGS, { now: () => T }),
     );
@@ -331,14 +346,17 @@ describe('parseExport', () => {
     expect(result.errors[20]).toBe('and 10 more.');
   });
 
-  it('lifts a schema 1 file through the real migration', () => {
-    expect(MIGRATIONS).toHaveLength(1);
-    const step = MIGRATIONS[0];
-    expect(step?.to).toBe(2);
+  it('lifts a schema 1 file through both real migrations', () => {
+    expect(MIGRATIONS).toHaveLength(2);
+    expect(MIGRATIONS.map((m) => m.to)).toEqual([2, 3]);
     const data = { companies: [{ id: 'c1', createdAt: T }] };
-    const lifted = step?.migrate({ schemaVersion: 1, data, settings: {} });
-    expect(lifted?.schemaVersion).toBe(2);
-    expect(lifted?.data).toEqual(data);
+    let file: RawExport = { schemaVersion: 1, data, settings: {} };
+    for (const step of MIGRATIONS) {
+      file = step.migrate(file);
+      expect(file.schemaVersion).toBe(step.to);
+    }
+    expect(file.schemaVersion).toBe(3);
+    expect(file.data).toEqual(data);
   });
 
   it('counts every store in STORES', () => {
@@ -350,15 +368,15 @@ describe('parseExport', () => {
     );
   });
 
-  it('rejects a schema 3 file', () => {
+  it('rejects a schema 4 file', () => {
     expect(
       parseExport(
-        JSON.stringify({ app: 'countersign', schemaVersion: 3, data: {} }),
+        JSON.stringify({ app: 'countersign', schemaVersion: 4, data: {} }),
       ),
     ).toEqual({
       ok: false,
       errors: [
-        'This file was made by a newer version of Countersign (schema 3). Update the extension first.',
+        'This file was made by a newer version of Countersign (schema 4). Update the extension first.',
       ],
     });
   });

@@ -39,6 +39,9 @@ const STORE_LABELS: Record<StoreName, string> = {
   contactEvents: 'Contact events',
   tasks: 'Tasks',
   profileFields: 'Profile fields',
+  rounds: 'Interview rounds',
+  stories: 'Stories',
+  weeklyReviews: 'Weekly plans',
 };
 
 function reasonOf(err: unknown): string {
