@@ -9,6 +9,7 @@ import {
 } from '../../core/src/contacts';
 import type { Contact } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { ContactActivity } from './ContactActivity';
 import { ContactForm } from './ContactForm';
 
 // Restored data may hold odd types; render only strings.
@@ -122,6 +123,7 @@ export function ContactsPage(): VNode {
           <div>How you know them: {str(contact.howKnown)}</div>
         ) : null}
         {str(contact.notes) ? <div>{str(contact.notes)}</div> : null}
+        <ContactActivity contact={contact} />
         <button
           type="button"
           disabled={busy}
