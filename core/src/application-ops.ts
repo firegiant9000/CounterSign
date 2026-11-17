@@ -174,6 +174,25 @@ export function deleteApplicationOps(
       ops.push({ kind: 'delete', store: 'statements', id: s.id });
     }
   }
+  for (const r of data.rounds) {
+    if (r.applicationId === applicationId) {
+      ops.push({ kind: 'delete', store: 'rounds', id: r.id });
+    }
+  }
+  for (const ev of data.contactEvents) {
+    if (ev.applicationId === applicationId) {
+      const record = { ...ev };
+      delete record.applicationId;
+      ops.push({ kind: 'put', store: 'contactEvents', record });
+    }
+  }
+  for (const c of data.contacts) {
+    if (c.followUpApplicationId === applicationId) {
+      const record = { ...c };
+      delete record.followUpApplicationId;
+      ops.push({ kind: 'put', store: 'contacts', record });
+    }
+  }
   ops.push({ kind: 'delete', store: 'applications', id: applicationId });
   return ops;
 }

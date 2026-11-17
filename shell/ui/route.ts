@@ -1,6 +1,7 @@
 export type Route =
   | { page: 'applications' }
   | { page: 'application'; id: string }
+  | { page: 'pack'; id: string }
   | { page: 'deadlines' }
   | { page: 'answers' }
   | { page: 'data' }
@@ -37,6 +38,13 @@ export function parseRoute(hash: string): Route {
       } catch {
         return APPLICATIONS;
       }
+    case 'pack':
+      if (rest === undefined || rest === '') return APPLICATIONS;
+      try {
+        return { page: 'pack', id: decodeURIComponent(rest) };
+      } catch {
+        return APPLICATIONS;
+      }
     default:
       return APPLICATIONS;
   }
@@ -48,6 +56,8 @@ export function routeHref(route: Route): string {
       return `#/applications/${encodeURIComponent(route.id)}`;
     case 'applications':
       return '#/applications';
+    case 'pack':
+      return `#/pack/${encodeURIComponent(route.id)}`;
     case 'deadlines':
       return '#/deadlines';
     case 'answers':

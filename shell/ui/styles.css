@@ -194,3 +194,45 @@ h1 {
 .restore-summary {
   margin-top: 0.75rem;
 }
+
+.pack-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pack-flag {
+  font-weight: bold;
+}
+
+@media print {
+  .nav,
+  .backup-status,
+  button,
+  form {
+    display: none !important;
+  }
+
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  main {
+    max-width: none;
+    width: auto;
+    padding: 0;
+  }
+
+  .pack-text {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .pack-round {
+    break-inside: avoid;
+  }
+}
