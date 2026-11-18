@@ -75,6 +75,7 @@ export interface ElementMeasure {
 }
 
 export interface PopupMeasurement {
+  rootWidth: number;
   bodyWidth: number;
   elements: ElementMeasure[];
 }
@@ -90,4 +91,22 @@ export function findOverflows(elements: ElementMeasure[]): ElementMeasure[] {
       e.clientWidth > 0 &&
       e.scrollWidth > e.clientWidth,
   );
+}
+
+export function popupProblem(
+  m: PopupMeasurement,
+  expectedWidth: number,
+): string | undefined {
+  if (m.rootWidth !== expectedWidth) {
+    return `popup was measured at ${m.rootWidth}px, expected ${expectedWidth}px`;
+  }
+  const over = findOverflows(m.elements);
+  if (over.length === 0) return undefined;
+  const list = over
+    .map(
+      (o) =>
+        `<${o.tag}${o.className ? ` class="${o.className}"` : ''}> scrollWidth ${o.scrollWidth} > clientWidth ${o.clientWidth}`,
+    )
+    .join('; ');
+  return `popup scrolls sideways at ${expectedWidth}px (body ${m.bodyWidth}px): ${list}`;
 }

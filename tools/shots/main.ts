@@ -6,8 +6,8 @@ import { join, resolve } from 'node:path';
 import { Builder, By, until, type WebDriver } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox';
 import {
-  findOverflows,
   outputDir,
+  popupProblem,
   shotPlan,
   type PopupMeasurement,
   type Shot,
@@ -178,6 +178,14 @@ async function takePopupShot(
       ),
       10000,
     );
+    // Headless Firefox will not shrink a window below ~500px wide, so constrain
+    // the root to the real popup width (test browser only; nothing in the
+    // extension changes). Width is passed as an argument.
+    await driver.executeScript(
+      `const s = document.documentElement.style;
+       s.width = arguments[0] + 'px'; s.maxWidth = arguments[0] + 'px'; s.overflowX = 'visible';`,
+      shot.width,
+    );
     if (shot.name === 'popup-filed') {
       await driver.findElement(field('Title')).sendKeys('Sample Engineer');
       await driver.findElement(field('Company')).sendKeys('Example Robotics');
@@ -203,27 +211,16 @@ async function takePopupShot(
          clientWidth: el.clientWidth,
        });
        const els = [document.documentElement, document.body, ...document.body.querySelectorAll('*')];
-       return { bodyWidth: document.body.clientWidth, elements: els.map(describe) };`,
+       return { rootWidth: Math.round(document.documentElement.getBoundingClientRect().width), bodyWidth: document.body.clientWidth, elements: els.map(describe) };`,
     );
-    const overflowing = findOverflows(measured.elements);
-    if (overflowing.length > 0) {
-      const list = overflowing
-        .map(
-          (o) =>
-            `<${o.tag}${o.className ? ` class="${o.className}"` : ''}> scrollWidth ${o.scrollWidth} > clientWidth ${o.clientWidth}`,
-        )
-        .join('; ');
-      throw new Error(
-        `${shot.name}: popup scrolls sideways (body ${measured.bodyWidth}px): ${list}`,
-      );
-    }
+    const problem = popupProblem(measured, shot.width);
+    if (problem !== undefined) throw new Error(`${shot.name}: ${problem}`);
     console.log(
-      `${shot.name}: popup body ${measured.bodyWidth}px, no overflow`,
+      `${shot.name}: root ${measured.rootWidth}px, body ${measured.bodyWidth}px, no overflow`,
     );
-    // Headless Firefox will not shrink a window below ~500px wide, so crop the
-    // root element to the popup's 360x600 box and capture just that.
+    // Overflow is checked; now clip the height for the element capture.
     await driver.executeScript(
-      "const s = document.documentElement.style; s.width = '360px'; s.height = '600px'; s.overflow = 'hidden';",
+      "const s = document.documentElement.style; s.height = '600px'; s.overflow = 'hidden';",
     );
     const png = await driver.findElement(By.css('html')).takeScreenshot();
     return savePng(dir, shot.name, png);

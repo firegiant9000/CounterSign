@@ -1,6 +1,12 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DASHBOARD_PAGES, findOverflows, outputDir, shotPlan } from './plan';
+import {
+  DASHBOARD_PAGES,
+  findOverflows,
+  outputDir,
+  popupProblem,
+  shotPlan,
+} from './plan';
 
 const plan = () => shotPlan({ applicationId: 'abc' });
 
@@ -84,6 +90,30 @@ describe('findOverflows', () => {
 
   it('passes when nothing overflows', () => {
     expect(findOverflows([el('html', 352), el('body', 352)])).toEqual([]);
+  });
+});
+
+describe('popupProblem', () => {
+  const m = (rootWidth: number, scrollWidth = 360) => ({
+    rootWidth,
+    bodyWidth: rootWidth,
+    elements: [
+      { tag: 'main', className: 'popup', scrollWidth, clientWidth: 360 },
+    ],
+  });
+
+  it('rejects a measurement taken at the wrong width', () => {
+    expect(popupProblem(m(500), 360)).toBe(
+      'popup was measured at 500px, expected 360px',
+    );
+  });
+
+  it('names the element that overflows at the right width', () => {
+    expect(popupProblem(m(360, 700), 360)).toContain('<main class="popup">');
+  });
+
+  it('is clean at the right width with no overflow', () => {
+    expect(popupProblem(m(360), 360)).toBeUndefined();
   });
 });
 
