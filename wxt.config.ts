@@ -3,7 +3,10 @@ import preact from '@preact/preset-vite';
 
 export default defineConfig({
   imports: false,
-  vite: () => ({ plugins: [preact()], build: { modulePreload: false } }),
+  vite: () => ({
+    plugins: [preact()],
+    build: { modulePreload: false, assetsInlineLimit: 0 },
+  }),
   manifest: ({ command }) => ({
     name: 'Countersign',
     description:

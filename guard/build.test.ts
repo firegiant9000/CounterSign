@@ -3,6 +3,9 @@ import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import allowlist from './allowlist.json';
 import {
+  assetExists,
+  cssProblems,
+  fontFamiliesIn,
   parseCsp,
   scanDirectory,
   scanDirectoryWithUsage,
@@ -56,12 +59,16 @@ const ALLOWED = [
   'unlimitedStorage',
 ];
 
-function htmlFiles(dir: string): string[] {
+function filesEnding(dir: string, ext: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
-    if (entry.isDirectory()) return htmlFiles(path);
-    return entry.name.endsWith('.html') ? [path] : [];
+    if (entry.isDirectory()) return filesEnding(path, ext);
+    return entry.name.endsWith(ext) ? [path] : [];
   });
+}
+
+function htmlFiles(dir: string): string[] {
+  return filesEnding(dir, '.html');
 }
 
 describe('built extension', () => {
@@ -131,6 +138,27 @@ describe('built extension', () => {
         true,
       );
     });
+  });
+  it('ships only local CSS assets', () => {
+    const files = filesEnding(OUT, '.css');
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const css = readFileSync(file, 'utf8');
+      expect(
+        cssProblems(file, css, (path) => assetExists(OUT, file, path)),
+      ).toEqual([]);
+    }
+  });
+  it('bundles the three font families', () => {
+    const families = new Set<string>();
+    for (const file of filesEnding(OUT, '.css')) {
+      for (const f of fontFamiliesIn(readFileSync(file, 'utf8'))) {
+        families.add(f);
+      }
+    }
+    for (const f of ['Fraunces', 'EB Garamond', 'Courier Prime']) {
+      expect(families.has(f), `missing font family: ${f}`).toBe(true);
+    }
   });
   it('loads nothing remote from its pages', () => {
     const files = htmlFiles(OUT);

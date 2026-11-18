@@ -1,0 +1,48 @@
+/* Bundled fonts (SIL OFL 1.1). Files live in public/theme/fonts/ with their licences. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: block;
+  src: url(/theme/fonts/fraunces-latin-full-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(/theme/fonts/eb-garamond-latin-400-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url(/theme/fonts/eb-garamond-latin-400-italic.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(/theme/fonts/eb-garamond-latin-600-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(/theme/fonts/courier-prime-latin-400-normal.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url(/theme/fonts/courier-prime-latin-700-normal.woff2) format('woff2');
+}

@@ -2,7 +2,15 @@ import { ESLint } from 'eslint';
 import { resolve } from 'node:path';
 import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
-import { NETWORK_TOKENS, parseCsp, scanText, validateAllowlist } from './scan';
+import {
+  assetExists,
+  cssProblems,
+  fontFamiliesIn,
+  NETWORK_TOKENS,
+  parseCsp,
+  scanText,
+  validateAllowlist,
+} from './scan';
 
 const eslint = new ESLint({ cwd: resolve(import.meta.dirname, '..') });
 
@@ -88,6 +96,102 @@ describe('parseCsp', () => {
       'connect-src': ["'none'", 'api.example.com'],
     });
   });
+});
+
+describe('cssProblems', () => {
+  const yes = (): boolean => true;
+  const no = (): boolean => false;
+  it.each([
+    'a{src:url(data:font/woff2;base64,AA)}',
+    'a{src:url("https://example.com/a.woff2")}',
+    'a{src:url(//example.com/a)}',
+    '@import "x.css";',
+    '@IMPORT url(x.css);',
+  ])('flags %s', (css) => {
+    const found = cssProblems('a.css', css, yes);
+    expect(found.length).toBeGreaterThanOrEqual(1);
+    if (!css.toLowerCase().includes('@import')) expect(found).toHaveLength(1);
+  });
+  it.each([
+    "a{b:url( 'https://example.com/x' )}",
+    'a{b:url( https://example.com/x )}',
+    'a{b:url( "//example.com/x" )}',
+  ])('flags spaced or quoted remote %s', (css) => {
+    expect(cssProblems('a.css', css, yes)).toHaveLength(1);
+  });
+  it('flags a missing single-quoted asset', () => {
+    expect(cssProblems('a.css', "a{b:url('/missing.png')}", no)).toHaveLength(
+      1,
+    );
+  });
+  it('flags a missing space-padded unquoted asset', () => {
+    expect(cssProblems('a.css', 'a{b:url( /missing.png )}', no)).toHaveLength(
+      1,
+    );
+  });
+  it('flags a missing asset', () => {
+    expect(
+      cssProblems('a.css', 'a{src:url(/theme/fonts/missing.woff2)}', no),
+    ).toHaveLength(1);
+  });
+  it('accepts an existing asset with a query string', () => {
+    expect(
+      cssProblems('a.css', "a{b:url( '/theme/grain.png?v=1' )}", yes),
+    ).toEqual([]);
+  });
+  it('strips fragments before the existence check', () => {
+    const seen: string[] = [];
+    cssProblems('a.css', 'a{b:url(x.svg#f)}', (p) => {
+      seen.push(p);
+      return true;
+    });
+    expect(seen).toEqual(['x.svg']);
+  });
+  it('reads font families from @font-face', () => {
+    const css =
+      '@font-face{font-family:"EB Garamond";src:url(/a.woff2)}' +
+      '@font-face{font-family:Fraunces;src:url(/b.woff2)}' +
+      'p{font-family:Other}';
+    expect(fontFamiliesIn(css)).toEqual(new Set(['EB Garamond', 'Fraunces']));
+  });
+});
+
+describe('assetExists', () => {
+  const out = resolve('/ext/out');
+  const css = resolve(out, 'assets', 'app.css');
+  function probe(path: string, answer = true) {
+    const asked: string[] = [];
+    const found = assetExists(out, css, path, (p) => {
+      asked.push(p);
+      return answer;
+    });
+    return { found, asked };
+  }
+  it('resolves a root path under the output folder', () => {
+    expect(probe('/theme/grain.png')).toEqual({
+      found: true,
+      asked: [resolve(out, 'theme', 'grain.png')],
+    });
+  });
+  it('resolves a relative path against the CSS file folder', () => {
+    expect(probe('fonts/a.woff2').asked).toEqual([
+      resolve(out, 'assets', 'fonts', 'a.woff2'),
+    ]);
+  });
+  it('resolves ../ against the CSS file folder', () => {
+    expect(probe('../theme/grain.png').asked).toEqual([
+      resolve(out, 'theme', 'grain.png'),
+    ]);
+  });
+  it('reports what the file system reports', () => {
+    expect(probe('/theme/grain.png', false).found).toBe(false);
+  });
+  it.each(['/../x', '../../x', '/theme/../../x', '/', '..'])(
+    'rejects %s without asking the file system',
+    (path) => {
+      expect(probe(path)).toEqual({ found: false, asked: [] });
+    },
+  );
 });
 
 describe('lint rule', { timeout: 60_000 }, () => {
@@ -267,6 +371,32 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
       'core/src/status.ts',
     );
     expect(found.some((m) => m.message === navMessage)).toBe(true);
+  });
+  const styleMessage = 'No inline styles: the CSP blocks them. Use a class.';
+  it.each(['shell/ui/x.tsx', 'entrypoints/popup/x.tsx'])(
+    'rejects a style prop in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        'const x = <p style="color:red">a</p>;',
+        file,
+      );
+      expect(found.some((m) => m.message === styleMessage)).toBe(true);
+    },
+  );
+  it('keeps the navigation rule in .tsx', async () => {
+    const found = await syntaxMessages('location.reload();', 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === navMessage)).toBe(true);
+  });
+  it('keeps the network rule in .tsx', async () => {
+    const found = await syntaxMessages(
+      "navigator.sendBeacon('https://example.com');",
+      'shell/ui/x.tsx',
+    );
+    expect(
+      found.some(
+        (m) => m.message === 'This extension makes no network requests.',
+      ),
+    ).toBe(true);
   });
 });
 
