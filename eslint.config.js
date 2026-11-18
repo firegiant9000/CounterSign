@@ -78,6 +78,12 @@ const scriptingSyntax = [
   "MemberExpression[property.value='scripting']",
   "Property[key.name='scripting']",
 ].map((selector) => ({ selector, message: SCRIPTING_MESSAGE }));
+// The extension CSP (wxt.config.ts) sets default-src 'self' and no style-src,
+// so a style= prop is refused at runtime with no build error. Use a class.
+const STYLE_MESSAGE = 'No inline styles: the CSP blocks them. Use a class.';
+const styleSyntax = [
+  { selector: "JSXAttribute[name.name='style']", message: STYLE_MESSAGE },
+];
 
 export default defineConfig(
   {
@@ -103,6 +109,22 @@ export default defineConfig(
         ...navigationSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
+      ],
+    },
+  },
+  // UI components also refuse inline styles. This block re-spreads every
+  // selector the shared rule applies, so the other guards still bite here.
+  {
+    files: ['shell/**/*.tsx', 'entrypoints/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...styleSyntax,
       ],
     },
   },

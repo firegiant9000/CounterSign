@@ -372,6 +372,32 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.message === navMessage)).toBe(true);
   });
+  const styleMessage = 'No inline styles: the CSP blocks them. Use a class.';
+  it.each(['shell/ui/x.tsx', 'entrypoints/popup/x.tsx'])(
+    'rejects a style prop in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        'const x = <p style="color:red">a</p>;',
+        file,
+      );
+      expect(found.some((m) => m.message === styleMessage)).toBe(true);
+    },
+  );
+  it('keeps the navigation rule in .tsx', async () => {
+    const found = await syntaxMessages('location.reload();', 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === navMessage)).toBe(true);
+  });
+  it('keeps the network rule in .tsx', async () => {
+    const found = await syntaxMessages(
+      "navigator.sendBeacon('https://example.com');",
+      'shell/ui/x.tsx',
+    );
+    expect(
+      found.some(
+        (m) => m.message === 'This extension makes no network requests.',
+      ),
+    ).toBe(true);
+  });
 });
 
 describe(
