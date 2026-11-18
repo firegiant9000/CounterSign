@@ -107,6 +107,7 @@ export function CopyPanel(): VNode {
       <h1>My details</h1>
       <section class="data-section">
         <LedgerSheet label="YOUR DETAILS">
+          <h2>Your details</h2>
           {draft === undefined ? (
             <>
               <ul>
@@ -176,6 +177,7 @@ export function CopyPanel(): VNode {
       </section>
       <section class="data-section">
         <LedgerSheet label="YOUR ANSWERS">
+          <h2>Your answers</h2>
           <p>
             To change an answer, go to the{' '}
             <a href={routeHref({ page: 'answers' })}>Answers page</a>.
