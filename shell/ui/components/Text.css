@@ -1,0 +1,16 @@
+.cs-text {
+  overflow-wrap: anywhere;
+}
+
+.cs-text.cs-text-name {
+  font-family: var(--font-display);
+}
+
+.cs-text.cs-text-title {
+  font-family: var(--font-body);
+  font-style: italic;
+}
+
+.cs-text.cs-text-body {
+  font-family: var(--font-body);
+}
