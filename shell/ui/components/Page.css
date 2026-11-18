@@ -1,0 +1,30 @@
+.cs-page {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 150px minmax(0, 1fr);
+  padding: var(--space-4);
+}
+
+.cs-page .cs-page-content {
+  min-width: 0;
+}
+
+.cs-page .cs-page-status .cs-typed {
+  margin: 0 0 var(--space-3);
+  text-transform: none;
+}
+
+.cs-page .cs-page-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .cs-page {
+    display: block;
+  }
+
+  .cs-page .cs-page-status {
+    display: none;
+  }
+}
