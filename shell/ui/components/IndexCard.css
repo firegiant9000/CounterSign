@@ -1,0 +1,106 @@
+.cs-card {
+  position: relative;
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-5)
+    calc(var(--space-6) + var(--space-2));
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--card) 0,
+    var(--card) 23px,
+    var(--rule) 23px,
+    var(--rule) 24px
+  );
+  border: 1px solid var(--rule);
+  border-left: 7px solid var(--ink-faded);
+  box-shadow: 0 2px 6px var(--ink-faded);
+  overflow-wrap: anywhere;
+}
+
+.cs-card.ink-maroon {
+  border-left-color: var(--ink-maroon);
+}
+
+.cs-card.ink-green {
+  border-left-color: var(--ink-green);
+}
+
+.cs-card.ink-blue {
+  border-left-color: var(--ink-blue);
+}
+
+.cs-card.ink-ochre {
+  border-left-color: var(--ink-ochre);
+}
+
+.cs-card.ink-faded {
+  border-left-color: var(--ink-faded);
+}
+
+.cs-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--space-5);
+  border-left: 3px double var(--margin);
+}
+
+.cs-card::after {
+  content: '';
+  position: absolute;
+  bottom: var(--space-1);
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  background: var(--desk);
+}
+
+.cs-card .cs-card-title {
+  margin: 0 0 var(--space-2);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+}
+
+.cs-card .cs-card-section {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--rule);
+}
+
+.cs-card .cs-card-section-title {
+  margin-bottom: var(--space-1);
+  color: var(--ink-muted);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+}
+
+@media print {
+  .cs-card {
+    background: none;
+    border: 1px solid var(--print-ink);
+    box-shadow: none;
+    break-inside: avoid-page;
+  }
+
+  .cs-card::before,
+  .cs-card::after {
+    display: none;
+  }
+
+  .cs-card,
+  .cs-card.ink-maroon,
+  .cs-card.ink-green,
+  .cs-card.ink-blue,
+  .cs-card.ink-ochre,
+  .cs-card.ink-faded {
+    border-left: 1px solid var(--print-ink);
+  }
+
+  .cs-card .cs-card-section {
+    border-top: 1px solid var(--print-ink);
+  }
+}
