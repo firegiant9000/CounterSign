@@ -1,6 +1,5 @@
 // Dev-only: generate the paper-grain tile used behind the desk colour.
 // Usage: jiti tools/grain/make-grain.ts   (writes public/theme/grain.png)
-import { deflateSync } from 'node:zlib';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +43,39 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   return out;
 }
 
+function adler32(bytes: Uint8Array): number {
+  let a = 1;
+  let b = 0;
+  for (const v of bytes) {
+    a = (a + v) % 65521;
+    b = (b + a) % 65521;
+  }
+  return ((b << 16) | a) >>> 0;
+}
+
+// A zlib stream made of stored (uncompressed) deflate blocks, so the bytes do
+// not depend on the zlib build inside the running Node.
+function zlibStored(data: Uint8Array): Uint8Array {
+  const MAX = 65535;
+  const blocks = Math.max(1, Math.ceil(data.length / MAX));
+  const out = new Uint8Array(2 + blocks * 5 + data.length + 4);
+  const view = new DataView(out.buffer);
+  out[0] = 0x78;
+  out[1] = 0x01;
+  let pos = 2;
+  for (let i = 0; i < blocks; i++) {
+    const part = data.subarray(i * MAX, (i + 1) * MAX);
+    out[pos++] = i === blocks - 1 ? 1 : 0; // BFINAL, BTYPE=00
+    view.setUint16(pos, part.length, true);
+    view.setUint16(pos + 2, ~part.length & 0xffff, true);
+    pos += 4;
+    out.set(part, pos);
+    pos += part.length;
+  }
+  view.setUint32(pos, adler32(data));
+  return out;
+}
+
 /** PNG bytes of a size x size greyscale (8-bit) noise tile, mid-grey 128 +/- 40. */
 export function makeGrain(size = 128, seed = 1): Uint8Array {
   const rand = mulberry32(seed);
@@ -64,7 +96,7 @@ export function makeGrain(size = 128, seed = 1): Uint8Array {
   const parts = [
     Uint8Array.from(PNG_SIGNATURE),
     chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw, { level: 9 })),
+    chunk('IDAT', zlibStored(raw)),
     chunk('IEND', new Uint8Array(0)),
   ];
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));

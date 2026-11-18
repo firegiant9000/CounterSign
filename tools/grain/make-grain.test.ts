@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { inflateSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import { makeGrain } from './make-grain';
 
@@ -29,6 +30,16 @@ describe('makeGrain', () => {
 
   it('the committed file is reproducible', () => {
     expect(Buffer.from(makeGrain()).equals(readFileSync(committed))).toBe(true);
+  });
+
+  it('has a valid zlib IDAT holding 128 unfiltered scanlines', () => {
+    const png = makeGrain();
+    const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+    const len = view.getUint32(33);
+    expect(String.fromCharCode(...png.subarray(37, 41))).toBe('IDAT');
+    const raw = inflateSync(png.subarray(41, 41 + len));
+    expect(raw.length).toBe(128 * 129);
+    for (let y = 0; y < 128; y++) expect(raw[y * 129]).toBe(0);
   });
 
   it('is under 20 KB', () => {
