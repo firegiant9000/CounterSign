@@ -14,3 +14,15 @@
 .cs-fact.cs-fact-warning {
   border-left-color: var(--ink-maroon);
 }
+
+@media print {
+  .cs-fact {
+    color: var(--print-ink);
+  }
+
+  .cs-fact,
+  .cs-fact.cs-fact-neutral,
+  .cs-fact.cs-fact-warning {
+    border-left-color: var(--print-ink);
+  }
+}

@@ -14,3 +14,11 @@
   color: var(--ink-maroon);
   font-weight: 700;
 }
+
+@media print {
+  .cs-typed,
+  .cs-typed.cs-typed-muted,
+  .cs-typed.cs-typed-warning {
+    color: var(--print-ink);
+  }
+}

@@ -32,3 +32,9 @@
   padding-top: var(--space-2);
   overflow-wrap: anywhere;
 }
+
+@media print {
+  .cs-disclosure > summary {
+    color: var(--print-ink);
+  }
+}

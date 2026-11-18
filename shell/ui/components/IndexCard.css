@@ -103,4 +103,9 @@
   .cs-card .cs-card-section {
     border-top: 1px solid var(--print-ink);
   }
+
+  .cs-card .cs-card-title,
+  .cs-card .cs-card-section-title {
+    color: var(--print-ink);
+  }
 }

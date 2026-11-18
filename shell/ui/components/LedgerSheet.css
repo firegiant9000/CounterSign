@@ -62,27 +62,33 @@
   overflow-wrap: anywhere;
 }
 
-.cs-ledger .cs-row {
+.cs-ledger li.cs-row,
+.cs-ledger tr.cs-row > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-faded);
 }
 
-.cs-ledger .cs-row.ink-maroon {
+.cs-ledger li.cs-row.ink-maroon,
+.cs-ledger tr.cs-row.ink-maroon > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-maroon);
 }
 
-.cs-ledger .cs-row.ink-green {
+.cs-ledger li.cs-row.ink-green,
+.cs-ledger tr.cs-row.ink-green > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-green);
 }
 
-.cs-ledger .cs-row.ink-blue {
+.cs-ledger li.cs-row.ink-blue,
+.cs-ledger tr.cs-row.ink-blue > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-blue);
 }
 
-.cs-ledger .cs-row.ink-ochre {
+.cs-ledger li.cs-row.ink-ochre,
+.cs-ledger tr.cs-row.ink-ochre > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-ochre);
 }
 
-.cs-ledger .cs-row.ink-faded {
+.cs-ledger li.cs-row.ink-faded,
+.cs-ledger tr.cs-row.ink-faded > :first-child {
   box-shadow: inset 4px 0 0 var(--ink-faded);
 }
 
@@ -97,12 +103,18 @@
     overflow: visible;
   }
 
-  .cs-ledger .cs-row,
-  .cs-ledger .cs-row.ink-maroon,
-  .cs-ledger .cs-row.ink-green,
-  .cs-ledger .cs-row.ink-blue,
-  .cs-ledger .cs-row.ink-ochre,
-  .cs-ledger .cs-row.ink-faded {
+  .cs-ledger li.cs-row,
+  .cs-ledger tr.cs-row > :first-child,
+  .cs-ledger li.cs-row.ink-maroon,
+  .cs-ledger tr.cs-row.ink-maroon > :first-child,
+  .cs-ledger li.cs-row.ink-green,
+  .cs-ledger tr.cs-row.ink-green > :first-child,
+  .cs-ledger li.cs-row.ink-blue,
+  .cs-ledger tr.cs-row.ink-blue > :first-child,
+  .cs-ledger li.cs-row.ink-ochre,
+  .cs-ledger tr.cs-row.ink-ochre > :first-child,
+  .cs-ledger li.cs-row.ink-faded,
+  .cs-ledger tr.cs-row.ink-faded > :first-child {
     box-shadow: none;
   }
 }

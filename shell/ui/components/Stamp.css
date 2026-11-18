@@ -43,3 +43,15 @@
   color: var(--ink-faded);
   transform: rotate(0.5deg);
 }
+
+@media print {
+  .cs-stamp,
+  .cs-stamp.ink-maroon,
+  .cs-stamp.ink-green,
+  .cs-stamp.ink-blue,
+  .cs-stamp.ink-ochre,
+  .cs-stamp.ink-faded,
+  .cs-stamp.ink-none {
+    color: var(--print-ink);
+  }
+}
