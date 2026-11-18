@@ -154,3 +154,55 @@ export function parseCsp(csp: string): Record<string, string[]> {
   }
   return out;
 }
+
+export interface CssProblem {
+  file: string;
+  problem: string;
+}
+
+function stripCssComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/** Pure. `exists(path)` answers whether a root or relative path is in the output. */
+export function cssProblems(
+  file: string,
+  css: string,
+  exists: (path: string) => boolean,
+): CssProblem[] {
+  const text = stripCssComments(css);
+  const problems: CssProblem[] = [];
+  if (/@import\b/i.test(text)) {
+    problems.push({ file, problem: '@import is not allowed' });
+  }
+  for (const match of text.matchAll(
+    /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi,
+  )) {
+    const raw = (match[1] ?? match[2] ?? match[3] ?? '').trim();
+    if (raw === '') continue;
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(raw)) {
+      problems.push({ file, problem: `remote or inlined asset: ${raw}` });
+      continue;
+    }
+    const path = raw.replace(/[?#].*$/, '');
+    if (!exists(path)) {
+      problems.push({ file, problem: `missing asset: ${raw}` });
+    }
+  }
+  return problems;
+}
+
+/** Font families declared by @font-face rules, unquoted. */
+export function fontFamiliesIn(css: string): Set<string> {
+  const families = new Set<string>();
+  for (const block of stripCssComments(css).matchAll(
+    /@font-face\s*\{([^}]*)\}/gi,
+  )) {
+    const family = /font-family\s*:\s*(?:"([^"]*)"|'([^']*)'|([^;}]+))/i.exec(
+      block[1] ?? '',
+    );
+    const name = (family?.[1] ?? family?.[2] ?? family?.[3] ?? '').trim();
+    if (name !== '') families.add(name);
+  }
+  return families;
+}

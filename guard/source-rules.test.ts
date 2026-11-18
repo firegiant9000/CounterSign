@@ -2,7 +2,14 @@ import { ESLint } from 'eslint';
 import { resolve } from 'node:path';
 import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
-import { NETWORK_TOKENS, parseCsp, scanText, validateAllowlist } from './scan';
+import {
+  cssProblems,
+  fontFamiliesIn,
+  NETWORK_TOKENS,
+  parseCsp,
+  scanText,
+  validateAllowlist,
+} from './scan';
 
 const eslint = new ESLint({ cwd: resolve(import.meta.dirname, '..') });
 
@@ -87,6 +94,47 @@ describe('parseCsp', () => {
       'default-src': ["'self'"],
       'connect-src': ["'none'", 'api.example.com'],
     });
+  });
+});
+
+describe('cssProblems', () => {
+  const yes = (): boolean => true;
+  const no = (): boolean => false;
+  it.each([
+    'a{src:url(data:font/woff2;base64,AA)}',
+    'a{src:url("https://example.com/a.woff2")}',
+    'a{src:url(//example.com/a)}',
+    '@import "x.css";',
+    '@IMPORT url(x.css);',
+  ])('flags %s', (css) => {
+    const found = cssProblems('a.css', css, yes);
+    expect(found.length).toBeGreaterThanOrEqual(1);
+    if (!css.toLowerCase().includes('@import')) expect(found).toHaveLength(1);
+  });
+  it('flags a missing asset', () => {
+    expect(
+      cssProblems('a.css', 'a{src:url(/theme/fonts/missing.woff2)}', no),
+    ).toHaveLength(1);
+  });
+  it('accepts an existing asset with a query string', () => {
+    expect(
+      cssProblems('a.css', "a{b:url( '/theme/grain.png?v=1' )}", yes),
+    ).toEqual([]);
+  });
+  it('strips fragments before the existence check', () => {
+    const seen: string[] = [];
+    cssProblems('a.css', 'a{b:url(x.svg#f)}', (p) => {
+      seen.push(p);
+      return true;
+    });
+    expect(seen).toEqual(['x.svg']);
+  });
+  it('reads font families from @font-face', () => {
+    const css =
+      '@font-face{font-family:"EB Garamond";src:url(/a.woff2)}' +
+      '@font-face{font-family:Fraunces;src:url(/b.woff2)}' +
+      'p{font-family:Other}';
+    expect(fontFamiliesIn(css)).toEqual(new Set(['EB Garamond', 'Fraunces']));
   });
 });
 
