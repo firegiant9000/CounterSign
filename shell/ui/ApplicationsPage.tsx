@@ -6,13 +6,11 @@ import { STATUS_KEYS, statusLabel } from '../../core/src/status';
 import { ApplicationForm } from './ApplicationForm';
 import { useAppData } from './app-data';
 import { routeHref } from './route';
+import { ApplicationsTable } from './components/ApplicationsTable';
 import { Field } from './components/Field';
-import { LedgerSheet, ledgerRowClass } from './components/LedgerSheet';
-import { Stamp } from './components/Stamp';
-import { Text } from './components/Text';
+import { LedgerSheet } from './components/LedgerSheet';
 import { TypedLine } from './components/TypedLine';
 import { ledgerMeta } from './ledger-meta';
-import { inkFor } from './status-ink';
 
 type Scope = NonNullable<RowFilter['scope']>;
 
@@ -85,55 +83,10 @@ export function ApplicationsPage(): VNode {
         {shown.length === 0 ? (
           <TypedLine>No applications match.</TypedLine>
         ) : (
-          <table class="app-table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Next action</th>
-                <th>Who acts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((row) => {
-                const ink = inkFor(row.status);
-                return (
-                  <tr key={row.id} class={ledgerRowClass(ink)}>
-                    <td>
-                      <Text kind="name">
-                        <a
-                          href={routeHref({ page: 'application', id: row.id })}
-                        >
-                          {row.companyName || '(no company)'}
-                        </a>
-                      </Text>
-                    </td>
-                    <td>
-                      <Text kind="title">{row.title}</Text>
-                    </td>
-                    <td>
-                      <Stamp ink={ink}>{row.statusLabel}</Stamp>
-                    </td>
-                    <td>
-                      <TypedLine as="span">
-                        {row.nextActionDate ?? ''}
-                      </TypedLine>
-                    </td>
-                    <td>
-                      <TypedLine as="span">
-                        {row.nextActor === 'me'
-                          ? 'Me'
-                          : row.nextActor === 'them'
-                            ? 'Them'
-                            : ''}
-                      </TypedLine>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <ApplicationsTable
+            rows={shown}
+            hrefFor={(id) => routeHref({ page: 'application', id })}
+          />
         )}
       </LedgerSheet>
       {/* The new row appears in the table; stay here so several can be added. */}

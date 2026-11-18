@@ -121,19 +121,21 @@ export function ApplicationForm(props: { onSaved(id: Id): void }): VNode {
             ))}
           </select>
         </Field>
-        <Field label="Date" error={dateError}>
+        <Field label="Date">
           <input
             type="date"
             value={occurredOn}
             onInput={(e) => setOccurredOn(e.currentTarget.value)}
           />
+          {dateError ? <span class="field-error">{dateError}</span> : null}
         </Field>
-        <Field label="Next action date" error={nextError}>
+        <Field label="Next action date">
           <input
             type="date"
             value={nextActionDate}
             onInput={(e) => setNextActionDate(e.currentTarget.value)}
           />
+          {nextError ? <span class="field-error">{nextError}</span> : null}
         </Field>
         <Field label="Who acts next">
           <select
