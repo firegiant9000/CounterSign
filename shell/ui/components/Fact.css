@@ -1,0 +1,28 @@
+.cs-fact {
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid var(--ink-blue);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  overflow-wrap: anywhere;
+}
+
+.cs-fact.cs-fact-neutral {
+  border-left-color: var(--ink-blue);
+}
+
+.cs-fact.cs-fact-warning {
+  border-left-color: var(--ink-maroon);
+}
+
+@media print {
+  .cs-fact {
+    color: var(--print-ink);
+  }
+
+  .cs-fact,
+  .cs-fact.cs-fact-neutral,
+  .cs-fact.cs-fact-warning {
+    border-left-color: var(--print-ink);
+  }
+}

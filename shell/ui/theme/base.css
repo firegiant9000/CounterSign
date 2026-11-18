@@ -42,7 +42,19 @@ h3 {
   text-transform: uppercase;
 }
 
+.cs-app-message {
+  color: var(--ink-muted);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
 @media print {
+  .cs-app-message {
+    color: var(--print-ink);
+  }
+
   body {
     background-color: var(--print-paper);
     color: var(--print-ink);
