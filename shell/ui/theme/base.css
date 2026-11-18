@@ -60,7 +60,7 @@ h3 {
 }
 
 .warning {
-  color: var(--ink-ochre);
+  color: var(--ink-muted);
 }
 
 .popup-text {

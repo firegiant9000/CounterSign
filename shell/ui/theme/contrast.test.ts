@@ -96,6 +96,8 @@ describe('tokens.css', () => {
         pairs.push([blend(t[fg]!, t['--card']!, stamp), t['--card']!, 4.5]);
       }
       pairs.push([t['--on-primary']!, t['--primary']!, 4.5]);
+      // Legacy .field-error (ink-maroon on desk) until Task 28 removes the legacy block.
+      pairs.push([t['--ink-maroon']!, t['--desk']!, 4.5]);
       for (const bg of ['--desk', '--sheet', '--card']) {
         pairs.push([t['--focus']!, t[bg]!, 3]);
       }
