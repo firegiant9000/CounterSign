@@ -15,6 +15,10 @@ import {
 } from '../../core/src/followups';
 import type { Contact, ContactEventKind, Id } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { CardSection } from './components/IndexCard';
+import { Disclosure } from './components/Disclosure';
+import { Field } from './components/Field';
 
 const BAD_DATE = 'Enter a valid date (YYYY-MM-DD).';
 const NOT_LINKED = '';
@@ -159,105 +163,104 @@ export function ContactActivity(props: { contact: Contact }): VNode {
   );
 
   return (
-    <details>
-      <summary>Activity ({events.length})</summary>
-      <form onSubmit={(e) => void onLog(e)}>
-        <label>
-          What happened
-          <select
-            value={kind}
-            disabled={busy}
-            onChange={(e) => setKind(e.currentTarget.value as ContactEventKind)}
-          >
-            {CONTACT_EVENT_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {CONTACT_EVENT_LABELS[k]}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
-        <label>
-          Date
-          <input
-            type="date"
-            value={occurredOn}
-            disabled={busy}
-            onInput={(e) => setOccurredOn(e.currentTarget.value)}
-          />
-        </label>{' '}
-        <label>
-          Application
-          {appSelect(logApp, setLogApp)}
-        </label>{' '}
-        <label>
-          Note
-          <input
-            type="text"
-            value={note}
-            disabled={busy}
-            onInput={(e) => setNote(e.currentTarget.value)}
-          />
-        </label>{' '}
-        <button type="submit" disabled={busy}>
-          Log
-        </button>
-      </form>
-      {error ? (
-        <span class="field-error" role="alert">
-          {error}
-        </span>
-      ) : null}
-      <ul>
-        {events.map((e) => {
-          const title = titleOf(e.applicationId);
-          const eventNote = text(e.note);
-          return (
-            <li key={e.id}>
-              {contactEventDate(e)}{' '}
-              {e.kind ? CONTACT_EVENT_LABELS[e.kind] : 'Other'}
-              {title ? ` · ${title}` : ''}
-              {eventNote ? ` · ${eventNote}` : ''}{' '}
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onUndo(e.id)}
-              >
-                Undo
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {pending ? (
-        <div>
-          Follow up on {pending}{' '}
-          <button type="button" disabled={busy} onClick={() => void onClear()}>
-            Clear
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={(e) => void onSetFollowUp(e)}>
-          <label>
-            Follow up on
+    <Disclosure summary={`Activity (${events.length})`}>
+      <CardSection>
+        <form onSubmit={(e) => void onLog(e)}>
+          <Field label="What happened">
+            <select
+              value={kind}
+              disabled={busy}
+              onChange={(e) =>
+                setKind(e.currentTarget.value as ContactEventKind)
+              }
+            >
+              {CONTACT_EVENT_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {CONTACT_EVENT_LABELS[k]}
+                </option>
+              ))}
+            </select>
+          </Field>{' '}
+          <Field label="Date">
             <input
               type="date"
-              value={followOn}
+              value={occurredOn}
               disabled={busy}
-              onInput={(e) => setFollowOn(e.currentTarget.value)}
+              onInput={(e) => setOccurredOn(e.currentTarget.value)}
             />
-          </label>{' '}
-          <label>
-            Application
-            {appSelect(followApp, setFollowApp)}
-          </label>{' '}
-          <button type="submit" disabled={busy || !canSchedule}>
-            Set date
-          </button>
-          {canSchedule ? null : (
-            <div>You have followed up twice on this application.</div>
-          )}
+          </Field>{' '}
+          <Field label="Application">{appSelect(logApp, setLogApp)}</Field>{' '}
+          <Field label="Note">
+            <input
+              type="text"
+              value={note}
+              disabled={busy}
+              onInput={(e) => setNote(e.currentTarget.value)}
+            />
+          </Field>{' '}
+          <Button variant="primary" type="submit" disabled={busy}>
+            Log
+          </Button>
         </form>
-      )}
-    </details>
+        {error ? (
+          <span class="field-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+        <ul>
+          {events.map((e) => {
+            const title = titleOf(e.applicationId);
+            const eventNote = text(e.note);
+            return (
+              <li key={e.id}>
+                {contactEventDate(e)}{' '}
+                {e.kind ? CONTACT_EVENT_LABELS[e.kind] : 'Other'}
+                {title ? ` · ${title}` : ''}
+                {eventNote ? ` · ${eventNote}` : ''}{' '}
+                <Button
+                  variant="danger"
+                  disabled={busy}
+                  onClick={() => void onUndo(e.id)}
+                >
+                  Undo
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+        {pending ? (
+          <div>
+            Follow up on {pending}{' '}
+            <Button disabled={busy} onClick={() => void onClear()}>
+              Clear
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={(e) => void onSetFollowUp(e)}>
+            <Field label="Follow up on">
+              <input
+                type="date"
+                value={followOn}
+                disabled={busy}
+                onInput={(e) => setFollowOn(e.currentTarget.value)}
+              />
+            </Field>{' '}
+            <Field label="Application">
+              {appSelect(followApp, setFollowApp)}
+            </Field>{' '}
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={busy || !canSchedule}
+            >
+              Set date
+            </Button>
+            {canSchedule ? null : (
+              <div>You have followed up twice on this application.</div>
+            )}
+          </form>
+        )}
+      </CardSection>
+    </Disclosure>
   );
 }

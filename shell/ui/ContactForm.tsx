@@ -1,6 +1,8 @@
 import type { ComponentChildren, VNode } from 'preact';
 import { useState } from 'preact/hooks';
 import type { ContactInput } from '../../core/src/contacts';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
 
 export function ContactForm(props: {
   initial?: ContactInput;
@@ -35,54 +37,45 @@ export function ContactForm(props: {
   return (
     <form class="app-form" onSubmit={submit}>
       {children}
-      <label>
-        Name
+      <Field label="Name" error={nameError}>
         <input
           type="text"
           value={name}
           disabled={busy}
           onInput={(e) => setName(e.currentTarget.value)}
         />
-        {nameError ? (
-          <span class="field-error" role="alert">
-            {nameError}
-          </span>
-        ) : null}
-      </label>
-      <label>
-        Role
+      </Field>
+      <Field label="Role">
         <input
           type="text"
           value={role}
           disabled={busy}
           onInput={(e) => setRole(e.currentTarget.value)}
         />
-      </label>
-      <label>
-        How you know them
+      </Field>
+      <Field label="How you know them">
         <input
           type="text"
           value={howKnown}
           disabled={busy}
           onInput={(e) => setHowKnown(e.currentTarget.value)}
         />
-      </label>
-      <label>
-        Notes
+      </Field>
+      <Field label="Notes">
         <textarea
           value={notes}
           disabled={busy}
           onInput={(e) => setNotes(e.currentTarget.value)}
         />
-      </label>
+      </Field>
       <div>
-        <button type="submit" disabled={busy}>
+        <Button variant="primary" type="submit" disabled={busy}>
           {submitLabel}
-        </button>
+        </Button>
         {onCancel ? (
-          <button type="button" disabled={busy} onClick={onCancel}>
+          <Button disabled={busy} onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         ) : null}
       </div>
     </form>
