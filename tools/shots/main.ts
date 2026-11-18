@@ -54,9 +54,12 @@ async function startSession(
     theme === 'night' ? 0 : 1,
   );
   // Lets Marionette use the chrome context (needed to open moz-extension://
-  // tabs). Scoped to the geckodriver process, not this one.
+  // tabs). Scoped to the geckodriver process, not this one. WEB_EXT_* release
+  // keys are excluded so they never reach the browser.
   const service = new firefox.ServiceBuilder().setEnvironment({
-    ...process.env,
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([k]) => !k.startsWith('WEB_EXT_')),
+    ),
     MOZ_REMOTE_ALLOW_SYSTEM_ACCESS: '1',
   });
   const driver = (await new Builder()
@@ -255,6 +258,8 @@ async function runTheme(
 }
 
 async function main(): Promise<void> {
+  // Selenium Manager: don't send usage stats.
+  process.env.SE_AVOID_STATS = 'true';
   const binary = resolveBinary();
   if (!existsSync(join(EXT_DIR, 'manifest.json'))) {
     throw new Error(
