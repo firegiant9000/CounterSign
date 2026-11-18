@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
 import {
+  assetExists,
   cssProblems,
   fontFamiliesIn,
   NETWORK_TOKENS,
@@ -111,6 +112,23 @@ describe('cssProblems', () => {
     expect(found.length).toBeGreaterThanOrEqual(1);
     if (!css.toLowerCase().includes('@import')) expect(found).toHaveLength(1);
   });
+  it.each([
+    "a{b:url( 'https://example.com/x' )}",
+    'a{b:url( https://example.com/x )}',
+    'a{b:url( "//example.com/x" )}',
+  ])('flags spaced or quoted remote %s', (css) => {
+    expect(cssProblems('a.css', css, yes)).toHaveLength(1);
+  });
+  it('flags a missing single-quoted asset', () => {
+    expect(cssProblems('a.css', "a{b:url('/missing.png')}", no)).toHaveLength(
+      1,
+    );
+  });
+  it('flags a missing space-padded unquoted asset', () => {
+    expect(cssProblems('a.css', 'a{b:url( /missing.png )}', no)).toHaveLength(
+      1,
+    );
+  });
   it('flags a missing asset', () => {
     expect(
       cssProblems('a.css', 'a{src:url(/theme/fonts/missing.woff2)}', no),
@@ -136,6 +154,44 @@ describe('cssProblems', () => {
       'p{font-family:Other}';
     expect(fontFamiliesIn(css)).toEqual(new Set(['EB Garamond', 'Fraunces']));
   });
+});
+
+describe('assetExists', () => {
+  const out = resolve('/ext/out');
+  const css = resolve(out, 'assets', 'app.css');
+  function probe(path: string, answer = true) {
+    const asked: string[] = [];
+    const found = assetExists(out, css, path, (p) => {
+      asked.push(p);
+      return answer;
+    });
+    return { found, asked };
+  }
+  it('resolves a root path under the output folder', () => {
+    expect(probe('/theme/grain.png')).toEqual({
+      found: true,
+      asked: [resolve(out, 'theme', 'grain.png')],
+    });
+  });
+  it('resolves a relative path against the CSS file folder', () => {
+    expect(probe('fonts/a.woff2').asked).toEqual([
+      resolve(out, 'assets', 'fonts', 'a.woff2'),
+    ]);
+  });
+  it('resolves ../ against the CSS file folder', () => {
+    expect(probe('../theme/grain.png').asked).toEqual([
+      resolve(out, 'theme', 'grain.png'),
+    ]);
+  });
+  it('reports what the file system reports', () => {
+    expect(probe('/theme/grain.png', false).found).toBe(false);
+  });
+  it.each(['/../x', '../../x', '/theme/../../x', '/', '..'])(
+    'rejects %s without asking the file system',
+    (path) => {
+      expect(probe(path)).toEqual({ found: false, asked: [] });
+    },
+  );
 });
 
 describe('lint rule', { timeout: 60_000 }, () => {

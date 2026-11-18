@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export const NETWORK_TOKENS: readonly string[] = [
   'fetch',
@@ -190,6 +190,32 @@ export function cssProblems(
     }
   }
   return problems;
+}
+
+/**
+ * Root paths resolve against `out`, relative ones against the CSS file's folder.
+ * A path that lands outside `out` (or on `out` itself) does not exist, and
+ * `fsExists` is not asked about it.
+ */
+export function assetExists(
+  out: string,
+  cssFile: string,
+  path: string,
+  fsExists: (absolute: string) => boolean = existsSync,
+): boolean {
+  const target = path.startsWith('/')
+    ? resolve(out, `.${path}`)
+    : resolve(dirname(cssFile), path);
+  const rel = relative(out, target);
+  if (
+    rel === '' ||
+    rel === '..' ||
+    rel.startsWith(`..${sep}`) ||
+    isAbsolute(rel)
+  ) {
+    return false;
+  }
+  return fsExists(target);
 }
 
 /** Font families declared by @font-face rules, unquoted. */

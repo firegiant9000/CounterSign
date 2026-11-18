@@ -1,8 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import allowlist from './allowlist.json';
 import {
+  assetExists,
   cssProblems,
   fontFamiliesIn,
   parseCsp,
@@ -68,18 +69,6 @@ function filesEnding(dir: string, ext: string): string[] {
 
 function htmlFiles(dir: string): string[] {
   return filesEnding(dir, '.html');
-}
-
-/** Root paths resolve against OUT, relative ones against the CSS file's folder. Nothing may escape OUT. */
-function assetExists(cssFile: string, path: string): boolean {
-  const target = path.startsWith('/')
-    ? resolve(OUT, `.${path}`)
-    : resolve(dirname(cssFile), path);
-  const rel = relative(OUT, target);
-  if (rel === '' || rel.startsWith('..') || resolve(OUT, rel) !== target) {
-    return false;
-  }
-  return existsSync(target);
 }
 
 describe('built extension', () => {
@@ -155,9 +144,9 @@ describe('built extension', () => {
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const css = readFileSync(file, 'utf8');
-      expect(cssProblems(file, css, (path) => assetExists(file, path))).toEqual(
-        [],
-      );
+      expect(
+        cssProblems(file, css, (path) => assetExists(OUT, file, path)),
+      ).toEqual([]);
     }
   });
   it('bundles the three font families', () => {
