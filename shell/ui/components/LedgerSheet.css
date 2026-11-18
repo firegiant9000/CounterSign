@@ -64,11 +64,14 @@
 
 .cs-ledger .cs-ledger-body > h2,
 .cs-ledger .cs-ledger-body > p,
-.cs-ledger .cs-ledger-body > form,
-.cs-ledger .cs-ledger-body > button,
-.cs-ledger .cs-ledger-body > .cs-button {
+.cs-ledger .cs-ledger-body > form {
   padding-left: calc(var(--space-6) + var(--space-2));
   padding-right: var(--space-3);
+}
+
+.cs-ledger .cs-ledger-body > button,
+.cs-ledger .cs-ledger-body > .cs-button {
+  margin-left: calc(var(--space-6) + var(--space-2));
 }
 
 .cs-ledger li.cs-row,
