@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DASHBOARD_PAGES, outputDir, shotPlan } from './plan';
+import { DASHBOARD_PAGES, findOverflows, outputDir, shotPlan } from './plan';
 
 const plan = () => shotPlan({ applicationId: 'abc' });
 
@@ -54,6 +54,36 @@ describe('shotPlan', () => {
     );
     expect(byName.get('pack')?.path).toBe('dashboard.html#/pack/abc');
     expect(byName.get('applications-900')?.width).toBe(900);
+  });
+});
+
+describe('findOverflows', () => {
+  const el = (tag: string, scrollWidth: number, clientWidth = 352) => ({
+    tag,
+    className: '',
+    scrollWidth,
+    clientWidth,
+  });
+
+  it('reports a container that grows sideways', () => {
+    const wide = el('section', 600);
+    expect(findOverflows([el('body', 352), wide, el('p', 300)])).toEqual([
+      wide,
+    ]);
+  });
+
+  it('ignores inputs and textareas scrolling their own value', () => {
+    expect(
+      findOverflows([el('input', 1800, 300), el('textarea', 900)]),
+    ).toEqual([]);
+  });
+
+  it('ignores inline elements, which report clientWidth 0', () => {
+    expect(findOverflows([el('strong', 128, 0)])).toEqual([]);
+  });
+
+  it('passes when nothing overflows', () => {
+    expect(findOverflows([el('html', 352), el('body', 352)])).toEqual([]);
   });
 });
 

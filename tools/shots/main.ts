@@ -5,7 +5,14 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Builder, By, until, type WebDriver } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox';
-import { outputDir, shotPlan, type Shot, type Theme } from './plan';
+import {
+  findOverflows,
+  outputDir,
+  shotPlan,
+  type PopupMeasurement,
+  type Shot,
+  type Theme,
+} from './plan';
 
 const EXT_ID = 'countersign@firegiant9000';
 // Pre-seeded in the profile so the extension's moz-extension:// origin is known.
@@ -187,6 +194,32 @@ async function takePopupShot(
       await driver.findElement(field('Link')).sendKeys(LONG_URL);
     }
     await driver.sleep(300);
+    // Measure before the crop below hides any sideways overflow.
+    const measured = await driver.executeScript<PopupMeasurement>(
+      `const describe = (el) => ({
+         tag: el.tagName.toLowerCase(),
+         className: typeof el.className === 'string' ? el.className : '',
+         scrollWidth: el.scrollWidth,
+         clientWidth: el.clientWidth,
+       });
+       const els = [document.documentElement, document.body, ...document.body.querySelectorAll('*')];
+       return { bodyWidth: document.body.clientWidth, elements: els.map(describe) };`,
+    );
+    const overflowing = findOverflows(measured.elements);
+    if (overflowing.length > 0) {
+      const list = overflowing
+        .map(
+          (o) =>
+            `<${o.tag}${o.className ? ` class="${o.className}"` : ''}> scrollWidth ${o.scrollWidth} > clientWidth ${o.clientWidth}`,
+        )
+        .join('; ');
+      throw new Error(
+        `${shot.name}: popup scrolls sideways (body ${measured.bodyWidth}px): ${list}`,
+      );
+    }
+    console.log(
+      `${shot.name}: popup body ${measured.bodyWidth}px, no overflow`,
+    );
     // Headless Firefox will not shrink a window below ~500px wide, so crop the
     // root element to the popup's 360x600 box and capture just that.
     await driver.executeScript(

@@ -66,3 +66,28 @@ export function outputDir(root: string, now: Date, theme: Theme): string {
   const stamp = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}-${p(now.getHours())}${p(now.getMinutes())}`;
   return join(root, '.shots', stamp, theme);
 }
+
+export interface ElementMeasure {
+  tag: string;
+  className: string;
+  scrollWidth: number;
+  clientWidth: number;
+}
+
+export interface PopupMeasurement {
+  bodyWidth: number;
+  elements: ElementMeasure[];
+}
+
+// Elements that grow sideways. An input or textarea scrolling its own value is
+// fine, and inline elements report clientWidth 0 (their block container is
+// still checked); any other element with scrollWidth > clientWidth is overflow.
+export function findOverflows(elements: ElementMeasure[]): ElementMeasure[] {
+  return elements.filter(
+    (e) =>
+      e.tag !== 'input' &&
+      e.tag !== 'textarea' &&
+      e.clientWidth > 0 &&
+      e.scrollWidth > e.clientWidth,
+  );
+}
