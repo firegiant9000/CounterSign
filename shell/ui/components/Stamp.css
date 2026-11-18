@@ -1,0 +1,45 @@
+.cs-stamp {
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px var(--space-2);
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  color: var(--ink-faded);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: var(--stamp-opacity);
+  overflow-wrap: anywhere;
+}
+
+.cs-stamp.ink-maroon {
+  color: var(--ink-maroon);
+  transform: rotate(-1.5deg);
+}
+
+.cs-stamp.ink-green {
+  color: var(--ink-green);
+  transform: rotate(1deg);
+}
+
+.cs-stamp.ink-blue {
+  color: var(--ink-blue);
+  transform: rotate(-0.5deg);
+}
+
+.cs-stamp.ink-ochre {
+  color: var(--ink-ochre);
+  transform: rotate(1.5deg);
+}
+
+.cs-stamp.ink-faded {
+  color: var(--ink-faded);
+  transform: rotate(-1deg);
+}
+
+.cs-stamp.ink-none {
+  color: var(--ink-faded);
+  transform: rotate(0.5deg);
+}
