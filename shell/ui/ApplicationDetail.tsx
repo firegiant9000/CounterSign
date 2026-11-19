@@ -409,11 +409,11 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         <ul class="history">
           {history.map((e) => (
             <li key={e.id} class={e.voidedAt ? 'voided' : undefined}>
-              <span>
+              <TypedLine as="span">
                 {effectiveDate(e)} ·{' '}
                 {statusLabel(e.status, settings.statusLabels)}
                 {e.note ? ` · ${e.note}` : ''}
-              </span>
+              </TypedLine>
               {current && e.id === current.id ? (
                 <Button
                   variant="danger"
