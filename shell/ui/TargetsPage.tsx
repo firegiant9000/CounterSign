@@ -87,6 +87,13 @@ export function TargetsPage(): VNode {
       <h1>Targets</h1>
       <IndexCard title="Add a target company">
         <form onSubmit={(e) => void onAdd(e)}>
+          <datalist id="target-companies">
+            {data.companies
+              .filter((c) => str(c.name) !== '')
+              .map((c) => (
+                <option key={c.id} value={str(c.name)} />
+              ))}
+          </datalist>
           <Field label="Company">
             <input
               type="text"
@@ -96,16 +103,11 @@ export function TargetsPage(): VNode {
               onInput={(e) => setName(e.currentTarget.value)}
             />
           </Field>
-          <datalist id="target-companies">
-            {data.companies
-              .filter((c) => str(c.name) !== '')
-              .map((c) => (
-                <option key={c.id} value={str(c.name)} />
-              ))}
-          </datalist>{' '}
-          <Button variant="primary" type="submit" disabled={busy}>
-            Add target
-          </Button>
+          <p>
+            <Button variant="primary" type="submit" disabled={busy}>
+              Add target
+            </Button>
+          </p>
         </form>
       </IndexCard>
       {error ? (
