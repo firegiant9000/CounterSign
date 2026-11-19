@@ -85,6 +85,13 @@
   font-size: var(--step--1);
 }
 
+ul:has(> li > .cs-card),
+ul:has(> li > .cs-card-section) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .cs-card-section-title > h2,
 .cs-card-section-title > h3 {
   margin: 0;
