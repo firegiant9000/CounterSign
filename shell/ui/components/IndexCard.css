@@ -85,9 +85,8 @@
   font-size: var(--step--1);
 }
 
-ul:has(> li > .cs-card),
-ul:has(> li > .cs-card-section) {
-  margin: 0;
+.cs-page-main ul:has(> li > .cs-card),
+.cs-page-main ul:has(> li > .cs-card-section) {
   padding: 0;
   list-style: none;
 }

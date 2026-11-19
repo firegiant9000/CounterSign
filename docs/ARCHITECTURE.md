@@ -70,7 +70,7 @@ Three parts keep "no network, nothing reads a page until you click" true. The lo
 The theme is a ledger and card catalogue on a desk, with light and dark versions that follow the system.
 
 - `shell/ui/theme/` holds the shared styling: `tokens.css` (every colour, size and font token), `fonts.css`, `base.css`, `layout.css` (dashboard page layout), `popup-layout.css` and `print.css` (the interview pack).
-- `shell/ui/components/` holds the small component layer (`IndexCard`, `LedgerSheet`, `Field`, `Button`, `Stamp` and others). Each is a `.tsx` file with its own `.css` file, and every rule is scoped to the component's `cs-` class. Pages use components and never carry CSS of their own.
+- `shell/ui/components/` holds the small component layer (`IndexCard`, `LedgerSheet`, `Field`, `Button`, `Stamp` and others). Each is a `.tsx` file with its own `.css` file, and component rules are scoped to `cs-` classes. Page layout (filters, tables, forms) lives in `theme/layout.css`, which keeps its older class names, so pages carry no CSS of their own.
 - **Token rule:** every colour is a token in `tokens.css`, with day values in one `:root` block and night overrides in one `prefers-color-scheme: dark` block. No colour literal appears anywhere else. Text colour pairs are checked for WCAG AA contrast in both themes by `shell/ui/theme/contrast.test.ts`.
 - **Three guards keep the look safe:**
   1. `shell/ui/theme/css-rules.test.ts` scans every CSS file under `shell/ui/` for colour literals, widths above 21rem or in `vw` in components, and animation or transition outside `prefers-reduced-motion: no-preference`.
