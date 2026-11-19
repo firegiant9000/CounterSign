@@ -58,6 +58,11 @@
   background: var(--desk);
 }
 
+.cs-card input[type='checkbox'],
+.cs-card input[type='radio'] {
+  accent-color: var(--primary);
+}
+
 .cs-card .cs-card-title {
   margin: 0 0 var(--space-2);
   color: var(--ink);
