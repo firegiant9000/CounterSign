@@ -1,6 +1,7 @@
 import type { VNode } from 'preact';
 import { useState } from 'preact/hooks';
 import type { AnswerValue } from '../../core/src/types';
+import { Field } from './components/Field';
 
 export type AnswerKind = 'yes_no' | 'choice' | 'money_range' | 'date' | 'text';
 
@@ -156,41 +157,44 @@ export function useAnswerDraft(opts: {
     case 'choice':
       input =
         choices.length > 0 ? (
-          <select
-            aria-label={label}
-            value={text}
-            onChange={(e) => {
-              setText(e.currentTarget.value);
-              edited();
-            }}
-          >
-            <option value="">(no answer)</option>
-            {text !== '' && !choices.includes(text) ? (
-              <option value={text}>{text}</option>
-            ) : null}
-            {choices.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          <Field label={null}>
+            <select
+              aria-label={label}
+              value={text}
+              onChange={(e) => {
+                setText(e.currentTarget.value);
+                edited();
+              }}
+            >
+              <option value="">(no answer)</option>
+              {text !== '' && !choices.includes(text) ? (
+                <option value={text}>{text}</option>
+              ) : null}
+              {choices.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
         ) : (
-          <input
-            type="text"
-            aria-label={label}
-            value={text}
-            onInput={(e) => {
-              setText(e.currentTarget.value);
-              edited();
-            }}
-          />
+          <Field label={null}>
+            <input
+              type="text"
+              aria-label={label}
+              value={text}
+              onInput={(e) => {
+                setText(e.currentTarget.value);
+                edited();
+              }}
+            />
+          </Field>
         );
       break;
     case 'money_range':
       input = (
         <span class="answer-money">
-          <label>
-            Minimum{' '}
+          <Field label="Minimum">
             <input
               type="text"
               inputMode="decimal"
@@ -200,9 +204,8 @@ export function useAnswerDraft(opts: {
                 edited();
               }}
             />
-          </label>
-          <label>
-            Maximum{' '}
+          </Field>
+          <Field label="Maximum">
             <input
               type="text"
               inputMode="decimal"
@@ -212,9 +215,8 @@ export function useAnswerDraft(opts: {
                 edited();
               }}
             />
-          </label>
-          <label>
-            Currency{' '}
+          </Field>
+          <Field label="Currency">
             <input
               type="text"
               value={currency}
@@ -223,9 +225,8 @@ export function useAnswerDraft(opts: {
                 edited();
               }}
             />
-          </label>
-          <label>
-            Period{' '}
+          </Field>
+          <Field label="Period">
             <select
               value={period}
               onChange={(e) => {
@@ -236,33 +237,37 @@ export function useAnswerDraft(opts: {
               <option value="year">per year</option>
               <option value="hour">per hour</option>
             </select>
-          </label>
+          </Field>
         </span>
       );
       break;
     case 'date':
       input = (
-        <input
-          type="date"
-          aria-label={label}
-          value={text}
-          onInput={(e) => {
-            setText(e.currentTarget.value);
-            edited();
-          }}
-        />
+        <Field label={null}>
+          <input
+            type="date"
+            aria-label={label}
+            value={text}
+            onInput={(e) => {
+              setText(e.currentTarget.value);
+              edited();
+            }}
+          />
+        </Field>
       );
       break;
     case 'text':
       input = (
-        <textarea
-          aria-label={label}
-          value={text}
-          onInput={(e) => {
-            setText(e.currentTarget.value);
-            edited();
-          }}
-        />
+        <Field label={null}>
+          <textarea
+            aria-label={label}
+            value={text}
+            onInput={(e) => {
+              setText(e.currentTarget.value);
+              edited();
+            }}
+          />
+        </Field>
       );
       break;
   }

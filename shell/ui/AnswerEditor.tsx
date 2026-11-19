@@ -7,6 +7,10 @@ import {
 } from '../../core/src/answers';
 import type { CanonicalAnswer } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Disclosure } from './components/Disclosure';
+import { IndexCard } from './components/IndexCard';
+import { TypedLine } from './components/TypedLine';
 import { choicesOf, kindOf, str, useAnswerDraft } from './AnswerValueInput';
 
 function messageOf(err: unknown): string {
@@ -72,8 +76,7 @@ export function AnswerEditor(props: { answer: CanonicalAnswer }): VNode {
     : [];
 
   return (
-    <section class="answer">
-      <h2>{label}</h2>
+    <IndexCard title={label}>
       <form
         class="answer-form"
         onSubmit={(e) => {
@@ -81,34 +84,39 @@ export function AnswerEditor(props: { answer: CanonicalAnswer }): VNode {
         }}
       >
         {draft.input}
-        <button type="submit" disabled={busy}>
+        <Button variant="primary" type="submit" disabled={busy}>
           Save
-        </button>
+        </Button>
         {problem ? (
           <span class="field-error" role="alert">
             {problem}
           </span>
         ) : null}
-        {saved && !problem ? <span class="answer-saved">Saved</span> : null}
+        {saved && !problem ? (
+          <TypedLine as="span" tone="muted">
+            Saved
+          </TypedLine>
+        ) : null}
       </form>
-      <details>
-        <summary>History ({revisions.length})</summary>
+      <Disclosure summary={`History (${revisions.length})`}>
         {revisions.length === 0 ? (
-          <p>No earlier answers.</p>
+          <TypedLine>No earlier answers.</TypedLine>
         ) : (
           <ul class="history">
             {revisions.map((r, i) => (
               <li key={i}>
-                <span>{formatAnswer(r?.value) || '(empty)'}</span>
-                <span class="document-meta">
+                <TypedLine as="span">
+                  {formatAnswer(r?.value) || '(empty)'}
+                </TypedLine>
+                <TypedLine as="span" tone="muted">
                   replaced{' '}
                   {str(r?.replacedAt).slice(0, 10) || 'on an unknown date'}
-                </span>
+                </TypedLine>
               </li>
             ))}
           </ul>
         )}
-      </details>
-    </section>
+      </Disclosure>
+    </IndexCard>
   );
 }
