@@ -10,6 +10,7 @@ import { useAppData } from './app-data';
 import { Button } from './components/Button';
 import { Disclosure } from './components/Disclosure';
 import { IndexCard } from './components/IndexCard';
+import { Text } from './components/Text';
 import { TypedLine } from './components/TypedLine';
 import { choicesOf, kindOf, str, useAnswerDraft } from './AnswerValueInput';
 
@@ -105,9 +106,7 @@ export function AnswerEditor(props: { answer: CanonicalAnswer }): VNode {
           <ul class="history">
             {revisions.map((r, i) => (
               <li key={i}>
-                <TypedLine as="span">
-                  {formatAnswer(r?.value) || '(empty)'}
-                </TypedLine>
+                <Text kind="body">{formatAnswer(r?.value) || '(empty)'}</Text>
                 <TypedLine as="span" tone="muted">
                   replaced{' '}
                   {str(r?.replacedAt).slice(0, 10) || 'on an unknown date'}
