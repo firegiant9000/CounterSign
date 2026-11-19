@@ -15,6 +15,13 @@ import {
 } from '../../core/src/weekly';
 import type { WeeklyCounts } from '../../core/src/weekly';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { CountGrid } from './components/CountGrid';
+import { Disclosure } from './components/Disclosure';
+import { Fact } from './components/Fact';
+import { Field } from './components/Field';
+import { IndexCard } from './components/IndexCard';
+import { TypedLine } from './components/TypedLine';
 
 type Plan = { outreachTarget?: number; applicationCap?: number };
 
@@ -70,8 +77,7 @@ function PlanForm(props: {
 
   return (
     <form onSubmit={(e) => void onSubmit(e)}>
-      <label>
-        Outreach target
+      <Field label="Outreach target">
         <input
           type="text"
           inputMode="numeric"
@@ -79,9 +85,8 @@ function PlanForm(props: {
           disabled={busy}
           onInput={(e) => setTarget(e.currentTarget.value)}
         />
-      </label>{' '}
-      <label>
-        Application cap
+      </Field>
+      <Field label="Application cap">
         <input
           type="text"
           inputMode="numeric"
@@ -89,24 +94,30 @@ function PlanForm(props: {
           disabled={busy}
           onInput={(e) => setCap(e.currentTarget.value)}
         />
-      </label>{' '}
-      <button type="submit" disabled={busy}>
-        Save plan
-      </button>
-      {props.onCancel ? (
-        <>
-          {' '}
-          <button type="button" disabled={busy} onClick={props.onCancel}>
-            Cancel
-          </button>
-        </>
-      ) : null}
-      {error ? (
-        <span class="field-error" role="alert">
-          {' '}
-          {error}
-        </span>
-      ) : null}
+      </Field>
+      <p>
+        <Button type="submit" variant="primary" disabled={busy}>
+          Save plan
+        </Button>
+        {props.onCancel ? (
+          <>
+            {' '}
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={props.onCancel}
+            >
+              Cancel
+            </Button>
+          </>
+        ) : null}
+        {error ? (
+          <span class="field-error" role="alert">
+            {' '}
+            {error}
+          </span>
+        ) : null}
+      </p>
     </form>
   );
 }
@@ -116,23 +127,27 @@ function CountsList(props: { counts: WeeklyCounts; plan: Plan }): VNode {
   const note = capNote(counts, plan.applicationCap);
   return (
     <>
-      <ul>
-        <li>
-          Outreach:{' '}
-          {plan.outreachTarget === undefined
-            ? counts.outreach
-            : `${counts.outreach} of ${plan.outreachTarget}`}
-        </li>
-        <li>Conversations: {counts.conversations}</li>
-        <li>
-          Applications: {counts.applications}
-          {plan.applicationCap === undefined
-            ? ''
-            : ` of ${plan.applicationCap} planned`}
-        </li>
-        <li>Follow-ups: {counts.followUps}</li>
-      </ul>
-      {note ? <p>{note}</p> : null}
+      <CountGrid
+        items={[
+          {
+            label: 'Outreach:',
+            value:
+              plan.outreachTarget === undefined
+                ? counts.outreach
+                : `${counts.outreach} of ${plan.outreachTarget}`,
+          },
+          { label: 'Conversations:', value: counts.conversations },
+          {
+            label: 'Applications:',
+            value:
+              plan.applicationCap === undefined
+                ? counts.applications
+                : `${counts.applications} of ${plan.applicationCap} planned`,
+          },
+          { label: 'Follow-ups:', value: counts.followUps },
+        ]}
+      />
+      {note ? <Fact tone="neutral">{note}</Fact> : null}
     </>
   );
 }
@@ -196,8 +211,7 @@ export function WeeklyPage(): VNode {
   return (
     <div class="data-page">
       <h1>Weekly</h1>
-      <section class="data-section">
-        <h2>This week (from {thisMonday})</h2>
+      <IndexCard title={`This week (from ${thisMonday})`} headingLevel={2}>
         <CountsList counts={weeklyCounts(data, thisMonday)} plan={thisPlan} />
         {editing ? (
           <PlanForm
@@ -210,35 +224,37 @@ export function WeeklyPage(): VNode {
         ) : (
           <>
             <ReadOnlyPlan plan={thisPlan} />
-            <button type="button" onClick={() => setEditing(true)}>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
               Edit plan
-            </button>
+            </Button>
           </>
         )}
-      </section>
-      <section class="data-section">
-        <h2>Last week (from {lastMonday})</h2>
+      </IndexCard>
+      <IndexCard title={`Last week (from ${lastMonday})`} headingLevel={2}>
         <CountsList counts={weeklyCounts(data, lastMonday)} plan={lastPlan} />
         <ReadOnlyPlan plan={lastPlan} />
-      </section>
-      <section class="data-section">
-        <h2>Plan for next week (from {nextMonday})</h2>
+      </IndexCard>
+      <IndexCard
+        title={`Plan for next week (from ${nextMonday})`}
+        headingLevel={2}
+      >
         <PlanForm
           key={`${nextMonday}:${planKey(nextPlan)}`}
           monday={nextMonday}
           plan={nextPlan}
         />
-      </section>
-      <details>
-        <summary>Totals and stages</summary>
-        <ul>
-          <li>Outreach: {totals.outreach}</li>
-          <li>Conversations: {totals.conversations}</li>
-          <li>Applications: {totals.applications}</li>
-          <li>Follow-ups: {totals.followUps}</li>
-        </ul>
-        <p>{stagesLine(stages, settings.statusLabels)}</p>
-      </details>
+      </IndexCard>
+      <Disclosure summary="Totals and stages">
+        <CountGrid
+          items={[
+            { label: 'Outreach:', value: totals.outreach },
+            { label: 'Conversations:', value: totals.conversations },
+            { label: 'Applications:', value: totals.applications },
+            { label: 'Follow-ups:', value: totals.followUps },
+          ]}
+        />
+        <TypedLine>{stagesLine(stages, settings.statusLabels)}</TypedLine>
+      </Disclosure>
     </div>
   );
 }

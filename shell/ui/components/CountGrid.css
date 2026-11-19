@@ -1,0 +1,25 @@
+.cs-count-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1.5rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+}
+
+.cs-count-grid .cs-count-item {
+  margin: 0;
+  min-width: 0;
+}
+
+.cs-count-grid .cs-count-label {
+  margin: 0;
+  font-family: var(--font-typed);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+
+.cs-count-grid .cs-count-figure {
+  margin: 0;
+  font-family: var(--font-body);
+  overflow-wrap: anywhere;
+}
