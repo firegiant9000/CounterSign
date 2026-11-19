@@ -9,6 +9,9 @@ import type { SettingsEdit } from '../../core/src/settings';
 import { STATUS_KEYS, statusLabel } from '../../core/src/status';
 import type { StatusKey } from '../../core/src/status';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { CardSection, IndexCard } from './components/IndexCard';
 
 const DAYS_ERROR = 'Enter a whole number of days from 1 to 365.';
 
@@ -83,44 +86,45 @@ export function SettingsPage(): VNode {
           void save();
         }}
       >
-        <section class="data-section">
-          <label>
-            Quiet after (days)
-            <input
-              type="text"
-              value={days}
-              disabled={busy}
-              onInput={(e) => {
-                dirty.current.add('days');
-                setDays(e.currentTarget.value);
-              }}
-            />
-          </label>
-        </section>
-        <section class="data-section">
-          <h2>Status names</h2>
-          {STATUS_KEYS.map((key) => (
-            <label key={key}>
-              {statusLabel(key)}
+        <IndexCard title="Settings" headingLevel={2}>
+          <CardSection>
+            <Field label="Quiet after (days)">
               <input
                 type="text"
-                value={labels[key] ?? ''}
-                placeholder={statusLabel(key)}
+                value={days}
                 disabled={busy}
                 onInput={(e) => {
-                  const text = e.currentTarget.value;
-                  dirty.current.add('label:' + key);
-                  setLabels((prev) => ({ ...prev, [key]: text }));
+                  dirty.current.add('days');
+                  setDays(e.currentTarget.value);
                 }}
               />
-            </label>
-          ))}
-        </section>
-        <button type="submit" disabled={busy}>
-          Save
-        </button>
-        {error ? <span class="field-error">{error}</span> : null}
-        {saved ? <p>Saved</p> : null}
+            </Field>
+          </CardSection>
+          <CardSection title={<h2>Status names</h2>}>
+            {STATUS_KEYS.map((key) => (
+              <Field key={key} label={statusLabel(key)}>
+                <input
+                  type="text"
+                  value={labels[key] ?? ''}
+                  placeholder={statusLabel(key)}
+                  disabled={busy}
+                  onInput={(e) => {
+                    const text = e.currentTarget.value;
+                    dirty.current.add('label:' + key);
+                    setLabels((prev) => ({ ...prev, [key]: text }));
+                  }}
+                />
+              </Field>
+            ))}
+          </CardSection>
+          <p>
+            <Button variant="primary" type="submit" disabled={busy}>
+              Save
+            </Button>
+          </p>
+          {error ? <span class="field-error">{error}</span> : null}
+          {saved ? <p>Saved</p> : null}
+        </IndexCard>
       </form>
     </div>
   );
