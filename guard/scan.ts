@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export const NETWORK_TOKENS: readonly string[] = [
   'fetch',
@@ -153,4 +153,82 @@ export function parseCsp(csp: string): Record<string, string[]> {
     out[name] = sources.sort();
   }
   return out;
+}
+
+export interface CssProblem {
+  file: string;
+  problem: string;
+}
+
+function stripCssComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/** Pure. `exists(path)` answers whether a root or relative path is in the output. */
+export function cssProblems(
+  file: string,
+  css: string,
+  exists: (path: string) => boolean,
+): CssProblem[] {
+  const text = stripCssComments(css);
+  const problems: CssProblem[] = [];
+  if (/@import\b/i.test(text)) {
+    problems.push({ file, problem: '@import is not allowed' });
+  }
+  for (const match of text.matchAll(
+    /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi,
+  )) {
+    const raw = (match[1] ?? match[2] ?? match[3] ?? '').trim();
+    if (raw === '') continue;
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(raw)) {
+      problems.push({ file, problem: `remote or inlined asset: ${raw}` });
+      continue;
+    }
+    const path = raw.replace(/[?#].*$/, '');
+    if (!exists(path)) {
+      problems.push({ file, problem: `missing asset: ${raw}` });
+    }
+  }
+  return problems;
+}
+
+/**
+ * Root paths resolve against `out`, relative ones against the CSS file's folder.
+ * A path that lands outside `out` (or on `out` itself) does not exist, and
+ * `fsExists` is not asked about it.
+ */
+export function assetExists(
+  out: string,
+  cssFile: string,
+  path: string,
+  fsExists: (absolute: string) => boolean = existsSync,
+): boolean {
+  const target = path.startsWith('/')
+    ? resolve(out, `.${path}`)
+    : resolve(dirname(cssFile), path);
+  const rel = relative(out, target);
+  if (
+    rel === '' ||
+    rel === '..' ||
+    rel.startsWith(`..${sep}`) ||
+    isAbsolute(rel)
+  ) {
+    return false;
+  }
+  return fsExists(target);
+}
+
+/** Font families declared by @font-face rules, unquoted. */
+export function fontFamiliesIn(css: string): Set<string> {
+  const families = new Set<string>();
+  for (const block of stripCssComments(css).matchAll(
+    /@font-face\s*\{([^}]*)\}/gi,
+  )) {
+    const family = /font-family\s*:\s*(?:"([^"]*)"|'([^']*)'|([^;}]+))/i.exec(
+      block[1] ?? '',
+    );
+    const name = (family?.[1] ?? family?.[2] ?? family?.[3] ?? '').trim();
+    if (name !== '') families.add(name);
+  }
+  return families;
 }

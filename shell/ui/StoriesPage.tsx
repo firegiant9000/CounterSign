@@ -12,6 +12,12 @@ import {
 import type { StoryInput } from '../../core/src/stories';
 import type { Id, Story } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { CardSection, IndexCard } from './components/IndexCard';
+import { TagChip } from './components/TagChip';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 
 const NEED_TITLE = 'Enter a title.';
 
@@ -150,27 +156,38 @@ export function StoriesPage(): VNode {
     const storyTagList = storyTags(story);
     return (
       <li key={story.id}>
-        <strong>{title || 'Untitled story'}</strong>
-        {storyTagList.length > 0 ? <div>{storyTagList.join(', ')}</div> : null}
-        {STAR_FIELDS.map(([key, label]) => {
-          const value = text(story[key]);
-          return value.trim() === '' ? null : (
-            <div key={key}>
-              <strong>{label}</strong>
-              <div>{value}</div>
+        <IndexCard>
+          <strong>
+            <Text kind="name">{title || 'Untitled story'}</Text>
+          </strong>
+          {storyTagList.length > 0 ? (
+            <div>
+              <TypedLine as="span">{storyTagList.join(', ')}</TypedLine>
             </div>
-          );
-        })}
-        <button type="button" disabled={busy} onClick={() => openEdit(story)}>
-          Edit
-        </button>{' '}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void onDelete(story.id)}
-        >
-          Delete
-        </button>
+          ) : null}
+          {STAR_FIELDS.map(([key, label]) => {
+            const value = text(story[key]);
+            return value.trim() === '' ? null : (
+              <CardSection key={key} title={<strong>{label}</strong>}>
+                <div>{value}</div>
+              </CardSection>
+            );
+          })}
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => openEdit(story)}
+          >
+            Edit
+          </Button>{' '}
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => void onDelete(story.id)}
+          >
+            Delete
+          </Button>
+        </IndexCard>
       </li>
     );
   };
@@ -178,88 +195,91 @@ export function StoriesPage(): VNode {
   return (
     <div>
       <h1>Stories</h1>
-      <div>
-        <button
-          type="button"
-          disabled={busy}
-          aria-pressed={!activeTag}
-          onClick={() => setSelected('')}
-        >
-          All
-        </button>
-        {tags.map((t) => (
-          <Fragment key={t.tag}>
-            {' '}
+      <IndexCard>
+        <div>
+          <TagChip>
             <button
               type="button"
               disabled={busy}
-              aria-pressed={activeTag === t}
-              onClick={() => setSelected(t.tag)}
+              aria-pressed={!activeTag}
+              onClick={() => setSelected('')}
             >
-              {t.tag} ({t.count})
+              All
             </button>
-          </Fragment>
-        ))}
-      </div>
+          </TagChip>
+          {tags.map((t) => (
+            <Fragment key={t.tag}>
+              {' '}
+              <TagChip>
+                <button
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={activeTag === t}
+                  onClick={() => setSelected(t.tag)}
+                >
+                  {t.tag} ({t.count})
+                </button>
+              </TagChip>
+            </Fragment>
+          ))}
+        </div>
+        {editing === undefined ? (
+          <Button variant="secondary" disabled={busy} onClick={openAdd}>
+            Add a story
+          </Button>
+        ) : (
+          <form onSubmit={(e) => void onSubmit(e)}>
+            <Field label="Title">
+              <input
+                type="text"
+                value={form.title}
+                disabled={busy}
+                onInput={(e) => patchForm({ title: e.currentTarget.value })}
+              />
+            </Field>
+            {STAR_FIELDS.map(([key, label]) => (
+              <Field key={key} label={label}>
+                <textarea
+                  value={form[key]}
+                  disabled={busy}
+                  onInput={(e) => patchForm({ [key]: e.currentTarget.value })}
+                />
+              </Field>
+            ))}
+            <Field label="Tags (comma-separated)">
+              <input
+                type="text"
+                value={form.tags}
+                disabled={busy}
+                onInput={(e) => patchForm({ tags: e.currentTarget.value })}
+              />
+            </Field>
+            <Button variant="primary" type="submit" disabled={busy}>
+              Save story
+            </Button>{' '}
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={() => {
+                setError(undefined);
+                setEditing(undefined);
+              }}
+            >
+              Cancel
+            </Button>
+          </form>
+        )}
+        {error ? (
+          <span class="field-error" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </IndexCard>
       {stories.length === 0 ? (
-        <p>No stories yet.</p>
+        <TypedLine>No stories yet.</TypedLine>
       ) : (
         <ul>{stories.map(renderStory)}</ul>
       )}
-      {editing === undefined ? (
-        <button type="button" disabled={busy} onClick={openAdd}>
-          Add a story
-        </button>
-      ) : (
-        <form onSubmit={(e) => void onSubmit(e)}>
-          <label>
-            Title
-            <input
-              type="text"
-              value={form.title}
-              disabled={busy}
-              onInput={(e) => patchForm({ title: e.currentTarget.value })}
-            />
-          </label>
-          {STAR_FIELDS.map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <textarea
-                value={form[key]}
-                disabled={busy}
-                onInput={(e) => patchForm({ [key]: e.currentTarget.value })}
-              />
-            </label>
-          ))}
-          <label>
-            Tags (comma-separated)
-            <input
-              type="text"
-              value={form.tags}
-              disabled={busy}
-              onInput={(e) => patchForm({ tags: e.currentTarget.value })}
-            />
-          </label>
-          <button type="submit" disabled={busy}>
-            Save story
-          </button>{' '}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setError(undefined);
-              setEditing(undefined);
-            }}
-          >
-            Cancel
-          </button>
-        </form>
-      )}
-      {error ? (
-        <span class="field-error" role="alert">
-          {error}
-        </span>
-      ) : null}
     </div>
   );
 }

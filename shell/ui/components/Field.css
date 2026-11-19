@@ -1,0 +1,82 @@
+.cs-field {
+  display: block;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  overflow-wrap: anywhere;
+}
+
+.answer-form > .cs-field,
+.answer-money > .cs-field {
+  flex-grow: 1;
+}
+
+.cs-field input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.cs-field textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: var(--space-1);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-bottom: 1px solid var(--ink-muted);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-typed);
+  font-size: var(--step-0);
+}
+
+.cs-field select {
+  display: block;
+  max-width: 100%;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ink-muted);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+}
+
+.cs-field input[type='checkbox'],
+.cs-field input[type='radio'] {
+  accent-color: var(--primary);
+}
+
+.cs-field input[type='file']::file-selector-button {
+  margin-right: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cs-field input:focus-visible,
+.cs-field textarea:focus-visible,
+.cs-field select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.cs-field input:disabled,
+.cs-field textarea:disabled,
+.cs-field select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.field-error {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--ink-maroon);
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--step-0);
+  overflow-wrap: anywhere;
+}

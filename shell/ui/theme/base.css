@@ -1,0 +1,67 @@
+/* Base theme styles. Colours come from tokens.css only. */
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+}
+
+/* Paper grain: a fixed layer behind the content, never opacity on body. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url(/theme/grain.png);
+  opacity: var(--grain-opacity);
+  pointer-events: none;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-variation-settings:
+    'SOFT' 50,
+    'WONK' 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.cs-typed {
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cs-app-message {
+  color: var(--ink-muted);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .cs-app-message {
+    color: var(--print-ink);
+  }
+
+  body {
+    background-color: var(--print-paper);
+    color: var(--print-ink);
+  }
+
+  body::before {
+    display: none;
+  }
+}

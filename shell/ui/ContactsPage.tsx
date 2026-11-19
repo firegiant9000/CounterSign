@@ -12,6 +12,13 @@ import type { Contact } from '../../core/src/types';
 import { useAppData } from './app-data';
 import { ContactActivity } from './ContactActivity';
 import { ContactForm } from './ContactForm';
+import { Button } from './components/Button';
+import { ContactRow } from './components/ContactRow';
+import { ContactSheet } from './components/ContactSheet';
+import { Field } from './components/Field';
+import { IndexCard } from './components/IndexCard';
+import { LedgerSheet } from './components/LedgerSheet';
+import { TypedLine } from './components/TypedLine';
 
 // Restored data may hold odd types; render only strings.
 function str(v: unknown): string {
@@ -140,47 +147,47 @@ export function ContactsPage(): VNode {
         />
       </li>
     ) : (
-      <li key={contact.id}>
-        <strong>{str(contact.name) || '(no name)'}</strong>
-        {str(contact.role) ? `, ${str(contact.role)}` : ''}
-        {str(contact.howKnown) ? (
-          <div>How you know them: {str(contact.howKnown)}</div>
-        ) : null}
-        {str(contact.notes) ? <div>{str(contact.notes)}</div> : null}
-        <ContactActivity contact={contact} />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setOpened(contact);
-            setEditingId(contact.id);
-          }}
-        >
-          Edit
-        </button>{' '}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void remove(contact.id)}
-        >
-          Delete
-        </button>
-      </li>
+      <ContactRow
+        key={contact.id}
+        name={str(contact.name)}
+        role={str(contact.role)}
+        howKnown={str(contact.howKnown)}
+        notes={str(contact.notes)}
+        activity={<ContactActivity contact={contact} />}
+        actions={
+          <>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setOpened(contact);
+                setEditingId(contact.id);
+              }}
+            >
+              Edit
+            </Button>{' '}
+            <Button
+              variant="danger"
+              disabled={busy}
+              onClick={() => void remove(contact.id)}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      />
     );
 
   return (
     <div class="data-page">
       <h1>Contacts</h1>
-      <section class="data-section">
-        <h2>Add a contact</h2>
+      <IndexCard title="Add a contact">
         <ContactForm
           key={formKey}
           submitLabel="Add contact"
           busy={busy}
           onSubmit={(input) => void add(input)}
         >
-          <label>
-            Company
+          <Field label="Company">
             <input
               type="text"
               list="contact-companies"
@@ -188,7 +195,7 @@ export function ContactsPage(): VNode {
               disabled={busy}
               onInput={(e) => setCompanyName(e.currentTarget.value)}
             />
-          </label>
+          </Field>
           <datalist id="contact-companies">
             {data.companies
               .filter((c) => c.name)
@@ -197,34 +204,39 @@ export function ContactsPage(): VNode {
               ))}
           </datalist>
         </ContactForm>
-      </section>
+      </IndexCard>
       {error ? (
         <span class="field-error" role="alert">
           {error}
         </span>
       ) : null}
       {companies.length === 0 && orphans.length === 0 ? (
-        <p>No contacts yet.</p>
+        <LedgerSheet>
+          <TypedLine>No contacts yet.</TypedLine>
+        </LedgerSheet>
       ) : (
         companies.map((company) => (
-          <section class="data-section" key={company.id}>
-            <h2>{company.name || '(no company)'}</h2>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void toggleTarget(company.id, !company.isTarget)}
-            >
-              {company.isTarget ? 'Remove target' : 'Mark as target'}
-            </button>
-            <ul>{company.contacts.map(row)}</ul>
-          </section>
+          <ContactSheet
+            key={company.id}
+            label={company.name || '(no company)'}
+            heading={company.name || '(no company)'}
+            action={
+              <Button
+                disabled={busy}
+                onClick={() => void toggleTarget(company.id, !company.isTarget)}
+              >
+                {company.isTarget ? 'Remove target' : 'Mark as target'}
+              </Button>
+            }
+          >
+            {company.contacts.map(row)}
+          </ContactSheet>
         ))
       )}
       {orphans.length > 0 ? (
-        <section class="data-section">
-          <h2>(unknown company)</h2>
-          <ul>{orphans.map(row)}</ul>
-        </section>
+        <ContactSheet label="(unknown company)" heading="(unknown company)">
+          {orphans.map(row)}
+        </ContactSheet>
       ) : null}
     </div>
   );

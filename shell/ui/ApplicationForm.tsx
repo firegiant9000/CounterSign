@@ -7,6 +7,9 @@ import { STATUS_KEYS, statusLabel } from '../../core/src/status';
 import type { StatusKey } from '../../core/src/status';
 import type { Id } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { IndexCard } from './components/IndexCard';
 
 type WhoActs = '' | 'me' | 'them';
 
@@ -78,92 +81,85 @@ export function ApplicationForm(props: { onSaved(id: Id): void }): VNode {
   };
 
   return (
-    <form
-      class="app-form"
-      onSubmit={(e) => {
-        void onSubmit(e);
-      }}
-    >
-      <h2>Add an application</h2>
-      <label>
-        Company
-        <input
-          type="text"
-          value={companyName}
-          onInput={(e) => setCompanyName(e.currentTarget.value)}
-        />
-      </label>
-      <label>
-        Title
-        <input
-          type="text"
-          value={title}
-          onInput={(e) => setTitle(e.currentTarget.value)}
-        />
-      </label>
-      <label>
-        URL
-        <input
-          type="url"
-          value={url}
-          onInput={(e) => setUrl(e.currentTarget.value)}
-        />
-      </label>
-      <label>
-        Status
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.currentTarget.value as StatusKey)}
-        >
-          {STATUS_KEYS.map((key) => (
-            <option key={key} value={key}>
-              {statusLabel(key, settings.statusLabels)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Date
-        <input
-          type="date"
-          value={occurredOn}
-          onInput={(e) => setOccurredOn(e.currentTarget.value)}
-        />
-        {dateError ? <span class="field-error">{dateError}</span> : null}
-      </label>
-      <label>
-        Next action date
-        <input
-          type="date"
-          value={nextActionDate}
-          onInput={(e) => setNextActionDate(e.currentTarget.value)}
-        />
-        {nextError ? <span class="field-error">{nextError}</span> : null}
-      </label>
-      <label>
-        Who acts next
-        <select
-          value={nextActor}
-          onChange={(e) => setNextActor(e.currentTarget.value as WhoActs)}
-        >
-          <option value="">—</option>
-          <option value="me">Me</option>
-          <option value="them">Them</option>
-        </select>
-      </label>
-      <label>
-        Notes
-        <textarea
-          value={notes}
-          onInput={(e) => setNotes(e.currentTarget.value)}
-        />
-      </label>
-      <div>
-        <button type="submit" disabled={saving}>
-          Save
-        </button>
-        {saveError ? <span class="field-error">{saveError}</span> : null}
-      </div>
-    </form>
+    <IndexCard title="Add an application">
+      <form
+        class="app-form"
+        onSubmit={(e) => {
+          void onSubmit(e);
+        }}
+      >
+        <Field label="Company">
+          <input
+            type="text"
+            value={companyName}
+            onInput={(e) => setCompanyName(e.currentTarget.value)}
+          />
+        </Field>
+        <Field label="Title">
+          <input
+            type="text"
+            value={title}
+            onInput={(e) => setTitle(e.currentTarget.value)}
+          />
+        </Field>
+        <Field label="URL">
+          <input
+            type="url"
+            value={url}
+            onInput={(e) => setUrl(e.currentTarget.value)}
+          />
+        </Field>
+        <Field label="Status">
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.currentTarget.value as StatusKey)}
+          >
+            {STATUS_KEYS.map((key) => (
+              <option key={key} value={key}>
+                {statusLabel(key, settings.statusLabels)}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Date">
+          <input
+            type="date"
+            value={occurredOn}
+            onInput={(e) => setOccurredOn(e.currentTarget.value)}
+          />
+          {dateError ? <span class="field-error">{dateError}</span> : null}
+        </Field>
+        <Field label="Next action date">
+          <input
+            type="date"
+            value={nextActionDate}
+            onInput={(e) => setNextActionDate(e.currentTarget.value)}
+          />
+          {nextError ? <span class="field-error">{nextError}</span> : null}
+        </Field>
+        <Field label="Who acts next">
+          <select
+            value={nextActor}
+            onChange={(e) => setNextActor(e.currentTarget.value as WhoActs)}
+          >
+            <option value="">—</option>
+            <option value="me">Me</option>
+            <option value="them">Them</option>
+          </select>
+        </Field>
+        <Field label="Notes">
+          <textarea
+            value={notes}
+            onInput={(e) => setNotes(e.currentTarget.value)}
+          />
+        </Field>
+        <div>
+          <Button type="submit" variant="primary" disabled={saving}>
+            Save
+          </Button>
+          {saveError ? <span class="field-error">{saveError}</span> : null}
+        </div>
+      </form>
+    </IndexCard>
   );
 }

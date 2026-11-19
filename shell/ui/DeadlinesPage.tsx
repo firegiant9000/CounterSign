@@ -1,5 +1,6 @@
 import type { VNode } from 'preact';
-import { useRef, useState } from 'preact/hooks';
+import { useMemo, useRef, useState } from 'preact/hooks';
+import { applicationRows } from '../../core/src/application-list';
 import { isLocalDate, toLocalDate } from '../../core/src/dates';
 import { deadlines, type DeadlineRow } from '../../core/src/deadlines';
 import {
@@ -11,7 +12,16 @@ import {
 } from '../../core/src/tasks';
 import type { Task } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { DeadlineItem, RowButton } from './components/DeadlineItem';
+import { Disclosure } from './components/Disclosure';
+import { Field } from './components/Field';
+import { IndexCard } from './components/IndexCard';
+import { LedgerSheet, ledgerRowClass } from './components/LedgerSheet';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 import { routeHref } from './route';
+import { inkFor } from './status-ink';
 
 // Restored data may hold odd types; render only strings.
 function str(v: unknown): string {
@@ -113,6 +123,10 @@ export function DeadlinesPage(): VNode {
     );
   };
 
+  const statusById = useMemo(
+    () => new Map(applicationRows(data).map((r) => [r.id, r.status] as const)),
+    [data],
+  );
   const rows = deadlines(data, settings, toLocalDate(new Date()));
   const done = doneTasks(data);
 
@@ -129,86 +143,84 @@ export function DeadlinesPage(): VNode {
   const rowItem = (row: DeadlineRow): VNode => {
     const href = rowHref(row);
     return (
-      <li key={row.key}>
-        <strong>{str(row.date) || 'No date'}</strong>
-        {row.overdue ? <> (Overdue)</> : null}{' '}
-        {href !== undefined ? (
-          <a href={href}>{str(row.label)}</a>
-        ) : (
-          str(row.label)
-        )}{' '}
-        <span>Next: {actorLabel(row.actor)}</span>
-        {row.kind === 'quiet' ? (
-          <>
-            {' '}
-            <a href={routeHref({ page: 'quiet' })}>Quiet applications</a>
-          </>
-        ) : null}
-        {row.kind === 'task' && row.taskId !== undefined ? (
-          <>
-            {' '}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void complete(row.taskId as string)}
-            >
-              Done
-            </button>{' '}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void remove(row.taskId as string)}
-            >
-              Delete
-            </button>
-          </>
-        ) : null}
-      </li>
+      <DeadlineItem
+        key={row.key}
+        ink={
+          row.applicationId !== undefined
+            ? inkFor(statusById.get(row.applicationId))
+            : 'none'
+        }
+        date={str(row.date) || 'No date'}
+        overdue={row.overdue}
+        label={
+          href !== undefined ? (
+            <a href={href}>{str(row.label)}</a>
+          ) : (
+            str(row.label)
+          )
+        }
+        actor={actorLabel(row.actor)}
+        extra={
+          row.kind === 'quiet' ? (
+            <>
+              {' '}
+              <a href={routeHref({ page: 'quiet' })}>Quiet applications</a>
+            </>
+          ) : null
+        }
+        actions={
+          row.kind === 'task' && row.taskId !== undefined ? (
+            <>
+              <RowButton
+                disabled={busy}
+                onClick={() => void complete(row.taskId as string)}
+              >
+                Done
+              </RowButton>
+              <RowButton
+                variant="danger"
+                disabled={busy}
+                onClick={() => void remove(row.taskId as string)}
+              >
+                Delete
+              </RowButton>
+            </>
+          ) : null
+        }
+      />
     );
   };
 
   const doneItem = (task: Task): VNode => (
-    <li key={task.id}>
-      {str(task.title) || '(no title)'}{' '}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void reopen(task.id)}
-      >
+    <li key={task.id} class={ledgerRowClass('none')}>
+      <Text kind="name">{str(task.title) || '(no title)'}</Text>
+      <RowButton disabled={busy} onClick={() => void reopen(task.id)}>
         Not done
-      </button>{' '}
-      <button
-        type="button"
+      </RowButton>
+      <RowButton
+        variant="danger"
         disabled={busy}
         onClick={() => void remove(task.id)}
       >
         Delete
-      </button>
+      </RowButton>
     </li>
   );
 
   return (
     <div class="data-page">
       <h1>Deadlines</h1>
-      <section class="data-section">
-        <h2>Add a task</h2>
+      <IndexCard title="Add a task">
         <form onSubmit={(e) => void add(e)} noValidate>
-          <label>
-            Title
+          <Field label="Title" error={titleError}>
             <input
               type="text"
               value={title}
               disabled={busy}
               onInput={(e) => setTitle(e.currentTarget.value)}
             />
-          </label>
-          {titleError ? (
-            <span class="field-error" role="alert">
-              {titleError}
-            </span>
-          ) : null}
-          <label>
-            Date (optional)
+          </Field>
+          <Field label="Date (optional)" error={dateError}>
             <input
               type="text"
               placeholder="YYYY-MM-DD"
@@ -216,27 +228,29 @@ export function DeadlinesPage(): VNode {
               disabled={busy}
               onInput={(e) => setDueOn(e.currentTarget.value)}
             />
-          </label>
-          {dateError ? (
-            <span class="field-error" role="alert">
-              {dateError}
-            </span>
-          ) : null}
-          <button type="submit" disabled={busy}>
+          </Field>
+          <Button variant="primary" type="submit" disabled={busy}>
             Add task
-          </button>
+          </Button>
         </form>
-      </section>
+      </IndexCard>
       {error ? (
         <span class="field-error" role="alert">
           {error}
         </span>
       ) : null}
-      {rows.length === 0 ? <p>Nothing due.</p> : <ul>{rows.map(rowItem)}</ul>}
-      <details>
-        <summary>Done ({done.length})</summary>
-        <ul>{done.map(doneItem)}</ul>
-      </details>
+      <LedgerSheet label="DEADLINES">
+        {rows.length === 0 ? (
+          <TypedLine>Nothing due.</TypedLine>
+        ) : (
+          <ul>{rows.map(rowItem)}</ul>
+        )}
+      </LedgerSheet>
+      <Disclosure summary={<>Done ({done.length})</>}>
+        <LedgerSheet label="DONE">
+          <ul>{done.map(doneItem)}</ul>
+        </LedgerSheet>
+      </Disclosure>
     </div>
   );
 }

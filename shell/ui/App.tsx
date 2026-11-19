@@ -10,14 +10,16 @@ import { DataPage } from './DataPage';
 import { DeadlinesPage } from './DeadlinesPage';
 import { PackPage } from './PackPage';
 import { QuietList } from './QuietList';
-import { parseRoute, routeHref } from './route';
+import { Page } from './components/Page';
+import { activeTab } from './nav';
+import { parseRoute } from './route';
 import { SettingsPage } from './SettingsPage';
 import { StoriesPage } from './StoriesPage';
 import { TargetsPage } from './TargetsPage';
 import { WeeklyPage } from './WeeklyPage';
 import type { Route } from './route';
 
-function Page(props: { route: Route }): VNode {
+function RouteView(props: { route: Route }): VNode {
   const { route } = props;
   switch (route.page) {
     case 'applications':
@@ -58,52 +60,9 @@ export function App(): VNode {
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
-  const current =
-    route.page === 'application' || route.page === 'pack'
-      ? 'applications'
-      : route.page;
-  const link = (
-    page:
-      | 'applications'
-      | 'deadlines'
-      | 'quiet'
-      | 'contacts'
-      | 'targets'
-      | 'stories'
-      | 'weekly'
-      | 'answers'
-      | 'details'
-      | 'data'
-      | 'settings',
-    label: string,
-  ) => (
-    <a
-      href={routeHref({ page })}
-      class={current === page ? 'active' : undefined}
-    >
-      {label}
-    </a>
-  );
-
   return (
-    <>
-      <nav class="nav">
-        {link('applications', 'Applications')}
-        {link('deadlines', 'Deadlines')}
-        {link('quiet', 'Quiet')}
-        {link('contacts', 'Contacts')}
-        {link('targets', 'Targets')}
-        {link('stories', 'Stories')}
-        {link('weekly', 'Weekly')}
-        {link('answers', 'Answers')}
-        {link('details', 'My details')}
-        {link('data', 'Data')}
-        {link('settings', 'Settings')}
-      </nav>
-      <BackupStatus />
-      <main>
-        <Page route={route} />
-      </main>
-    </>
+    <Page current={activeTab(route)} status={<BackupStatus />}>
+      <RouteView route={route} />
+    </Page>
   );
 }

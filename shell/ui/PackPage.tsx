@@ -3,6 +3,11 @@ import { interviewPack } from '../../core/src/pack';
 import type { PackRound, PackStatement } from '../../core/src/pack';
 import type { Contact, DocumentRecord, Id } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Fact } from './components/Fact';
+import { IndexCard } from './components/IndexCard';
+import { Stamp } from './components/Stamp';
+import { TypedLine } from './components/TypedLine';
 import { routeHref } from './route';
 
 const DEBRIEF_FIELDS = [
@@ -29,7 +34,7 @@ function documentName(doc: DocumentRecord): string {
 }
 
 function None(): VNode {
-  return <p>None recorded.</p>;
+  return <TypedLine>None recorded.</TypedLine>;
 }
 
 function StatementItem(props: { item: PackStatement }): VNode {
@@ -40,7 +45,7 @@ function StatementItem(props: { item: PackStatement }): VNode {
       <strong>{item.label}</strong>: {item.told}
       {differs ? <div>Your canonical answer: {item.canonical}</div> : null}
       {item.result === 'mismatch' ? (
-        <div class="pack-flag">Unresolved mismatch</div>
+        <Fact tone="warning">Unresolved mismatch</Fact>
       ) : null}
       {item.result === 'exception' ? <div>Kept as an exception</div> : null}
     </li>
@@ -113,9 +118,9 @@ export function PackPage(props: { id: Id }): VNode {
         <a href={routeHref({ page: 'application', id: pack.applicationId })}>
           Back to application
         </a>{' '}
-        <button type="button" onClick={() => window.print()}>
+        <Button variant="primary" onClick={() => window.print()}>
           Print
-        </button>
+        </Button>
       </p>
       <h1>
         {pack.companyName} — {pack.title}
@@ -123,15 +128,16 @@ export function PackPage(props: { id: Id }): VNode {
       <p>Status: {pack.statusLabel ?? 'No status'}</p>
       {pack.url ? <p>URL: {pack.url}</p> : null}
       {pack.unresolved > 0 ? (
-        <p class="pack-flag">
-          {pack.unresolved === 1
-            ? '1 unresolved mismatch in what you told them'
-            : `${pack.unresolved} unresolved mismatches in what you told them`}
+        <p>
+          <Stamp ink="maroon">
+            {pack.unresolved === 1
+              ? '1 unresolved mismatch in what you told them'
+              : `${pack.unresolved} unresolved mismatches in what you told them`}
+          </Stamp>
         </p>
       ) : null}
 
-      <section class="data-section">
-        <h2>Posting</h2>
+      <IndexCard title="Posting">
         {job ? (
           <>
             {jobTitle ? <p>{jobTitle}</p> : null}
@@ -139,12 +145,11 @@ export function PackPage(props: { id: Id }): VNode {
             {jobText ? <div class="pack-text">{jobText}</div> : null}
           </>
         ) : (
-          <p>No saved posting.</p>
+          <TypedLine>No saved posting.</TypedLine>
         )}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Documents</h2>
+      <IndexCard title="Documents">
         {documents.length === 0 ? (
           <None />
         ) : (
@@ -156,19 +161,17 @@ export function PackPage(props: { id: Id }): VNode {
             ))}
           </ul>
         )}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Projects shown</h2>
+      <IndexCard title="Projects shown">
         {pack.projectsShown ? (
           <div class="pack-text">{pack.projectsShown}</div>
         ) : (
           <None />
         )}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>What I told them</h2>
+      <IndexCard title="What I told them">
         {pack.statements.length === 0 ? (
           <None />
         ) : (
@@ -178,10 +181,9 @@ export function PackPage(props: { id: Id }): VNode {
             ))}
           </ul>
         )}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>People</h2>
+      <IndexCard title="People">
         {pack.contacts.length === 0 ? (
           <None />
         ) : (
@@ -197,10 +199,9 @@ export function PackPage(props: { id: Id }): VNode {
             })}
           </ul>
         )}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Rounds</h2>
+      <IndexCard title="Rounds">
         {pack.rounds.length === 0 ? (
           <None />
         ) : (
@@ -210,7 +211,7 @@ export function PackPage(props: { id: Id }): VNode {
             ))}
           </ul>
         )}
-      </section>
+      </IndexCard>
     </div>
   );
 }

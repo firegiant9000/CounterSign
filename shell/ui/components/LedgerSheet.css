@@ -1,0 +1,137 @@
+.cs-ledger {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  box-shadow: 0 2px 6px var(--ink-faded);
+}
+
+.cs-card .cs-ledger {
+  border: 0;
+  box-shadow: none;
+}
+
+.cs-ledger .cs-ledger-label {
+  padding: var(--space-2) var(--space-3) 0 var(--space-6);
+}
+
+.cs-ledger .cs-ledger-label .cs-typed {
+  margin: 0;
+}
+
+.cs-ledger .cs-ledger-body {
+  position: relative;
+  overflow-x: auto;
+  background-image: linear-gradient(
+    to right,
+    var(--sheet) 0,
+    var(--sheet) calc(var(--space-6) - 5px),
+    var(--margin) calc(var(--space-6) - 5px),
+    var(--margin) calc(var(--space-6) - 4px),
+    var(--sheet) calc(var(--space-6) - 4px),
+    var(--sheet) calc(var(--space-6) - 2px),
+    var(--margin) calc(var(--space-6) - 2px),
+    var(--margin) calc(var(--space-6) - 1px),
+    var(--sheet) calc(var(--space-6) - 1px)
+  );
+}
+
+.cs-ledger table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cs-ledger th,
+.cs-ledger td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--ink-blue);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.cs-ledger th:first-child,
+.cs-ledger td:first-child {
+  padding-left: calc(var(--space-6) + var(--space-2));
+}
+
+.cs-ledger .cs-ledger-body > ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-ledger .cs-ledger-body > ul > li {
+  padding: var(--space-2) var(--space-3) var(--space-2)
+    calc(var(--space-6) + var(--space-2));
+  border-bottom: 1px solid var(--ink-blue);
+  overflow-wrap: anywhere;
+}
+
+.cs-ledger .cs-ledger-body > h2,
+.cs-ledger .cs-ledger-body > p,
+.cs-ledger .cs-ledger-body > form {
+  padding-left: calc(var(--space-6) + var(--space-2));
+  padding-right: var(--space-3);
+}
+
+.cs-ledger .cs-ledger-body > button,
+.cs-ledger .cs-ledger-body > .cs-button {
+  margin-left: calc(var(--space-6) + var(--space-2));
+}
+
+.cs-ledger li.cs-row,
+.cs-ledger tr.cs-row > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-faded);
+}
+
+.cs-ledger li.cs-row.ink-maroon,
+.cs-ledger tr.cs-row.ink-maroon > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-maroon);
+}
+
+.cs-ledger li.cs-row.ink-green,
+.cs-ledger tr.cs-row.ink-green > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-green);
+}
+
+.cs-ledger li.cs-row.ink-blue,
+.cs-ledger tr.cs-row.ink-blue > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-blue);
+}
+
+.cs-ledger li.cs-row.ink-ochre,
+.cs-ledger tr.cs-row.ink-ochre > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-ochre);
+}
+
+.cs-ledger li.cs-row.ink-faded,
+.cs-ledger tr.cs-row.ink-faded > :first-child {
+  box-shadow: inset 4px 0 0 var(--ink-faded);
+}
+
+@media print {
+  .cs-ledger {
+    background: none;
+    box-shadow: none;
+  }
+
+  .cs-ledger .cs-ledger-body {
+    background: none;
+    overflow: visible;
+  }
+
+  .cs-ledger li.cs-row,
+  .cs-ledger tr.cs-row > :first-child,
+  .cs-ledger li.cs-row.ink-maroon,
+  .cs-ledger tr.cs-row.ink-maroon > :first-child,
+  .cs-ledger li.cs-row.ink-green,
+  .cs-ledger tr.cs-row.ink-green > :first-child,
+  .cs-ledger li.cs-row.ink-blue,
+  .cs-ledger tr.cs-row.ink-blue > :first-child,
+  .cs-ledger li.cs-row.ink-ochre,
+  .cs-ledger tr.cs-row.ink-ochre > :first-child,
+  .cs-ledger li.cs-row.ink-faded,
+  .cs-ledger tr.cs-row.ink-faded > :first-child {
+    box-shadow: none;
+  }
+}

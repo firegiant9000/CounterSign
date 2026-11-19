@@ -209,11 +209,12 @@ export function AppDataProvider(props: { children: ComponentChildren }): VNode {
     };
   }, []);
 
-  if (state.status === 'error') return <p>{state.message}</p>;
-  if (state.status === 'loading') return <p>Loading…</p>;
+  if (state.status === 'error')
+    return <p class="cs-app-message">{state.message}</p>;
+  if (state.status === 'loading') return <p class="cs-app-message">Loading…</p>;
   return (
     <AppDataContext.Provider value={state.value}>
-      {notice ? <p>{notice}</p> : null}
+      {notice ? <p class="cs-app-message">{notice}</p> : null}
       {props.children}
     </AppDataContext.Provider>
   );

@@ -1,0 +1,57 @@
+.cs-button {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-typed);
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.cs-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.cs-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cs-button.cs-button-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 2px 0 var(--ink);
+}
+
+.cs-button.cs-button-secondary {
+  border-color: var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+.cs-button.cs-button-link {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--step--1);
+}
+
+.cs-button.cs-button-danger {
+  border-color: var(--ink-maroon);
+  background: transparent;
+  color: var(--ink-maroon);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cs-button {
+    transition: opacity 120ms ease-out;
+  }
+}

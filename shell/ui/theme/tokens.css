@@ -1,0 +1,64 @@
+/* Theme tokens. Every colour in shell/ui lives here, as six-digit hex.
+   Day values in one :root block; night overrides in one dark block. */
+:root {
+  --desk: #d9c9a8;
+  --sheet: #f6efdf;
+  --card: #fbf6ea;
+  --ink: #2a2118;
+  --ink-muted: #5a4a30;
+  --rule: #d6dfe8;
+  --margin: #c46a5c;
+
+  --ink-maroon: #7a2e22;
+  --ink-green: #2f6b3a;
+  --ink-blue: #2d4f8a;
+  --ink-ochre: #865712;
+  --ink-faded: #6b5a3e;
+
+  --primary: #7a2e22;
+  --on-primary: #fbf6ea;
+  --focus: #2d4f8a;
+  --print-paper: #ffffff;
+  --print-ink: #000000;
+
+  --stamp-opacity: 0.9;
+  --grain-opacity: 0.08;
+
+  --font-display: 'Fraunces', serif;
+  --font-body: 'EB Garamond', serif;
+  --font-typed: 'Courier Prime', monospace;
+
+  --step--1: 0.8125rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.25rem;
+  --step-2: 1.5625rem;
+  --step-3: 2rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2.5rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk: #2a211a;
+    --sheet: #3a3027;
+    --card: #3a3027;
+    --ink: #ece2cc;
+    --ink-muted: #b5a688;
+    --rule: #4a4038;
+    --margin: #9a4a3c;
+
+    --ink-maroon: #e48f79;
+    --ink-green: #8fc48f;
+    --ink-blue: #8eaee6;
+    --ink-ochre: #d9a85a;
+    --ink-faded: #b5a688;
+
+    --primary: #ad5642;
+    --focus: #8eaee6;
+  }
+}

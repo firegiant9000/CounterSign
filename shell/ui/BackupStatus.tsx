@@ -5,6 +5,7 @@ import type { BackupState } from '../../core/src/backup';
 import { loadBackupState, onBackupStateChanged } from '../storage/backup-state';
 import { browserLocalArea } from '../storage/settings';
 import { useAppData } from './app-data';
+import { TypedLine } from './components/TypedLine';
 
 type Loaded =
   | { kind: 'loading' }
@@ -44,9 +45,9 @@ export function BackupStatus(): VNode | null {
   if (loaded.kind === 'loading') return null;
   if (loaded.kind === 'error') {
     return (
-      <p class="backup-status warn">
+      <TypedLine tone="warning">
         Could not read the backup status: {loaded.message}
-      </p>
+      </TypedLine>
     );
   }
 
@@ -59,6 +60,6 @@ export function BackupStatus(): VNode | null {
     text += ' Export from the Data page if you need a copy now.';
   }
   return (
-    <p class={status.warn ? 'backup-status warn' : 'backup-status'}>{text}</p>
+    <TypedLine tone={status.warn ? 'warning' : undefined}>{text}</TypedLine>
   );
 }
