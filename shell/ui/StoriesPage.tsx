@@ -269,17 +269,17 @@ export function StoriesPage(): VNode {
             </Button>
           </form>
         )}
-        {error ? (
-          <span class="field-error" role="alert">
-            {error}
-          </span>
-        ) : null}
       </IndexCard>
       {stories.length === 0 ? (
         <TypedLine>No stories yet.</TypedLine>
       ) : (
         <ul>{stories.map(renderStory)}</ul>
       )}
+      {error ? (
+        <span class="field-error" role="alert">
+          {error}
+        </span>
+      ) : null}
     </div>
   );
 }
