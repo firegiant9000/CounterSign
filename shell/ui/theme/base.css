@@ -4,6 +4,7 @@
 }
 
 body {
+  margin: 0;
   background-color: var(--desk);
   color: var(--ink);
   font-family: var(--font-body);
@@ -63,18 +64,4 @@ h3 {
   body::before {
     display: none;
   }
-}
-
-/* Legacy recolouring (Decision 4): the old day colours are unreadable on the
-   night desk. Removed in Task 28 together with the old CSS. */
-.field-error {
-  color: var(--ink-maroon);
-}
-
-.warning {
-  color: var(--ink-muted);
-}
-
-.popup-text {
-  color: var(--ink-muted);
 }

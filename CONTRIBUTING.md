@@ -50,6 +50,12 @@ CI runs the same gate on every pull request and on pushes to `main`.
 - Never commit real postings, contacts, answers, personal details, exported data, or secrets.
 - Fixture file names must not contain `backup` and must not start with `countersign-export-`. Those patterns are gitignored, so a fixture with such a name would be silently dropped.
 
+## Screenshots
+
+- `npm run shots` builds screenshots of every page in day and night mode, plus the popup, into `.shots/` (gitignored). Run the gate first, because the shots use the built extension.
+- It drives Firefox. If Firefox is not on the default path, set `SHOTS_FIREFOX` to the full path of `firefox.exe` (or your platform's binary).
+- A pull request that changes the look attaches the screenshots of the pages it touches, day and night. The shots use synthetic data only, so check them for anything real before attaching.
+
 ## Secrets
 
 - Never commit credentials or `.env` files. `.env.example` lists the variable names only.

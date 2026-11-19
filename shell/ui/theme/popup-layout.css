@@ -1,7 +1,4 @@
-body {
-  margin: 0;
-}
-
+/* Layout rules for the popup: size, filed-card spacing, excerpt text and action row. */
 .popup {
   min-width: 22rem;
   max-width: 28rem;
@@ -15,6 +12,7 @@ body {
 }
 
 .popup-text {
+  color: var(--ink-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
