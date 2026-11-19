@@ -65,8 +65,3 @@ h3 {
     display: none;
   }
 }
-
-/* Legacy recolouring for the popup excerpt. Removed in Task 28b. */
-.popup-text {
-  color: var(--ink-muted);
-}

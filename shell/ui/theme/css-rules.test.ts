@@ -8,9 +8,9 @@ import { describe, expect, it } from 'vitest';
 const UI_DIR = join(import.meta.dirname, '..');
 const ROOT = join(UI_DIR, '..', '..');
 
-// Legacy stylesheets, removed in Task 28. Compared with forward slashes so
+// Legacy stylesheets: none left. Compared with forward slashes so
 // Windows backslashes from the directory walk still match.
-const LEGACY = ['shell/ui/styles.css', 'shell/ui/popup.css'];
+const LEGACY: string[] = [];
 const LEGACY_SET = new Set(LEGACY.map((p) => p.split(/[\\/]/).join('/')));
 
 const TOKENS = 'shell/ui/theme/tokens.css';
