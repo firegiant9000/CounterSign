@@ -1,0 +1,52 @@
+/* Print layout for the interview pack. Every rule sits inside the print media
+   query. Selectors match or beat the component rules they override, so load
+   order never matters. */
+@media print {
+  body {
+    background-color: var(--print-paper);
+    background-image: none;
+    color: var(--print-ink);
+    font-family: var(--font-body);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    color: var(--print-ink);
+  }
+
+  .nav,
+  .backup-status,
+  button,
+  .cs-button,
+  form {
+    display: none !important;
+  }
+
+  .pack-text {
+    max-height: none;
+    overflow: visible;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .pack-round,
+  .cs-card {
+    break-inside: avoid;
+  }
+
+  .cs-stamp,
+  .cs-stamp.ink-maroon,
+  .cs-stamp.ink-green,
+  .cs-stamp.ink-blue,
+  .cs-stamp.ink-ochre,
+  .cs-stamp.ink-faded,
+  .cs-stamp.ink-none {
+    transform: none;
+    opacity: 1;
+    color: var(--print-ink);
+    border: 1px solid var(--print-ink);
+    background: none;
+  }
+}
