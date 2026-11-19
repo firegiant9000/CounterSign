@@ -9,13 +9,6 @@
     font-family: var(--font-body);
   }
 
-  h1,
-  h2,
-  h3 {
-    font-family: var(--font-display);
-    color: var(--print-ink);
-  }
-
   .nav,
   .backup-status,
   button,
@@ -27,8 +20,6 @@
   .pack-text {
     max-height: none;
     overflow: visible;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
   }
 
   .pack-round,
