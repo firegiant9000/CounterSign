@@ -96,7 +96,8 @@ describe('tokens.css', () => {
         pairs.push([blend(t[fg]!, t['--card']!, stamp), t['--card']!, 4.5]);
       }
       pairs.push([t['--on-primary']!, t['--primary']!, 4.5]);
-      // Legacy .field-error (ink-maroon on desk) until Task 28 removes the legacy block.
+      // Loose .field-error spans sit directly on the desk, outside sheets and
+      // cards, so ink-maroon on desk still has to pass.
       pairs.push([t['--ink-maroon']!, t['--desk']!, 4.5]);
       for (const bg of ['--desk', '--sheet', '--card']) {
         pairs.push([t['--focus']!, t[bg]!, 3]);

@@ -8,11 +8,6 @@ import { describe, expect, it } from 'vitest';
 const UI_DIR = join(import.meta.dirname, '..');
 const ROOT = join(UI_DIR, '..', '..');
 
-// Legacy stylesheets: none left. Compared with forward slashes so
-// Windows backslashes from the directory walk still match.
-const LEGACY: string[] = [];
-const LEGACY_SET = new Set(LEGACY.map((p) => p.split(/[\\/]/).join('/')));
-
 const TOKENS = 'shell/ui/theme/tokens.css';
 const COMPONENTS = 'shell/ui/components/';
 // Decision 7: these two may be wider than the popup allows.
@@ -123,7 +118,7 @@ export function unguardedMotion(css: string): Finding[] {
   return found;
 }
 
-// File discovery: every .css under shell/ui, minus the legacy pair.
+// File discovery: every .css under shell/ui.
 function walk(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -140,7 +135,7 @@ function walk(dir: string): string[] {
 const relPath = (file: string): string =>
   relative(ROOT, file).split(sep).join('/');
 const read = (file: string): string => readFileSync(file, 'utf8');
-const SOURCE_CSS = walk(UI_DIR).filter((f) => !LEGACY_SET.has(relPath(f)));
+const SOURCE_CSS = walk(UI_DIR);
 // No components/ directory yet is fine: the list is simply empty.
 const COMPONENT_CSS = SOURCE_CSS.filter(
   (f) =>
