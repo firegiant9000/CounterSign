@@ -19,6 +19,12 @@ import {
 import type { RoundKind } from '../../core/src/round-kinds';
 import type { Contact, Id, Round } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { CardSection } from './components/IndexCard';
+import { Field } from './components/Field';
+import { Stamp } from './components/Stamp';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 
 const BAD_DATE = 'Enter a valid date (YYYY-MM-DD).';
 const BAD_TIME = 'Enter a time as HH:MM.';
@@ -238,32 +244,53 @@ export function RoundsSection(props: {
     });
     return (
       <li key={round.id}>
-        <strong>{ROUND_KIND_LABELS[kindOf(round)]}</strong>
-        {when ? ` · ${when}` : ''}
-        {names.length > 0 ? <div>Interviewers: {names.join(', ')}</div> : null}
-        {notes ? <div>{notes}</div> : null}
-        <div>
-          <strong>Debrief</strong>
-          {debrief.length === 0 ? (
-            <div>No debrief yet.</div>
-          ) : (
-            debrief.map((d) => (
-              <div key={d.key}>
-                {d.label}: {d.value}
-              </div>
-            ))
-          )}
-        </div>
-        <button type="button" disabled={busy} onClick={() => openEdit(round)}>
-          Edit
-        </button>{' '}
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void onDelete(round.id)}
+        <CardSection
+          title={
+            <strong>
+              <Stamp ink="blue">{ROUND_KIND_LABELS[kindOf(round)]}</Stamp>
+              {when ? <TypedLine as="span">{` · ${when}`}</TypedLine> : null}
+            </strong>
+          }
         >
-          Delete
-        </button>
+          {names.length > 0 ? (
+            <div>Interviewers: {names.join(', ')}</div>
+          ) : null}
+          {notes ? (
+            <div>
+              <Text kind="body">{notes}</Text>
+            </div>
+          ) : null}
+          <div>
+            <strong>Debrief</strong>
+            {debrief.length === 0 ? (
+              <div>
+                <Text kind="body">No debrief yet.</Text>
+              </div>
+            ) : (
+              debrief.map((d) => (
+                <div key={d.key}>
+                  <Text kind="body">
+                    {d.label}: {d.value}
+                  </Text>
+                </div>
+              ))
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => openEdit(round)}
+          >
+            Edit
+          </Button>{' '}
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={() => void onDelete(round.id)}
+          >
+            Delete
+          </Button>
+        </CardSection>
       </li>
     );
   };
@@ -271,18 +298,17 @@ export function RoundsSection(props: {
   return (
     <div>
       {rounds.length === 0 ? (
-        <p>No rounds yet.</p>
+        <TypedLine>No rounds yet.</TypedLine>
       ) : (
         <ul>{rounds.map(renderRound)}</ul>
       )}
       {editing === undefined ? (
-        <button type="button" disabled={busy} onClick={openAdd}>
+        <Button variant="secondary" disabled={busy} onClick={openAdd}>
           Add round
-        </button>
+        </Button>
       ) : (
         <form onSubmit={(e) => void onSubmit(e)}>
-          <label>
-            Kind
+          <Field label="Kind">
             <select
               value={form.kind}
               disabled={busy}
@@ -294,25 +320,23 @@ export function RoundsSection(props: {
                 </option>
               ))}
             </select>
-          </label>{' '}
-          <label>
-            Date
+          </Field>{' '}
+          <Field label="Date">
             <input
               type="date"
               value={form.date}
               disabled={busy}
               onInput={(e) => patchForm({ date: e.currentTarget.value })}
             />
-          </label>{' '}
-          <label>
-            Time (HH:MM)
+          </Field>{' '}
+          <Field label="Time (HH:MM)">
             <input
               type="text"
               value={form.time}
               disabled={busy}
               onInput={(e) => patchForm({ time: e.currentTarget.value })}
             />
-          </label>
+          </Field>
           <fieldset>
             <legend>Interviewers</legend>
             {choices.length === 0 ? (
@@ -333,29 +357,27 @@ export function RoundsSection(props: {
               ))
             )}
           </fieldset>
-          <label>
-            Notes
+          <Field label="Notes">
             <textarea
               value={form.notes}
               disabled={busy}
               onInput={(e) => patchForm({ notes: e.currentTarget.value })}
             />
-          </label>
+          </Field>
           {DEBRIEF_FIELDS.map(([key, label]) => (
-            <label key={key}>
-              {label}
+            <Field key={key} label={label}>
               <textarea
                 value={form[key]}
                 disabled={busy}
                 onInput={(e) => patchForm({ [key]: e.currentTarget.value })}
               />
-            </label>
+            </Field>
           ))}
-          <button type="submit" disabled={busy}>
+          <Button variant="primary" type="submit" disabled={busy}>
             Save round
-          </button>{' '}
-          <button
-            type="button"
+          </Button>{' '}
+          <Button
+            variant="secondary"
             disabled={busy}
             onClick={() => {
               setError(undefined);
@@ -363,7 +385,7 @@ export function RoundsSection(props: {
             }}
           >
             Cancel
-          </button>
+          </Button>
         </form>
       )}
       {error ? (
