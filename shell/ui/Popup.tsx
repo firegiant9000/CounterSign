@@ -14,6 +14,13 @@ import type { CaptureOutcome } from '../capture/inject';
 import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
+import { Button } from './components/Button';
+import { Fact } from './components/Fact';
+import { Field } from './components/Field';
+import { FiledStamp } from './components/FiledStamp';
+import { IndexCard } from './components/IndexCard';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 
 const PREVIEW_CHARS = 300;
 
@@ -145,7 +152,9 @@ export function Popup(): VNode {
   if (capture.status === 'reading') {
     return (
       <main class="popup">
-        <p>Reading this page…</p>
+        <IndexCard edge="maroon">
+          <TypedLine>Reading this page…</TypedLine>
+        </IndexCard>
       </main>
     );
   }
@@ -176,17 +185,30 @@ export function Popup(): VNode {
     };
     body = (
       <section class="popup-capture">
+        <TypedLine>Found on page</TypedLine>
         <h2>{captured.title || 'Untitled posting'}</h2>
-        {captured.companyName ? <p>{captured.companyName}</p> : null}
-        {captured.location ? <p>{captured.location}</p> : null}
+        {captured.companyName ? (
+          <p>
+            <Text kind="title">{captured.companyName}</Text>
+          </p>
+        ) : null}
+        {captured.location ? (
+          <p>
+            <Text kind="title">{captured.location}</Text>
+          </p>
+        ) : null}
         {captured.text ? (
           <p class="popup-text">{captured.text.slice(0, PREVIEW_CHARS)}</p>
         ) : null}
         {facts ? null : (
           <div class="popup-actions">
-            <button type="button" disabled={saving} onClick={() => save(input)}>
+            <Button
+              variant="primary"
+              disabled={saving}
+              onClick={() => save(input)}
+            >
               Save job
-            </button>
+            </Button>
             {saveError ? (
               <span class="field-error" role="alert">
                 {saveError}
@@ -213,57 +235,53 @@ export function Popup(): VNode {
     };
     body = (
       <section class="popup-paste">
-        <p>{line}</p>
+        <TypedLine>{line}</TypedLine>
         {capture.status === 'failed' ? (
           <p class="field-error" role="alert">
             {capture.message}
           </p>
         ) : null}
-        <label>
-          Link
+        <Field label="Link">
           <input
             type="text"
             value={linkValue}
             disabled={facts !== undefined}
             onInput={(e) => setPasteLink(e.currentTarget.value)}
           />
-        </label>
-        <label>
-          Title
+        </Field>
+        <Field label="Title">
           <input
             type="text"
             value={pasteTitle}
             disabled={facts !== undefined}
             onInput={(e) => setPasteTitle(e.currentTarget.value)}
           />
-        </label>
-        <label>
-          Company
+        </Field>
+        <Field label="Company">
           <input
             type="text"
             value={pasteCompany}
             disabled={facts !== undefined}
             onInput={(e) => setPasteCompany(e.currentTarget.value)}
           />
-        </label>
-        <label>
-          Posting text
+        </Field>
+        <Field label="Posting text">
           <textarea
             rows={6}
             value={pasteText}
             disabled={facts !== undefined}
             onInput={(e) => setPasteText(e.currentTarget.value)}
           />
-        </label>
+        </Field>
         {facts ? null : (
           <div class="popup-actions">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               disabled={!canSave || saving}
               onClick={() => save(input)}
             >
               Save job
-            </button>
+            </Button>
             {saveError ? (
               <span class="field-error" role="alert">
                 {saveError}
@@ -276,51 +294,54 @@ export function Popup(): VNode {
   }
 
   return (
-    <main class="popup">
-      {body}
-      {facts ? (
-        <section class="popup-result">
-          <p>Saved.</p>
-          {facts.match === 'already_applied' ? (
-            <p>Already applied here.</p>
-          ) : null}
-          {facts.match === 'possible_match' ? (
-            <p>
-              Possible match: an application for the same company and title.
-            </p>
-          ) : null}
-          {facts.repost ? <p>{facts.repost}</p> : null}
-          <AnyoneHere compact companyName={facts.companyName} />
-          <div class="popup-actions">
-            {created ? (
-              <span>Application created.</span>
-            ) : (
-              <button
-                type="button"
-                disabled={creating}
-                onClick={() => create(facts.jobId)}
-              >
-                Create application
-              </button>
-            )}
-            {createError ? (
-              <span class="field-error" role="alert">
-                {createError}
-              </span>
+    <main class={facts ? 'popup popup-filed' : 'popup'}>
+      <IndexCard edge="maroon">
+        {body}
+        {facts ? (
+          <section class="popup-result">
+            <FiledStamp />
+            <p>Saved.</p>
+            {facts.match === 'already_applied' ? (
+              <Fact tone="neutral">Already applied here.</Fact>
             ) : null}
-          </div>
-        </section>
-      ) : null}
-      <div class="popup-actions">
-        <button type="button" onClick={open}>
-          Open dashboard
-        </button>
-        {openError ? (
-          <span class="field-error" role="alert">
-            {openError}
-          </span>
+            {facts.match === 'possible_match' ? (
+              <Fact tone="neutral">
+                Possible match: an application for the same company and title.
+              </Fact>
+            ) : null}
+            {facts.repost ? <Fact tone="neutral">{facts.repost}</Fact> : null}
+            <AnyoneHere compact companyName={facts.companyName} />
+            <div class="popup-actions">
+              {created ? (
+                <TypedLine as="span">Application created.</TypedLine>
+              ) : (
+                <Button
+                  variant="primary"
+                  disabled={creating}
+                  onClick={() => create(facts.jobId)}
+                >
+                  Create application
+                </Button>
+              )}
+              {createError ? (
+                <span class="field-error" role="alert">
+                  {createError}
+                </span>
+              ) : null}
+            </div>
+          </section>
         ) : null}
-      </div>
+        <div class="popup-actions">
+          <Button variant="link" onClick={open}>
+            Open dashboard
+          </Button>
+          {openError ? (
+            <span class="field-error" role="alert">
+              {openError}
+            </span>
+          ) : null}
+        </div>
+      </IndexCard>
     </main>
   );
 }

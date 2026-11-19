@@ -14,6 +14,10 @@ import type { StoreName } from '../../core/src/types';
 import { requestPersistence } from '../storage/persistence';
 import type { PersistenceState } from '../storage/persistence';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { IndexCard } from './components/IndexCard';
+import { LedgerSheet, ledgerRowClass } from './components/LedgerSheet';
 
 interface Pending {
   fileName: string;
@@ -256,25 +260,22 @@ export function DataPage(): VNode {
     <div class="data-page">
       <h1>Data</h1>
 
-      <section class="data-section">
-        <h2>Export</h2>
+      <IndexCard title="Export" headingLevel={2}>
         <p>Save all your data as a JSON file.</p>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           disabled={busy}
           onClick={() => {
             void exportNow();
           }}
         >
           Export data
-        </button>
+        </Button>
         {exportError ? <span class="field-error">{exportError}</span> : null}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Restore</h2>
-        <label>
-          Export file
+      <IndexCard title="Restore" headingLevel={2}>
+        <Field label="Export file">
           <input
             type="file"
             accept=".json,application/json"
@@ -283,7 +284,7 @@ export function DataPage(): VNode {
               void chooseFile(e);
             }}
           />
-        </label>
+        </Field>
         {parseErrors.length > 0 ? (
           <ul class="field-error">
             {parseErrors.map((message, i) => (
@@ -296,13 +297,15 @@ export function DataPage(): VNode {
             <p>
               {pending.fileName}: exported {exportDateOf(pending.file)}.
             </p>
-            <ul>
-              {STORES.map(({ name }) => (
-                <li key={name}>
-                  {STORE_LABELS[name]}: {pending.counts[name]}
-                </li>
-              ))}
-            </ul>
+            <LedgerSheet>
+              <ul>
+                {STORES.map(({ name }) => (
+                  <li key={name} class={ledgerRowClass('none')}>
+                    {STORE_LABELS[name]}: {pending.counts[name]}
+                  </li>
+                ))}
+              </ul>
+            </LedgerSheet>
             {emptied.length > 0 ? (
               <p class="field-error">
                 Warning: this file has no records for{' '}
@@ -311,54 +314,54 @@ export function DataPage(): VNode {
                 currently have records there.
               </p>
             ) : null}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                void replaceAll();
-              }}
-            >
-              Replace all data
-            </button>
+            <p>
+              <Button
+                variant="primary"
+                disabled={busy}
+                onClick={() => {
+                  void replaceAll();
+                }}
+              >
+                Replace all data
+              </Button>
+            </p>
           </div>
         ) : null}
         {restoring ? <p>Saving a safety copy before restoring…</p> : null}
         {restoreError ? <span class="field-error">{restoreError}</span> : null}
         {restored ? <p>Restored.</p> : null}
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Storage</h2>
+      <IndexCard title="Storage" headingLevel={2}>
         <p>{storage ? STORAGE_LINE[storage] : 'Checking storage…'}</p>
-      </section>
+      </IndexCard>
 
-      <section class="data-section">
-        <h2>Demo data</h2>
+      <IndexCard title="Demo data" headingLevel={2}>
         <p>Demo records are fictional.</p>
         {canLoadDemo(data) ? (
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={busy}
             onClick={() => {
               void demo('load');
             }}
           >
             Load demo data
-          </button>
+          </Button>
         ) : null}
         {hasDemoData(data) ? (
-          <button
-            type="button"
+          <Button
+            variant="danger"
             disabled={busy}
             onClick={() => {
               void demo('remove');
             }}
           >
             Remove demo data
-          </button>
+          </Button>
         ) : null}
         {demoError ? <span class="field-error">{demoError}</span> : null}
-      </section>
+      </IndexCard>
     </div>
   );
 }
