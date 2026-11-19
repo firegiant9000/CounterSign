@@ -17,6 +17,11 @@ import type {
   Statement,
 } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Fact } from './components/Fact';
+import { Field } from './components/Field';
+import { LedgerSheet, ledgerRowClass } from './components/LedgerSheet';
+import { TypedLine } from './components/TypedLine';
 import { choicesOf, kindOf, useAnswerDraft } from './AnswerValueInput';
 import type { AnswerKind } from './AnswerValueInput';
 
@@ -78,12 +83,12 @@ function StatementEditor(props: {
   return (
     <form class="answer-form" onSubmit={submit}>
       {draft.input}
-      <button type="submit" disabled={busy}>
+      <Button variant="primary" type="submit" disabled={busy}>
         Save
-      </button>
-      <button type="button" disabled={busy} onClick={onCancel}>
+      </Button>
+      <Button disabled={busy} onClick={onCancel}>
         Cancel
-      </button>
+      </Button>
       {problem ? (
         <span class="field-error" role="alert">
           {problem}
@@ -215,105 +220,110 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
 
   return (
     <div class="statements">
-      {statements.length === 0 ? <p>Nothing recorded yet.</p> : null}
-      <ul class="history">
-        {statements.map((s) => {
-          const answer = answerFor(answers, s);
-          const label = answer?.label ?? answer?.key ?? s.answerKey;
-          const told = formatAnswer(s.value);
-          const check = checkStatement(s, answer);
-          const canonical = answer ? formatAnswer(answer.value) : '';
-          const editing = editingId === s.id;
-          return (
-            <li key={s.id}>
-              <div>
+      <LedgerSheet>
+        {statements.length === 0 ? (
+          <TypedLine tone="muted">Nothing recorded yet.</TypedLine>
+        ) : null}
+        <ul class="history">
+          {statements.map((s) => {
+            const answer = answerFor(answers, s);
+            const label = answer?.label ?? answer?.key ?? s.answerKey;
+            const told = formatAnswer(s.value);
+            const check = checkStatement(s, answer);
+            const canonical = answer ? formatAnswer(answer.value) : '';
+            const editing = editingId === s.id;
+            return (
+              <li
+                key={s.id}
+                class={ledgerRowClass(check === 'mismatch' ? 'maroon' : 'none')}
+              >
                 <div>
-                  <strong>{label ?? 'Unknown answer'}</strong>:{' '}
-                  {told === '' ? '(empty)' : told}
+                  <div>
+                    <strong>{label ?? 'Unknown answer'}</strong>:{' '}
+                    {told === '' ? '(empty)' : told}
+                  </div>
+                  {check === 'mismatch' ? (
+                    <Fact tone="warning" role="status">
+                      Differs from your answer: {canonical}{' '}
+                      <Button
+                        variant="primary"
+                        disabled={busy}
+                        onClick={() => {
+                          void onUpdateCanonical(s);
+                        }}
+                      >
+                        Update canonical
+                      </Button>
+                      <Button
+                        disabled={busy}
+                        onClick={() => {
+                          void onKeepException(s);
+                        }}
+                      >
+                        Keep as exception
+                      </Button>
+                    </Fact>
+                  ) : null}
+                  {check === 'compare' ? (
+                    <div class="document-meta">
+                      Your answer: {canonical === '' ? 'none' : canonical}
+                    </div>
+                  ) : null}
+                  {check === 'exception' ? (
+                    <TypedLine tone="muted">Kept as an exception</TypedLine>
+                  ) : null}
+                  {editing ? (
+                    <StatementEditor
+                      key={s.id}
+                      kind={kindOf(answer ? answer.type : storedType(s.value))}
+                      choices={choicesOf(answer?.choices)}
+                      initial={s.value}
+                      name={'st-' + s.id}
+                      label={label ?? 'Answer'}
+                      busy={busy}
+                      onSave={(value) => {
+                        void onSaveEdit(s, value);
+                      }}
+                      onCancel={() => {
+                        setError(s.id, undefined);
+                        setEditingId(undefined);
+                      }}
+                    />
+                  ) : null}
+                  {errors[s.id] ? (
+                    <span class="field-error" role="alert">
+                      {errors[s.id]}
+                    </span>
+                  ) : null}
                 </div>
-                {check === 'mismatch' ? (
-                  <div class="warning" role="status">
-                    Differs from your answer: {canonical}{' '}
-                    <button
-                      type="button"
+                {editing ? null : (
+                  <span>
+                    <Button
                       disabled={busy}
                       onClick={() => {
-                        void onUpdateCanonical(s);
+                        setAdding(undefined);
+                        setError(s.id, undefined);
+                        setEditingId(s.id);
                       }}
                     >
-                      Update canonical
-                    </button>
-                    <button
-                      type="button"
+                      Edit
+                    </Button>
+                    <Button
+                      variant="danger"
                       disabled={busy}
                       onClick={() => {
-                        void onKeepException(s);
+                        void onDelete(s);
                       }}
                     >
-                      Keep as exception
-                    </button>
-                  </div>
-                ) : null}
-                {check === 'compare' ? (
-                  <div class="document-meta">
-                    Your answer: {canonical === '' ? 'none' : canonical}
-                  </div>
-                ) : null}
-                {check === 'exception' ? (
-                  <div class="document-meta">Kept as an exception</div>
-                ) : null}
-                {editing ? (
-                  <StatementEditor
-                    key={s.id}
-                    kind={kindOf(answer ? answer.type : storedType(s.value))}
-                    choices={choicesOf(answer?.choices)}
-                    initial={s.value}
-                    name={'st-' + s.id}
-                    label={label ?? 'Answer'}
-                    busy={busy}
-                    onSave={(value) => {
-                      void onSaveEdit(s, value);
-                    }}
-                    onCancel={() => {
-                      setError(s.id, undefined);
-                      setEditingId(undefined);
-                    }}
-                  />
-                ) : null}
-                {errors[s.id] ? (
-                  <span class="field-error" role="alert">
-                    {errors[s.id]}
+                      Delete
+                    </Button>
                   </span>
-                ) : null}
-              </div>
-              {editing ? null : (
-                <span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setAdding(undefined);
-                      setError(s.id, undefined);
-                      setEditingId(s.id);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      void onDelete(s);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </LedgerSheet>
 
       {adding ? (
         <div>
@@ -341,24 +351,26 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
         </div>
       ) : addable.length > 0 ? (
         <p>
-          <select
-            aria-label="Answer to add"
-            value={
-              addable.some((a) => a.id === pickId)
-                ? pickId
-                : (addable[0]?.id ?? '')
-            }
-            onChange={(e) => setPickId(e.currentTarget.value)}
-          >
-            {addable.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label ?? a.key ?? 'Unknown answer'}
-              </option>
-            ))}
-          </select>
-          <button type="button" disabled={busy} onClick={onStartAdd}>
+          <Field label={null}>
+            <select
+              aria-label="Answer to add"
+              value={
+                addable.some((a) => a.id === pickId)
+                  ? pickId
+                  : (addable[0]?.id ?? '')
+              }
+              onChange={(e) => setPickId(e.currentTarget.value)}
+            >
+              {addable.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.label ?? a.key ?? 'Unknown answer'}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Button variant="primary" disabled={busy} onClick={onStartAdd}>
             Add
-          </button>
+          </Button>
         </p>
       ) : null}
     </div>
