@@ -49,17 +49,29 @@
   padding-left: calc(var(--space-6) + var(--space-2));
 }
 
-.cs-ledger ul {
+.cs-ledger .cs-ledger-body > ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.cs-ledger li {
+.cs-ledger .cs-ledger-body > ul > li {
   padding: var(--space-2) var(--space-3) var(--space-2)
     calc(var(--space-6) + var(--space-2));
   border-bottom: 1px solid var(--ink-blue);
   overflow-wrap: anywhere;
+}
+
+.cs-ledger .cs-ledger-body > h2,
+.cs-ledger .cs-ledger-body > p,
+.cs-ledger .cs-ledger-body > form {
+  padding-left: calc(var(--space-6) + var(--space-2));
+  padding-right: var(--space-3);
+}
+
+.cs-ledger .cs-ledger-body > button,
+.cs-ledger .cs-ledger-body > .cs-button {
+  margin-left: calc(var(--space-6) + var(--space-2));
 }
 
 .cs-ledger li.cs-row,

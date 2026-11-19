@@ -65,13 +65,15 @@
   font-size: var(--step-1);
 }
 
-.cs-card .cs-card-section {
+.cs-card .cs-card-section,
+.cs-ledger .cs-card-section {
   margin-top: var(--space-3);
   padding-top: var(--space-2);
   border-top: 1px solid var(--rule);
 }
 
-.cs-card .cs-card-section-title {
+.cs-card .cs-card-section-title,
+.cs-ledger .cs-card-section-title {
   margin-bottom: var(--space-1);
   color: var(--ink-muted);
   font-family: var(--font-typed);
@@ -100,12 +102,14 @@
     border-left: 1px solid var(--print-ink);
   }
 
-  .cs-card .cs-card-section {
+  .cs-card .cs-card-section,
+  .cs-ledger .cs-card-section {
     border-top: 1px solid var(--print-ink);
   }
 
   .cs-card .cs-card-title,
-  .cs-card .cs-card-section-title {
+  .cs-card .cs-card-section-title,
+  .cs-ledger .cs-card-section-title {
     color: var(--print-ink);
   }
 }

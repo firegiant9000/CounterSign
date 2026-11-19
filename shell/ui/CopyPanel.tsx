@@ -8,6 +8,11 @@ import {
 } from '../../core/src/profile';
 import { copyText } from '../clipboard';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { LedgerSheet } from './components/LedgerSheet';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 import { routeHref } from './route';
 
 // Restored data may hold odd types; render only strings.
@@ -101,70 +106,69 @@ export function CopyPanel(): VNode {
     <div class="data-page">
       <h1>My details</h1>
       <section class="data-section">
-        <h2>Your details</h2>
-        {draft === undefined ? (
-          <>
-            <ul>
-              {PROFILE_FIELDS.map((f) => {
-                const value = values[f.key];
-                return (
-                  <li key={f.key}>
-                    <strong>{f.label}</strong>:{' '}
-                    {value === undefined ? (
-                      'Not set'
-                    ) : (
-                      <>
-                        {value}{' '}
-                        <button
-                          type="button"
-                          onClick={() => doCopy(`profile:${f.key}`, value)}
-                        >
-                          Copy
-                        </button>
-                        {status(`profile:${f.key}`)}
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            <button type="button" disabled={busy} onClick={startEdit}>
-              Edit
-            </button>
-          </>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save();
-            }}
-          >
-            {PROFILE_FIELDS.map((f) => (
-              <label key={f.key}>
-                {f.label}
-                <input
-                  type="text"
-                  value={draft[f.key] ?? ''}
-                  disabled={busy}
-                  onInput={(e) => {
-                    const v = e.currentTarget.value;
-                    setDraft((d) => ({ ...d, [f.key]: v }));
-                  }}
-                />
-              </label>
-            ))}
-            <button type="submit" disabled={busy}>
-              Save
-            </button>{' '}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => setDraft(undefined)}
+        <LedgerSheet label="YOUR DETAILS">
+          <h2>Your details</h2>
+          {draft === undefined ? (
+            <>
+              <ul>
+                {PROFILE_FIELDS.map((f) => {
+                  const value = values[f.key];
+                  return (
+                    <li key={f.key}>
+                      <TypedLine as="span">
+                        <strong>{f.label}</strong>
+                      </TypedLine>
+                      :{' '}
+                      {value === undefined ? (
+                        <TypedLine as="span">Not set</TypedLine>
+                      ) : (
+                        <>
+                          <Text kind="body">{value}</Text>{' '}
+                          <Button
+                            onClick={() => doCopy(`profile:${f.key}`, value)}
+                          >
+                            Copy
+                          </Button>
+                          {status(`profile:${f.key}`)}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <Button disabled={busy} onClick={startEdit}>
+                Edit
+              </Button>
+            </>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void save();
+              }}
             >
-              Cancel
-            </button>
-          </form>
-        )}
+              {PROFILE_FIELDS.map((f) => (
+                <Field key={f.key} label={f.label}>
+                  <input
+                    type="text"
+                    value={draft[f.key] ?? ''}
+                    disabled={busy}
+                    onInput={(e) => {
+                      const v = e.currentTarget.value;
+                      setDraft((d) => ({ ...d, [f.key]: v }));
+                    }}
+                  />
+                </Field>
+              ))}
+              <Button variant="primary" type="submit" disabled={busy}>
+                Save
+              </Button>{' '}
+              <Button disabled={busy} onClick={() => setDraft(undefined)}>
+                Cancel
+              </Button>
+            </form>
+          )}
+        </LedgerSheet>
         {error ? (
           <span class="field-error" role="alert">
             {error}
@@ -172,33 +176,35 @@ export function CopyPanel(): VNode {
         ) : null}
       </section>
       <section class="data-section">
-        <h2>Your answers</h2>
-        <p>
-          To change an answer, go to the{' '}
-          <a href={routeHref({ page: 'answers' })}>Answers page</a>.
-        </p>
-        {answers.length === 0 ? (
-          <p>No answers yet.</p>
-        ) : (
-          <ul>
-            {answers.map((a) => (
-              <li key={a.id}>
-                <strong>{a.label}</strong>: {a.text}{' '}
-                {a.text.trim() === '' ? null : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => doCopy(`answer:${a.id}`, a.text)}
-                    >
-                      Copy
-                    </button>
-                    {status(`answer:${a.id}`)}
-                  </>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <LedgerSheet label="YOUR ANSWERS">
+          <h2>Your answers</h2>
+          <p>
+            To change an answer, go to the{' '}
+            <a href={routeHref({ page: 'answers' })}>Answers page</a>.
+          </p>
+          {answers.length === 0 ? (
+            <TypedLine>No answers yet.</TypedLine>
+          ) : (
+            <ul>
+              {answers.map((a) => (
+                <li key={a.id}>
+                  <TypedLine as="span">
+                    <strong>{a.label}</strong>
+                  </TypedLine>
+                  : <Text kind="body">{a.text}</Text>{' '}
+                  {a.text.trim() === '' ? null : (
+                    <>
+                      <Button onClick={() => doCopy(`answer:${a.id}`, a.text)}>
+                        Copy
+                      </Button>
+                      {status(`answer:${a.id}`)}
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </LedgerSheet>
       </section>
     </div>
   );

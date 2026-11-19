@@ -4,7 +4,12 @@ import { toLocalDate } from '../../core/src/dates';
 import { closeAsNoResponseOps, quietApplications } from '../../core/src/quiet';
 import { noResponseDays } from '../../core/src/settings';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { LedgerSheet, ledgerRowClass } from './components/LedgerSheet';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 import { routeHref } from './route';
+import { inkFor } from './status-ink';
 
 function reasonOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -82,41 +87,44 @@ export function QuietList(): VNode {
         <a href={routeHref({ page: 'settings' })}>Change the number of days</a>
       </p>
       {rows.length === 0 ? (
-        <p>Nothing is quiet.</p>
+        <LedgerSheet label="QUIET">
+          <TypedLine>Nothing is quiet.</TypedLine>
+        </LedgerSheet>
       ) : (
         <section class="data-section">
-          <button
-            type="button"
+          <Button
             disabled={busy || chosen.length === 0}
             onClick={() => void close(chosen)}
           >
             Close selected ({chosen.length})
-          </button>
-          <ul>
-            {rows.map((row) => (
-              <li key={row.id}>
-                <input
-                  type="checkbox"
-                  checked={chosen.includes(row.id)}
-                  disabled={busy}
-                  aria-label={`Select ${row.companyName || '(no company)'}`}
-                  onChange={(e) => toggle(row.id, e.currentTarget.checked)}
-                />{' '}
-                <a href={routeHref({ page: 'application', id: row.id })}>
-                  {row.companyName || '(no company)'}
-                  {row.title ? `, ${row.title}` : ''}
-                </a>{' '}
-                Applied {row.statusDate}, {row.quietDays} days ago{' '}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void close([row.id])}
-                >
-                  Close as No response
-                </button>
-              </li>
-            ))}
-          </ul>
+          </Button>
+          <LedgerSheet label="QUIET">
+            <ul>
+              {rows.map((row) => (
+                <li key={row.id} class={ledgerRowClass(inkFor('applied'))}>
+                  <input
+                    type="checkbox"
+                    checked={chosen.includes(row.id)}
+                    disabled={busy}
+                    aria-label={`Select ${row.companyName || '(no company)'}`}
+                    onChange={(e) => toggle(row.id, e.currentTarget.checked)}
+                  />{' '}
+                  <Text kind="name">
+                    <a href={routeHref({ page: 'application', id: row.id })}>
+                      {row.companyName || '(no company)'}
+                      {row.title ? `, ${row.title}` : ''}
+                    </a>
+                  </Text>{' '}
+                  <TypedLine as="span">
+                    Applied {row.statusDate}, {row.quietDays} days ago
+                  </TypedLine>{' '}
+                  <Button disabled={busy} onClick={() => void close([row.id])}>
+                    Close as No response
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </LedgerSheet>
         </section>
       )}
       {error ? <span class="field-error">{error}</span> : null}
