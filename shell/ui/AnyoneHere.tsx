@@ -9,6 +9,9 @@ import {
 } from '../../core/src/contacts';
 import type { Contact } from '../../core/src/types';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { ContactRow } from './components/ContactRow';
+import { TypedLine } from './components/TypedLine';
 import { ContactForm } from './ContactForm';
 
 // Restored data may hold odd types; render only strings.
@@ -73,17 +76,19 @@ export function AnyoneHere(props: {
 
   if (prompt === 'show_contacts' && companyId !== undefined) {
     const row = (contact: Contact): VNode => (
-      <li key={contact.id}>
-        <strong>{str(contact.name) || '(no name)'}</strong>
-        {str(contact.role) ? `, ${str(contact.role)}` : ''}
-        {!props.compact && str(contact.howKnown) ? (
-          <div>How you know them: {str(contact.howKnown)}</div>
-        ) : null}
-      </li>
+      <ContactRow
+        key={contact.id}
+        name={str(contact.name)}
+        role={str(contact.role)}
+        howKnown={props.compact ? '' : str(contact.howKnown)}
+        notes=""
+        activity={null}
+        actions={null}
+      />
     );
     return (
       <div class="anyone-here">
-        <p>You know people here:</p>
+        <TypedLine>You know people here:</TypedLine>
         <ul>{contactsAt(data, companyId).map(row)}</ul>
       </div>
     );
@@ -91,7 +96,7 @@ export function AnyoneHere(props: {
 
   return (
     <div class="anyone-here">
-      <p>Do you know anyone at {name.trim()}?</p>
+      <TypedLine>Do you know anyone at {name.trim()}?</TypedLine>
       {adding ? (
         <ContactForm
           submitLabel="Add contact"
@@ -104,16 +109,16 @@ export function AnyoneHere(props: {
         />
       ) : (
         <div class="popup-actions">
-          <button type="button" disabled={busy} onClick={() => setAdding(true)}>
-            Add a contact
-          </button>{' '}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={busy}
-            onClick={() => void checkedNobody()}
+            onClick={() => setAdding(true)}
           >
+            Add a contact
+          </Button>{' '}
+          <Button disabled={busy} onClick={() => void checkedNobody()}>
             Checked, nobody
-          </button>
+          </Button>
         </div>
       )}
       {errorNode}

@@ -5,6 +5,7 @@ import '../../shell/ui/styles.css';
 import '../../shell/ui/theme/tokens.css';
 import '../../shell/ui/theme/fonts.css';
 import '../../shell/ui/theme/base.css';
+import '../../shell/ui/theme/print.css';
 
 const root = document.getElementById('app');
 if (root) {

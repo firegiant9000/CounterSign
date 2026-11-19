@@ -6,6 +6,11 @@
   overflow-wrap: anywhere;
 }
 
+.answer-form > .cs-field,
+.answer-money > .cs-field {
+  flex-grow: 1;
+}
+
 .cs-field input:not([type='checkbox']):not([type='radio']):not([type='file']),
 .cs-field textarea {
   display: block;
@@ -23,6 +28,7 @@
 }
 
 .cs-field select {
+  display: block;
   max-width: 100%;
   margin-top: var(--space-1);
   padding: var(--space-1) var(--space-2);

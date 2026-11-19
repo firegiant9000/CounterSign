@@ -9,6 +9,10 @@ import type { DocumentSlot } from '../../core/src/documents';
 import type { Application } from '../../core/src/types';
 import { sha256Hex } from '../files/hash';
 import { useAppData } from './app-data';
+import { Button } from './components/Button';
+import { Field } from './components/Field';
+import { Text } from './components/Text';
+import { TypedLine } from './components/TypedLine';
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -74,18 +78,21 @@ export function DocumentField(props: {
 
   return (
     <div class="document-field">
-      <strong>{props.label}</strong>
+      <TypedLine as="span">{props.label}</TypedLine>
       {doc ? (
         <span class="document-meta">
-          {doc.label ? `${doc.label} · ` : ''}
-          {doc.fileName ?? 'unnamed file'}
-          {hash ? ` · ${hash.slice(0, 12)}` : ''}
+          <Text kind="body">
+            {doc.label ? `${doc.label} · ` : ''}
+            {doc.fileName ?? 'unnamed file'}
+            {hash ? ` · ${hash.slice(0, 12)}` : ''}
+          </Text>
         </span>
       ) : (
-        <span class="document-meta">no file</span>
+        <TypedLine as="span" tone="muted">
+          no file
+        </TypedLine>
       )}
-      <label>
-        Choose file
+      <Field label="Choose file">
         <input
           type="file"
           disabled={busy}
@@ -93,19 +100,19 @@ export function DocumentField(props: {
             void onChoose(e.currentTarget);
           }}
         />
-      </label>
+      </Field>
       {props.app[
         slot === 'resume' ? 'resumeDocumentId' : 'coverLetterDocumentId'
       ] !== undefined ? (
-        <button
-          type="button"
+        <Button
+          variant="danger"
           disabled={busy}
           onClick={() => {
             void onRemove();
           }}
         >
           Remove
-        </button>
+        </Button>
       ) : null}
       {error ? <span class="field-error">{error}</span> : null}
     </div>
