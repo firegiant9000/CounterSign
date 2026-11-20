@@ -195,6 +195,12 @@ function clipsOverflow(style: CSSStyleDeclaration): boolean {
   );
 }
 
+function clipsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+  const own = axis === 'x' ? style.overflowX : style.overflowY;
+  const value = own === '' ? style.overflow : own;
+  return value !== '' && value !== 'visible';
+}
+
 // contentVisibilityAuto is left off on purpose. The spec makes checkVisibility
 // return false for a content-visibility:hidden ancestor regardless of options,
 // and the content of a closed <details> has no client rects, which the empty
@@ -237,19 +243,18 @@ function isVisuallyHidden(el: Element): boolean {
     if (cur === doc.documentElement || cur === doc.body) continue;
     if (parent.display === 'inline' || parent.display === 'contents') continue;
     if (!clipsOverflow(parent)) continue;
+    // A clipping parent hides the field only when it is 1px or less across the
+    // clipped axis. No intersection test: a scrolling box can be scrolled to,
+    // and a positioned field can escape a wrapper that is not its containing
+    // block. When the field has layout, the parent's box is real, so an
+    // all-zero box is a true 0x0 wrapper; without layout (tests), fall back to
+    // the computed size.
     const parentBox = cur.getBoundingClientRect();
-    if (hasLayout(parentBox) && hasLayout(box)) {
-      // Real layout: hidden only if the wrapper leaves at most 1px of the field showing.
-      const width =
-        Math.min(box.right, parentBox.right) -
-        Math.max(box.left, parentBox.left);
-      const height =
-        Math.min(box.bottom, parentBox.bottom) -
-        Math.max(box.top, parentBox.top);
-      if (width <= 1 || height <= 1) return true;
-    } else if (!hasLayout(parentBox) && !hasLayout(box)) {
-      if (isTinyPx(parent.width) || isTinyPx(parent.height)) return true;
-    }
+    const laidOut = hasLayout(box);
+    const narrow = laidOut ? parentBox.width <= 1 : isTinyPx(parent.width);
+    const short = laidOut ? parentBox.height <= 1 : isTinyPx(parent.height);
+    if (narrow && clipsAxis(parent, 'x')) return true;
+    if (short && clipsAxis(parent, 'y')) return true;
   }
   if (isClipped(style, box)) return true;
   if (isTinyPx(style.width) || isTinyPx(style.height)) return true;

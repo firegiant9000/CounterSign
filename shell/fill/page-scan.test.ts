@@ -1056,7 +1056,77 @@ describe('scanForm: fix round 1, parents, unrendered fields, form owners', () =>
     expect(fieldCount(doc)).toBe(1);
   });
 
-  it('skips a field when a laid-out clipping wrapper does not intersect it', () => {
+  it('skips a laid-out field in a 0x0 clipping wrapper at the page origin', () => {
+    // A real 0x0 box at the origin reads all zero, like happy-dom's no-layout box.
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 20,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps a field scrolled out of view inside a scrolling box', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow-y:auto"><input type="text" id="t" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 400,
+      bottom: 500,
+      width: 400,
+      height: 400,
+    });
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 700,
+      right: 210,
+      bottom: 720,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('keeps a positioned field that sits outside a large clipping wrapper', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" style="position:absolute" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 400,
+      bottom: 300,
+      width: 400,
+      height: 200,
+    });
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 400,
+      right: 210,
+      bottom: 420,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('skips a field in a laid-out 1px clipping wrapper away from it', () => {
     const doc = parse(
       '<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>',
     );
