@@ -63,7 +63,23 @@ export function createFillController(options: {
 
   function set(next: FillState): void {
     state = next;
-    for (const listener of [...listeners]) listener(state);
+    for (const listener of [...listeners]) {
+      // A throwing listener must not stop the others or leave the state
+      // half-set (a stuck busy flag would disable Fill for the session).
+      try {
+        listener(state);
+      } catch {
+        // Ignored on purpose.
+      }
+    }
+  }
+
+  function safely<T>(read: () => T, fallback: () => T): T {
+    try {
+      return read();
+    } catch {
+      return fallback();
+    }
   }
 
   async function start(): Promise<void> {
@@ -148,13 +164,25 @@ export function createFillController(options: {
         }
       }
 
-      const result = buildFillResult({
-        tabUrl,
-        relCanonical: options.relCanonical?.(),
-        at: options.now(),
-        plan: applied,
-        outcomes,
-      });
+      // The page has been written to: nothing below may throw past this point,
+      // or the counts and the result would be lost.
+      const result = safely<FillResult | undefined>(
+        () =>
+          buildFillResult({
+            tabUrl,
+            relCanonical: safely(
+              () => options.relCanonical?.(),
+              () => undefined,
+            ),
+            at: safely(
+              () => options.now(),
+              () => new Date().toISOString(),
+            ),
+            plan: applied,
+            outcomes,
+          }),
+        () => undefined,
+      );
 
       lastScan = scan;
       let plan: FillPlan;

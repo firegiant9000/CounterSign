@@ -69,6 +69,7 @@ function setup(
     input?: () => PlanInput;
     apply?: FillInjector['apply'];
     relCanonical?: () => string | undefined;
+    now?: () => IsoInstant;
   } = {},
 ) {
   const scanFn = vi.fn<FillInjector['scan']>(() => Promise.resolve(scan));
@@ -77,7 +78,7 @@ function setup(
   );
   const controller = createFillController({
     input: options.input ?? (() => FULL),
-    now: () => NOW,
+    now: options.now ?? (() => NOW),
     relCanonical: options.relCanonical,
     injector: { scan: scanFn, apply },
   });
@@ -550,6 +551,84 @@ describe('createFillController', () => {
     expect(state.failed.map((r) => r.ref)).toEqual([3]);
     expect(state.plan.writes).toEqual([]);
     expect(state.busy).toBe(false);
+  });
+
+  it('a throwing subscriber does not leave fill busy', async () => {
+    const { controller, apply } = setup(undefined, {
+      apply: () =>
+        Promise.resolve(
+          okApply([{ ref: 1, outcome: 'written' }], threeFields()),
+        ),
+    });
+    const heard: string[] = [];
+    controller.subscribe(() => {
+      throw new Error('boom');
+    });
+    controller.subscribe((s) =>
+      heard.push(s.status === 'ready' && s.busy ? 'busy' : s.status),
+    );
+    await controller.start();
+
+    const result = await controller.fill();
+
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(result?.rows.map((r) => r.outcome)).toContain('written');
+    expect(heard).toEqual(['ready', 'busy', 'ready']);
+    const state = ready(controller.state());
+    expect(state.busy).toBe(false);
+    expect(state.filled).toBe(1);
+
+    await controller.fill();
+    expect(apply).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the counts and a result when now throws after the apply', async () => {
+    const { controller } = setup(undefined, {
+      now: () => {
+        throw new Error('boom');
+      },
+      apply: () =>
+        Promise.resolve(
+          okApply(
+            [
+              { ref: 1, outcome: 'written' },
+              { ref: 2, outcome: 'written' },
+              { ref: 3, outcome: 'gone' },
+            ],
+            threeFields(),
+          ),
+        ),
+    });
+    await controller.start();
+    const result = await controller.fill();
+
+    expect(result?.rows.map((r) => r.outcome)).toEqual([
+      'written',
+      'written',
+      'gone',
+    ]);
+    expect(Number.isNaN(Date.parse(result?.at ?? ''))).toBe(false);
+    const state = ready(controller.state());
+    expect(state.filled).toBe(2);
+    expect(state.failed.map((r) => r.ref)).toEqual([3]);
+    expect(state.busy).toBe(false);
+  });
+
+  it('falls back to the tab address when relCanonical throws', async () => {
+    const { controller } = setup(undefined, {
+      relCanonical: () => {
+        throw new Error('boom');
+      },
+      apply: () =>
+        Promise.resolve(
+          okApply([{ ref: 1, outcome: 'written' }], threeFields()),
+        ),
+    });
+    await controller.start();
+    const result = await controller.fill();
+
+    expect(result?.url).toBe('https://jobs.lever.co/example-co/abc123');
+    expect(ready(controller.state()).filled).toBe(1);
   });
 
   it('start resolves and hides when input throws', async () => {
