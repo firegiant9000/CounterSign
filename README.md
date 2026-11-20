@@ -41,7 +41,7 @@ Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, pl
 - **Formhand log.** On an application, record the application site type and how filling went. You enter it by hand.
 - **Contacts** (`#/contacts`) with a log of reaching out, replies and referrals. The popup and the application page ask "anyone here?" and let you record that you checked and nobody was there.
 - **Deadlines** (`#/deadlines`): open tasks, next-action dates and quiet applications on one list, dated rows first.
-- **My details** (`#/details`): 12 profile fields (name, email, phone, address, links) and your canonical answers, each with a copy button. Copying uses a click only, and nothing is typed into a page.
+- **My details** (`#/details`): 14 profile fields (name, first and last name, email, phone, address, links) and your canonical answers, each with a copy button. Copying uses a click only, and nothing is typed into a page.
 - **Application detail** with a status history. Entries can be backdated, and a mistaken status can be undone without deleting history.
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
 - **Canonical answers** (for example work authorisation or salary range), each with its history of earlier values.
