@@ -72,6 +72,7 @@ Four parts keep "no network, nothing reads or touches a page until you click, ne
    - The built-output scan (`guard/scan.ts`, run by `guard/build.test.ts`) looks for `submit`, `requestSubmit`, `click`, `KeyboardEvent`, `MouseEvent`, `PointerEvent` and `SubmitEvent` in the built `fill.js`.
    - The behaviour test `shell/fill/page-apply.test.ts` fills a fixture form and sees no submit, no new element and no new attribute.
    - These lint rules catch ordinary code by name and path. They do not stop code written to get around them, such as a path like `..//inject` or a name built from pieces. Code review is the backstop for that.
+   - The scan skips text, textarea and select fields it judges hidden (`shell/fill/page/scan.ts`): zero opacity, clipped, unrendered, collapsed or cut off by a clipping parent, or off the page. This check is best-effort. It does not see a field covered by another element, a parent a few pixels wide, or a fixed field below the bottom of the window. The review list is the guard: every field that will be filled is shown before you click Fill.
    - The controller test `shell/fill/controller.test.ts` shows that scanning never applies, and `shell/ui/fill-section-source.test.ts` shows that `fill()` is called only from the Fill button's click handler.
 
 ## Look and feel

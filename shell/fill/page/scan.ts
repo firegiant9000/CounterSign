@@ -189,7 +189,43 @@ function isClipped(style: CSSStyleDeclaration, box?: DOMRect): boolean {
   return compact === 'circle(0)' || compact === 'circle(0px)';
 }
 
+function containOf(style: CSSStyleDeclaration): string {
+  return style.getPropertyValue('contain');
+}
+
+/** contain:paint (or strict/content) clips like overflow:clip on both axes. */
+function paintContains(style: CSSStyleDeclaration): boolean {
+  return /\b(paint|strict|content)\b/.test(containOf(style));
+}
+
+const CONTAINING_PROPERTIES = [
+  'transform',
+  'perspective',
+  'filter',
+  'backdrop-filter',
+  'translate',
+  'rotate',
+  'scale',
+];
+
+/** A box that is a containing block for absolute and fixed descendants without being positioned. */
+function makesContainingBlock(style: CSSStyleDeclaration): boolean {
+  for (const name of CONTAINING_PROPERTIES) {
+    const value = style.getPropertyValue(name).trim();
+    if (value !== '' && value !== 'none') return true;
+  }
+  if (
+    /\b(transform|perspective|filter)\b/.test(
+      style.getPropertyValue('will-change'),
+    )
+  ) {
+    return true;
+  }
+  return paintContains(style) || /\blayout\b/.test(containOf(style));
+}
+
 function clipsOverflow(style: CSSStyleDeclaration): boolean {
+  if (paintContains(style)) return true;
   return [style.overflow, style.overflowX, style.overflowY].some(
     (v) => v !== '' && v !== 'visible',
   );
@@ -202,12 +238,14 @@ function overflowOn(style: CSSStyleDeclaration, axis: 'x' | 'y'): string {
 
 /** Any overflow but visible: the parent clips this axis (it may scroll). */
 function clipsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+  if (paintContains(style)) return true;
   const value = overflowOn(style, axis);
   return value !== '' && value !== 'visible';
 }
 
 /** hidden or clip: the parent clips this axis and the user cannot scroll it. */
 function cutsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+  if (paintContains(style)) return true;
   const value = overflowOn(style, axis);
   return value === 'hidden' || value === 'clip';
 }
@@ -256,7 +294,9 @@ function isVisuallyHidden(el: Element): boolean {
   const laidOut = hasLayout(box);
   const doc = el.ownerDocument;
   // An absolute box escapes the overflow of ancestors up to its containing
-  // block (the nearest positioned one); a fixed box escapes all of them.
+  // block (the nearest positioned one); a fixed box escapes all of them. A
+  // transform, filter, perspective, will-change or contain on an ancestor makes
+  // it the containing block for both.
   let escaping = escapeOf(style, 'none');
   for (
     let cur: Element | null = el.parentElement;
@@ -264,9 +304,11 @@ function isVisuallyHidden(el: Element): boolean {
     cur = cur.parentElement
   ) {
     const parent = view.getComputedStyle(cur);
-    const positioned = isPositioned(parent);
+    const block = makesContainingBlock(parent);
     const contained =
-      escaping === 'none' || (escaping === 'absolute' && positioned);
+      escaping === 'none' ||
+      block ||
+      (escaping === 'absolute' && isPositioned(parent));
     escaping = escapeOf(parent, contained ? 'none' : escaping);
     if (Number.parseFloat(parent.opacity) === 0) return true;
     if (isClipped(parent)) return true;

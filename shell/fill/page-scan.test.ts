@@ -1195,6 +1195,84 @@ describe('scanForm: fix round 1, parents, unrendered fields, form owners', () =>
     expect(fieldCount(doc)).toBe(0);
   });
 
+  it.each([
+    ['fixed', 'transform:translateZ(0)'],
+    ['fixed', 'filter:blur(0px)'],
+    ['fixed', 'will-change:transform'],
+    ['absolute', 'transform:translateZ(0)'],
+    ['absolute', 'contain:layout'],
+  ])(
+    'skips a %s field clipped by a wrapper that %s makes its containing block',
+    (position, rule) => {
+      const doc = parse(
+        `<form><div id="w" style="overflow:hidden;${rule}"><input type="text" id="t" style="position:${position}" /></div></form>`,
+      );
+      stubBox(doc, '#w', {
+        left: 0,
+        top: 100,
+        right: 300,
+        bottom: 130,
+        width: 300,
+        height: 30,
+      });
+      stubBox(doc, '#t', {
+        left: 0,
+        top: 300,
+        right: 200,
+        bottom: 320,
+        width: 200,
+        height: 20,
+      });
+      expect(fieldCount(doc)).toBe(0);
+    },
+  );
+
+  it('skips a field pushed out of a contain:paint wrapper', () => {
+    const doc = parse(
+      '<form><div id="w" style="contain:paint"><input type="text" id="t" style="margin-top:200px" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 130,
+      width: 300,
+      height: 30,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 300,
+      right: 200,
+      bottom: 320,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps a fixed field outside a plain clipping wrapper', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" style="position:fixed" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 130,
+      width: 300,
+      height: 30,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 300,
+      right: 200,
+      bottom: 320,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
   it('keeps an absolute field that escapes a tiny wrapper which is not its containing block', () => {
     const doc = parse(
       '<form><div id="w" style="overflow:hidden"><input type="text" id="t" style="position:absolute" /></div></form>',
