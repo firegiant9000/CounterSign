@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileValues, setProfileFieldOps } from './profile';
+import { PROFILE_FIELDS, profileValues, setProfileFieldOps } from './profile';
 import { emptySnapshot } from './schema';
 import type { Deps, ProfileField, Snapshot } from './types';
 
@@ -219,7 +219,69 @@ describe('setProfileFieldOps', () => {
   });
 });
 
+describe('PROFILE_FIELDS', () => {
+  it('has fourteen fields in order', () => {
+    expect(PROFILE_FIELDS.map((f) => f.key)).toEqual([
+      'full_name',
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+      'address_line1',
+      'address_line2',
+      'city',
+      'region',
+      'postal_code',
+      'country',
+      'linkedin',
+      'github',
+      'website',
+    ]);
+  });
+
+  it('saves last name with its label', () => {
+    expect(
+      setProfileFieldOps(emptySnapshot(), 'last_name', 'Example', deps()),
+    ).toEqual([
+      {
+        kind: 'put',
+        store: 'profileFields',
+        record: {
+          id: 'new1',
+          createdAt: NOW,
+          key: 'last_name',
+          label: 'Last name',
+          value: 'Example',
+        },
+      },
+    ]);
+  });
+});
+
 describe('profileValues', () => {
+  it('reads first and last name', () => {
+    const data = withFields(
+      {
+        id: 'p1',
+        createdAt: OLD,
+        key: 'first_name',
+        label: 'First name',
+        value: 'Sam',
+      },
+      {
+        id: 'p2',
+        createdAt: OLD,
+        key: 'last_name',
+        label: 'Last name',
+        value: 'Example',
+      },
+    );
+    expect(profileValues(data)).toEqual({
+      first_name: 'Sam',
+      last_name: 'Example',
+    });
+  });
+
   it('reads one value per known key', () => {
     const data = withFields(
       {

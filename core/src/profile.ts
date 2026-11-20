@@ -3,6 +3,8 @@ import type { Deps, Id, Snapshot } from './types';
 
 export const PROFILE_FIELDS = [
   { key: 'full_name', label: 'Full name' },
+  { key: 'first_name', label: 'First name' },
+  { key: 'last_name', label: 'Last name' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Phone' },
   { key: 'address_line1', label: 'Address line 1' },
