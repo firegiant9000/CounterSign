@@ -228,6 +228,58 @@ describe('toFormScan', () => {
     expect(scan?.fields[2]?.checked).toEqual([]);
   });
 
+  it('marks the options untrusted when a non-string option was dropped', () => {
+    const scan = toFormScan(
+      scanOf([
+        field({ ref: 0, control: 'select', options: ['Yes', 7, 'No'] }),
+        field({ ref: 1, control: 'select', options: ['Yes', 'No'] }),
+        field({ ref: 2, control: 'choice_group', options: [null, 'No'] }),
+      ]),
+    );
+    expect(scan?.fields[0]).toMatchObject({
+      options: ['Yes', 'No'],
+      optionsTruncated: true,
+    });
+    expect(scan?.fields[1]?.optionsTruncated).toBe(false);
+    expect(scan?.fields[2]).toMatchObject({
+      options: ['No'],
+      optionsTruncated: true,
+    });
+  });
+
+  it('drops a ref that is not a safe integer', () => {
+    const scan = toFormScan(scanOf([field({ ref: 1e300 }), field({ ref: 2 })]));
+    expect(scan?.fields.map((f) => f.ref)).toEqual([2]);
+    const result = toApplyResult({
+      outcomes: [
+        { ref: 1e300, outcome: 'written' },
+        { ref: 2, outcome: 'written' },
+      ],
+      scan: scanOf([]),
+    });
+    expect(result?.outcomes).toEqual([{ ref: 2, outcome: 'written' }]);
+  });
+
+  it('keeps optionsTruncated false on a control without options', () => {
+    const scan = toFormScan(
+      scanOf([field({ control: 'text', optionsTruncated: true })]),
+    );
+    expect(scan?.fields[0]?.optionsTruncated).toBe(false);
+  });
+
+  it('drops duplicate and out-of-range checked indexes', () => {
+    const scan = toFormScan(
+      scanOf([
+        field({
+          control: 'choice_group',
+          options: ['A', 'B'],
+          checked: [1, 1, -1, 0],
+        }),
+      ]),
+    );
+    expect(scan?.fields[0]?.checked).toEqual([1, 0]);
+  });
+
   it('treats a missing or non-array frames, options and checked as empty', () => {
     const scan = toFormScan({
       fields: [

@@ -42,15 +42,21 @@ const VALUE_CONTROLS: readonly ControlKind[] = [
 ];
 const OPTION_CONTROLS: readonly ControlKind[] = ['select', 'choice_group'];
 
+// `cut` is true when the list is not trustworthy as a whole: it was cut at
+// the cap, or a non-string entry was dropped (which shifts later indexes).
 function toOptions(raw: unknown): { options: string[]; cut: boolean } {
   const options: string[] = [];
   if (!Array.isArray(raw)) return { options, cut: false };
+  let dropped = false;
   for (const entry of raw as unknown[]) {
-    if (typeof entry !== 'string') continue;
+    if (typeof entry !== 'string') {
+      dropped = true;
+      continue;
+    }
     if (options.length === MAX_OPTIONS) return { options, cut: true };
     options.push(text(entry, MAX_LABEL));
   }
-  return { options, cut: false };
+  return { options, cut: dropped };
 }
 
 function toChecked(raw: unknown, optionCount: number): number[] {
@@ -72,7 +78,7 @@ function toChecked(raw: unknown, optionCount: number): number[] {
 function toField(raw: unknown): ScannedField | undefined {
   if (!isPlainObject(raw)) return undefined;
   const ref = raw.ref;
-  if (typeof ref !== 'number' || !Number.isInteger(ref) || ref < 0)
+  if (typeof ref !== 'number' || !Number.isSafeInteger(ref) || ref < 0)
     return undefined;
   const control = controlOf(raw.control);
   if (control === undefined) return undefined;
@@ -142,7 +148,8 @@ export function toApplyResult(raw: unknown): ApplyResult | undefined {
     if (
       !isPlainObject(entry) ||
       typeof entry.ref !== 'number' ||
-      !Number.isInteger(entry.ref)
+      !Number.isSafeInteger(entry.ref) ||
+      entry.ref < 0
     )
       continue;
     outcomes.push({ ref: entry.ref, outcome: outcomeOf(entry.outcome) });
