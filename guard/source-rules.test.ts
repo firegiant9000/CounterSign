@@ -489,6 +489,89 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
   });
+  const controllerRule = '@typescript-eslint/no-restricted-imports';
+  it.each([
+    [
+      "import { createFillController } from '../fill/controller';",
+      'shell/ui/FillSection.tsx',
+    ],
+    [
+      "import { createFillController } from '../../shell/fill/controller';",
+      'entrypoints/background.ts',
+    ],
+    [
+      "import { createFillController } from './controller.js';",
+      'shell/fill/other.ts',
+    ],
+    ["export * from './controller';", 'shell/fill/index.ts'],
+  ])('rejects the controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
+  });
+  it('rejects a dynamic import of the controller', async () => {
+    const found = await syntaxMessages(
+      "const m = await import('../fill/controller');",
+      'entrypoints/background.ts',
+    );
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/ui/Popup.tsx may import the fill controller.',
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    [
+      "import type { FillController } from '../fill/controller';",
+      'shell/ui/FillSection.tsx',
+    ],
+    [
+      "import { type FillState } from '../fill/controller';",
+      'shell/ui/fill-view.ts',
+    ],
+    [
+      "import { createFillController } from '../fill/controller';",
+      'shell/ui/Popup.tsx',
+    ],
+    [
+      "import { createFillController } from './controller';",
+      'shell/fill/controller.test.ts',
+    ],
+  ])('allows the controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  const fillNameMessage =
+    'Only shell/fill/inject.ts and entrypoints/fill.ts may name the fill script or its hook.';
+  it.each([
+    "browser.scripting.executeScript({ target: t, files: ['/fill.js'] });",
+    "const f = 'fill.js';",
+    'const f = `/fill.js`;',
+    "const n = '__countersignFill';",
+    'const h = globalThis.__countersignFill;',
+  ])('rejects the fill name in capture/inject.ts: %s', async (code) => {
+    const found = await syntaxMessages(code, 'shell/capture/inject.ts');
+    expect(found.some((m) => m.message === fillNameMessage)).toBe(true);
+  });
+  it.each([
+    'shell/ui/x.tsx',
+    'entrypoints/background.ts',
+    'shell/fill/page/x.ts',
+  ])('rejects the fill name in %s', async (file) => {
+    const found = await syntaxMessages("const f = '/fill.js';", file);
+    expect(found.some((m) => m.message === fillNameMessage)).toBe(true);
+  });
+  it.each(['shell/fill/inject.ts', 'entrypoints/fill.ts'])(
+    'allows the fill name in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        "const f = '/fill.js'; const h = globalThis.__countersignFill;",
+        file,
+      );
+      expect(found.some((m) => m.message === fillNameMessage)).toBe(false);
+    },
+  );
   const styleMessage = 'No inline styles: the CSP blocks them. Use a class.';
   it.each(['shell/ui/x.tsx', 'entrypoints/popup/x.tsx'])(
     'rejects a style prop in %s',
@@ -593,6 +676,41 @@ describe('fill page guard', { timeout: 60_000 }, () => {
     "el['insertAdjacentHTML']('beforeend', '');",
     "el['append'](x);",
     "el['appendChild'](x);",
+    'form.reset();',
+    'el.remove();',
+    'el.replaceChildren();',
+    'el.replaceWith(x);',
+    'el.prepend(x);',
+    'el.before(x);',
+    'el.after(x);',
+    'el.insertAdjacentElement(p, x);',
+    'el.insertBefore(x, y);',
+    'el.removeChild(x);',
+    'el.replaceChild(x, y);',
+    "el.addEventListener('input', f);",
+    "el.removeEventListener('input', f);",
+    "el.attachShadow({ mode: 'open' });",
+    "el.setAttributeNS(null, 'a', 'b');",
+    "el['reset']();",
+    "el.classList.add('x');",
+    "el.classList.remove('x');",
+    "el.classList.toggle('x');",
+    "el.classList.replace('x', 'y');",
+    "el['classList'].add('x');",
+    "el.style.setProperty('a', 'b');",
+    "el.style.removeProperty('a');",
+    "el.className = 'x';",
+    "el.id = 'x';",
+    "el.textContent = 'x';",
+    "el.textContent += 'x';",
+    "el.innerText = 'x';",
+    "el.outerText = 'x';",
+    "el.style = 'x';",
+    "el.style.cssText = 'x';",
+    "el.style.color = 'red';",
+    "el.style['color'] = 'red';",
+    "el['textContent'] = 'x';",
+    "el.classList.value = 'x';",
   ];
   describe.each(pageFiles)('in %s', (file) => {
     it.each(rejected)('rejects %s in the page script', async (code) => {
@@ -605,6 +723,13 @@ describe('fill page guard', { timeout: 60_000 }, () => {
       "setter.call(el, 'x');",
       "el.querySelectorAll('input');",
       'const submitted = 1;',
+      'const t = el.textContent;',
+      "const t = (el.textContent ?? '').trim();",
+      'const d = view.getComputedStyle(el).display;',
+      'const s = el.style;',
+      'const c = el.className;',
+      'const i = el.id;',
+      "const h = el.classList.contains('x');",
     ])('allows %s', async (code) => {
       const found = await syntaxMessages(code, file);
       expect(found.some((m) => m.message === fillMessage)).toBe(false);

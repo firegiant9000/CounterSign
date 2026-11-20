@@ -94,6 +94,11 @@ const applyImportSyntax = [
       'ImportExpression[source.value=/(^|\\/)fill\\/inject(\\.[jt]s)?$|^\\.\\/inject(\\.[jt]s)?$/]',
     message: 'Only shell/fill/controller.ts may import the fill apply call.',
   },
+  {
+    selector:
+      'ImportExpression[source.value=/(^|\\/)fill\\/controller(\\.[jt]s)?$|^\\.\\/controller(\\.[jt]s)?$/]',
+    message: 'Only shell/ui/Popup.tsx may import the fill controller.',
+  },
 ];
 // The fill page script runs inside the user's page. It reads fields and sets
 // their values, nothing else. Each part below is a named list so that
@@ -161,8 +166,65 @@ const fillDomSyntax = asFillSyntax(
     'insertAdjacentHTML',
     'append',
     'appendChild',
+    'setAttributeNS',
+    'removeAttributeNS',
+    'setAttributeNode',
+    'removeAttributeNode',
+    'insertAdjacentElement',
+    'insertBefore',
+    'removeChild',
+    'replaceChild',
+    'replaceChildren',
+    'replaceWith',
+    'prepend',
+    'before',
+    'after',
+    'remove',
+    'reset',
+    'addEventListener',
+    'removeEventListener',
+    'attachShadow',
   ]),
 );
+// classList and style are readable, but changing them is not.
+/**
+ * @param {string} object
+ * @param {string[]} names
+ */
+const objectCallSelectors = (object, names) => [
+  `CallExpression[callee.object.property.name='${object}'][callee.property.name=${callNames(names)}]`,
+  `CallExpression[callee.object.property.value='${object}'][callee.property.name=${callNames(names)}]`,
+  `CallExpression[callee.object.property.name='${object}'][callee.property.value=${callNames(names)}]`,
+  `CallExpression[callee.object.property.value='${object}'][callee.property.value=${callNames(names)}]`,
+];
+const ASSIGNED = [
+  'className',
+  'id',
+  'textContent',
+  'innerText',
+  'outerText',
+  'style',
+  'cssText',
+  'classList',
+];
+const fillMutationSyntax = asFillSyntax([
+  ...objectCallSelectors('classList', ['add', 'remove', 'toggle', 'replace']),
+  ...objectCallSelectors('style', ['setProperty', 'removeProperty']),
+  `AssignmentExpression[left.type='MemberExpression'][left.property.name=${callNames(ASSIGNED)}]`,
+  `AssignmentExpression[left.type='MemberExpression'][left.property.value=${callNames(ASSIGNED)}]`,
+  'AssignmentExpression[left.object.property.name=/^(style|classList)$/]',
+  'AssignmentExpression[left.object.property.value=/^(style|classList)$/]',
+]);
+// Only the injector and the page script's entry point may name the fill script
+// or its hook, so no other file can inject or call it.
+const FILL_NAME_MESSAGE =
+  'Only shell/fill/inject.ts and entrypoints/fill.ts may name the fill script or its hook.';
+const FILL_NAME = '/fill\\.js|__countersignFill/';
+const fillNameSyntax = [
+  `Literal[value=${FILL_NAME}]`,
+  `TemplateElement[value.cooked=${FILL_NAME}]`,
+  "Identifier[name='__countersignFill']",
+].map((selector) => ({ selector, message: FILL_NAME_MESSAGE }));
 const fillLeakSyntax = asFillSyntax([
   `Identifier[name=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
   // The Identifier selector already catches these by name, so a computed
@@ -203,6 +265,22 @@ export default defineConfig(
           ],
         },
       ],
+      // Value imports of the fill controller are Popup.tsx's alone; its
+      // default injector writes to the page. Type imports stay free.
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex:
+                '(^|/)fill/controller(\\.[jt]s)?$|^\\./controller(\\.[jt]s)?$',
+              allowTypeImports: true,
+              message:
+                'Only shell/ui/Popup.tsx may import the fill controller.',
+            },
+          ],
+        },
+      ],
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
@@ -211,6 +289,7 @@ export default defineConfig(
         ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
+        ...fillNameSyntax,
       ],
     },
   },
@@ -227,6 +306,7 @@ export default defineConfig(
         ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
+        ...fillNameSyntax,
         ...styleSyntax,
       ],
     },
@@ -244,6 +324,7 @@ export default defineConfig(
         ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
+        ...fillNameSyntax,
       ],
     },
   },
@@ -258,12 +339,27 @@ export default defineConfig(
         ...navigationSyntax,
         ...applyImportSyntax,
         ...scriptingSyntax,
+        ...fillNameSyntax,
       ],
     },
   },
-  // The two injectors may use both tabs and scripting.
+  // The two injectors may use both tabs and scripting. Only the fill injector
+  // may name the fill script and its hook.
   {
-    files: ['shell/capture/inject.ts', 'shell/fill/inject.ts'],
+    files: ['shell/capture/inject.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...fillNameSyntax,
+      ],
+    },
+  },
+  {
+    files: ['shell/fill/inject.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -279,9 +375,37 @@ export default defineConfig(
     files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
+  // Popup.tsx and the controller's own test may import the controller.
+  {
+    files: ['shell/ui/Popup.tsx', 'shell/fill/controller.test.ts'],
+    rules: { '@typescript-eslint/no-restricted-imports': 'off' },
+  },
   // The fill page script may only read fields and set their values.
   {
-    files: ['shell/fill/page/**', 'entrypoints/fill.ts'],
+    files: ['shell/fill/page/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
+        ...fillCallSyntax,
+        ...fillActionSyntax,
+        ...fillDispatchSyntax,
+        ...fillEventCtorSyntax,
+        ...fillDomSyntax,
+        ...fillMutationSyntax,
+        ...fillLeakSyntax,
+      ],
+    },
+  },
+  // entrypoints/fill.ts is the page script's entry point, so it names the hook.
+  {
+    files: ['entrypoints/fill.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -296,6 +420,7 @@ export default defineConfig(
         ...fillDispatchSyntax,
         ...fillEventCtorSyntax,
         ...fillDomSyntax,
+        ...fillMutationSyntax,
         ...fillLeakSyntax,
       ],
     },
@@ -314,9 +439,26 @@ export default defineConfig(
         ...scriptingSyntax,
         ...fillCallSyntax,
         ...fillActionSyntax,
+        ...fillNameSyntax,
         ...fillPlainEventCtorSyntax,
         ...fillDomSyntax,
+        ...fillMutationSyntax,
         ...fillLeakSyntax,
+      ],
+    },
+  },
+  // The guard tests and this file name the fill script to test and ban it.
+  {
+    files: ['guard/**', 'eslint.config.js'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
       ],
     },
   },
