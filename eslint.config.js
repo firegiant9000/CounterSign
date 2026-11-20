@@ -91,13 +91,18 @@ const styleSyntax = [
 const applyImportSyntax = [
   {
     selector:
-      'ImportExpression[source.value=/(^|\\/)fill\\/inject(\\.[jt]s)?$|^\\.\\/inject(\\.[jt]s)?$/]',
+      'ImportExpression[source.value=/(^|\\/)fill\\/inject(\\.[jt]s)?$|^(\\.\\.?\\/)+inject(\\.[jt]s)?$/]',
     message: 'Only shell/fill/controller.ts may import the fill apply call.',
   },
   {
     selector:
-      'ImportExpression[source.value=/(^|\\/)fill\\/controller(\\.[jt]s)?$|^\\.\\/controller(\\.[jt]s)?$/]',
+      'ImportExpression[source.value=/(^|\\/)fill\\/controller(\\.[jt]s)?$|^(\\.\\.?\\/)+controller(\\.[jt]s)?$/]',
     message: 'Only shell/ui/Popup.tsx may import the fill controller.',
+  },
+  // A template literal or variable has no source.value to match, so refuse it.
+  {
+    selector: "ImportExpression[source.type!='Literal']",
+    message: 'import() must use a plain string.',
   },
 ];
 // The fill page script runs inside the user's page. It reads fields and sets
@@ -261,12 +266,16 @@ const injectImport = {
 };
 const siblingInjectImport = {
   ...injectImport,
-  regex: '^\\./inject(\\.[jt]s)?$',
+  regex: '^(\\.\\.?/)+inject(\\.[jt]s)?$',
 };
 const controllerImport = {
   regex: '(^|/)fill/controller(\\.[jt]s)?$|^\\./controller(\\.[jt]s)?$',
   allowTypeImports: true,
   message: 'Only shell/ui/Popup.tsx may import the fill controller.',
+};
+const siblingControllerImport = {
+  ...controllerImport,
+  regex: '^(\\.\\.?/)+controller(\\.[jt]s)?$',
 };
 /** @param {object[]} patterns */
 const restrictImports = (...patterns) => ['error', { patterns }];
@@ -419,6 +428,7 @@ export default defineConfig(
         controllerImport,
         injectImport,
         siblingInjectImport,
+        siblingControllerImport,
       ),
     },
   },

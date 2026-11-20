@@ -551,6 +551,10 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     ["import { scanPage } from './inject';", 'shell/fill/other.ts'],
     ["import { FILL_TIMEOUT_MS } from '../fill/inject';", 'shell/ui/Popup.tsx'],
     ["import { scanPage } from './inject';", 'shell/fill/controller.test.ts'],
+    ["import { scanPage } from '../inject';", 'shell/fill/page/x.ts'],
+    ["import { scanPage } from '../../inject.js';", 'shell/fill/page/y/x.ts'],
+    ["import { scanPage } from '../../fill/inject';", 'shell/ui/x.ts'],
+    ["import { scanPage } from '../shell/fill/inject';", 'entrypoints/x.ts'],
   ])('rejects the injector import %s in %s', async (code, file) => {
     const found = await syntaxMessages(code, file);
     expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
@@ -567,9 +571,69 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
       'entrypoints/background.ts',
     ],
     ["import { openTab } from './inject';", 'shell/capture/other.ts'],
+    ["import type { ScanOutcome } from '../inject';", 'shell/fill/page/x.ts'],
   ])('allows the injector import %s in %s', async (code, file) => {
     const found = await syntaxMessages(code, file);
     expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  it.each([
+    [
+      "import { createFillController } from '../controller';",
+      'shell/fill/page/x.ts',
+    ],
+    ["export * from '../../controller.js';", 'shell/fill/page/y/x.ts'],
+  ])('rejects the parent controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
+  });
+  it('allows a type import of the controller from a fill subfolder', async () => {
+    const found = await syntaxMessages(
+      "import type { FillState } from '../controller';",
+      'shell/fill/page/x.ts',
+    );
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  it.each([
+    ["const m = await import('../inject');", 'shell/fill/page/x.ts'],
+    ["const m = await import('../../inject.js');", 'shell/fill/page/y/x.ts'],
+    ['const m = await import(`../fill/inject`);', 'shell/ui/x.ts'],
+    ['const m = await import(`../fill/controller`);', 'shell/ui/x.ts'],
+    ['const m = await import(x);', 'shell/ui/x.ts'],
+  ])('rejects the dynamic import %s in %s (new forms)', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+            'Only shell/fill/controller.ts may import the fill apply call.' ||
+          m.message ===
+            'Only shell/ui/Popup.tsx may import the fill controller.' ||
+          m.message === 'import() must use a plain string.',
+      ),
+    ).toBe(true);
+  });
+  it('rejects a dynamic parent controller import', async () => {
+    const found = await syntaxMessages(
+      "const m = await import('../controller');",
+      'shell/fill/page/x.ts',
+    );
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/ui/Popup.tsx may import the fill controller.',
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    [
+      'const m = await import(`../fill/inject`);',
+      'import() must use a plain string.',
+    ],
+    ['const m = await import(x);', 'import() must use a plain string.'],
+  ])('flags %s as a non-literal import', async (code, message) => {
+    const found = await syntaxMessages(code, 'shell/ui/x.ts');
+    expect(found.some((m) => m.message === message)).toBe(true);
   });
   const fillCallMessage =
     'Only the Fill button in shell/ui/FillSection.tsx may read fill() from the controller.';
