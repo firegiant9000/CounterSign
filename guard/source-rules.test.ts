@@ -582,6 +582,10 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
       'shell/fill/page/x.ts',
     ],
     ["export * from '../../controller.js';", 'shell/fill/page/y/x.ts'],
+    [
+      "import { createFillController } from '../controller';",
+      'shell/fill/inject.test.ts',
+    ],
   ])('rejects the parent controller import %s in %s', async (code, file) => {
     const found = await syntaxMessages(code, file);
     expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
@@ -645,6 +649,8 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     ['shell/ui/Popup.tsx', 'const { fill: go } = ctrl;'],
     ['shell/ui/Popup.tsx', 'const x = <button onClick={ctrl.fill} />;'],
     ['shell/ui/Popup.tsx', 'void ctrl.fill?.();'],
+    ['shell/ui/Popup.tsx', 'void ctrl[`fill`]();'],
+    ['shell/ui/Popup.tsx', 'const { [`fill`]: go } = ctrl;'],
     ['entrypoints/background.ts', 'void controller.fill();'],
   ])('rejects reading fill() in %s: %s', async (file, code) => {
     const found = await syntaxMessages(code, file);
@@ -675,6 +681,7 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     'shell/ui/x.tsx',
     'entrypoints/background.ts',
     'shell/fill/page/x.ts',
+    'guard/scan.ts',
   ])('rejects the fill name in %s', async (file) => {
     const found = await syntaxMessages("const f = '/fill.js';", file);
     expect(found.some((m) => m.message === fillNameMessage)).toBe(true);

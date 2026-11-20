@@ -256,6 +256,9 @@ const fillCallerSyntax = [
   "MemberExpression[property.value='fill']",
   "ObjectPattern > Property[key.name='fill']",
   "ObjectPattern > Property[key.value='fill']",
+  // A template key with no substitutions: ctrl[`fill`] and { [`fill`]: f }.
+  "MemberExpression[property.type='TemplateLiteral'][property.quasis.0.value.cooked='fill']",
+  "ObjectPattern > Property[key.type='TemplateLiteral'][key.quasis.0.value.cooked='fill']",
 ].map((selector) => ({ selector, message: FILL_CALL_MESSAGE }));
 // Module-wide import bans. The apply call is the controller's alone, and the
 // controller is Popup.tsx's alone. Type imports stay free.
@@ -437,8 +440,10 @@ export default defineConfig(
     files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
     rules: {
       'no-restricted-imports': 'off',
-      '@typescript-eslint/no-restricted-imports':
-        restrictImports(controllerImport),
+      '@typescript-eslint/no-restricted-imports': restrictImports(
+        controllerImport,
+        siblingControllerImport,
+      ),
     },
   },
   // Popup.tsx and the controller's own test may import the controller.
@@ -539,6 +544,22 @@ export default defineConfig(
         ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
+      ],
+    },
+  },
+  // guard/scan.ts is not a test, so it may not name the fill script either.
+  {
+    files: ['guard/scan.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
       ],
     },
   },
