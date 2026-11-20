@@ -1126,6 +1126,98 @@ describe('scanForm: fix round 1, parents, unrendered fields, form owners', () =>
     expect(fieldCount(doc)).toBe(1);
   });
 
+  it('skips a field pushed outside a large overflow:hidden wrapper', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" style="margin-top:200px" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 130,
+      width: 300,
+      height: 30,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 300,
+      right: 200,
+      bottom: 320,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips an absolute field pushed outside its positioned clipping wrapper', () => {
+    const doc = parse(
+      '<form><div id="w" style="position:relative;overflow:hidden"><input type="text" id="t" style="position:absolute" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 130,
+      width: 300,
+      height: 30,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 300,
+      right: 200,
+      bottom: 320,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips an absolute field clipped by a positioned grandparent it escapes to', () => {
+    const doc = parse(
+      '<form><div id="g" style="position:relative;overflow:hidden"><div id="w"><input type="text" id="t" style="position:absolute" /></div></div></form>',
+    );
+    stubBox(doc, '#g', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 130,
+      width: 300,
+      height: 30,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 300,
+      right: 200,
+      bottom: 320,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps an absolute field that escapes a tiny wrapper which is not its containing block', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" style="position:absolute" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 100,
+      right: 300,
+      bottom: 100,
+      width: 300,
+      height: 0,
+    });
+    stubBox(doc, '#t', {
+      left: 0,
+      top: 100,
+      right: 200,
+      bottom: 120,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
   it('skips a field in a laid-out 1px clipping wrapper away from it', () => {
     const doc = parse(
       '<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>',

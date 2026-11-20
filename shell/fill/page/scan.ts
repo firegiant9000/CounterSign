@@ -195,10 +195,34 @@ function clipsOverflow(style: CSSStyleDeclaration): boolean {
   );
 }
 
-function clipsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+function overflowOn(style: CSSStyleDeclaration, axis: 'x' | 'y'): string {
   const own = axis === 'x' ? style.overflowX : style.overflowY;
-  const value = own === '' ? style.overflow : own;
+  return own === '' ? style.overflow : own;
+}
+
+/** Any overflow but visible: the parent clips this axis (it may scroll). */
+function clipsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+  const value = overflowOn(style, axis);
   return value !== '' && value !== 'visible';
+}
+
+/** hidden or clip: the parent clips this axis and the user cannot scroll it. */
+function cutsAxis(style: CSSStyleDeclaration, axis: 'x' | 'y'): boolean {
+  const value = overflowOn(style, axis);
+  return value === 'hidden' || value === 'clip';
+}
+
+function isPositioned(style: CSSStyleDeclaration): boolean {
+  return style.position !== '' && style.position !== 'static';
+}
+
+type Escape = 'none' | 'absolute' | 'fixed';
+
+/** How far an element's box escapes ancestor overflow, given what it inherits from below. */
+function escapeOf(style: CSSStyleDeclaration, below: Escape): Escape {
+  if (below === 'fixed' || style.position === 'fixed') return 'fixed';
+  if (style.position === 'absolute') return 'absolute';
+  return below;
 }
 
 // contentVisibilityAuto is left off on purpose. The spec makes checkVisibility
@@ -229,32 +253,46 @@ function isVisuallyHidden(el: Element): boolean {
   const style = view.getComputedStyle(el);
   if (Number.parseFloat(style.opacity) === 0) return true;
   const box = el.getBoundingClientRect();
+  const laidOut = hasLayout(box);
   const doc = el.ownerDocument;
+  // An absolute box escapes the overflow of ancestors up to its containing
+  // block (the nearest positioned one); a fixed box escapes all of them.
+  let escaping = escapeOf(style, 'none');
   for (
     let cur: Element | null = el.parentElement;
     cur;
     cur = cur.parentElement
   ) {
     const parent = view.getComputedStyle(cur);
+    const positioned = isPositioned(parent);
+    const contained =
+      escaping === 'none' || (escaping === 'absolute' && positioned);
+    escaping = escapeOf(parent, contained ? 'none' : escaping);
     if (Number.parseFloat(parent.opacity) === 0) return true;
     if (isClipped(parent)) return true;
     // The root and body overflow propagates to the viewport and clips nothing;
     // inline and contents boxes ignore overflow.
     if (cur === doc.documentElement || cur === doc.body) continue;
     if (parent.display === 'inline' || parent.display === 'contents') continue;
-    if (!clipsOverflow(parent)) continue;
-    // A clipping parent hides the field only when it is 1px or less across the
-    // clipped axis. No intersection test: a scrolling box can be scrolled to,
-    // and a positioned field can escape a wrapper that is not its containing
-    // block. When the field has layout, the parent's box is real, so an
-    // all-zero box is a true 0x0 wrapper; without layout (tests), fall back to
-    // the computed size.
+    if (!contained || !clipsOverflow(parent)) continue;
+    // A clipping parent of 1px or less across a clipped axis hides the field.
+    // When the field has layout, the parent's box is real, so an all-zero box
+    // is a true 0x0 wrapper; without layout (tests), use the computed size.
     const parentBox = cur.getBoundingClientRect();
-    const laidOut = hasLayout(box);
     const narrow = laidOut ? parentBox.width <= 1 : isTinyPx(parent.width);
     const short = laidOut ? parentBox.height <= 1 : isTinyPx(parent.height);
     if (narrow && clipsAxis(parent, 'x')) return true;
     if (short && clipsAxis(parent, 'y')) return true;
+    // A parent that cannot be scrolled (hidden or clip) also hides a field
+    // pushed out of its box. auto and scroll are left out: the user can
+    // scroll to the field.
+    if (!laidOut || !hasLayout(parentBox)) continue;
+    const across =
+      Math.min(box.right, parentBox.right) - Math.max(box.left, parentBox.left);
+    const down =
+      Math.min(box.bottom, parentBox.bottom) - Math.max(box.top, parentBox.top);
+    if (across <= 1 && cutsAxis(parent, 'x')) return true;
+    if (down <= 1 && cutsAxis(parent, 'y')) return true;
   }
   if (isClipped(style, box)) return true;
   if (isTinyPx(style.width) || isTinyPx(style.height)) return true;
