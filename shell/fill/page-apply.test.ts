@@ -365,4 +365,89 @@ describe('applyWrites', () => {
     expect(attributeMap(doc)).toEqual(attributesBefore);
     expect(doc.activeElement).toBe(activeBefore);
   });
+
+  it('reports gone when the select options were replaced after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const auth = refOf(page, /authorized/);
+    const select = doc.querySelector('select') as HTMLSelectElement;
+    select.innerHTML =
+      '<option value="">Choose one</option><option value="yes">Yes</option>';
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: auth, outcome: 'gone' }]);
+    expect(select.selectedIndex).toBe(0);
+    expect(events).toEqual([]);
+  });
+
+  it('reports failed and fires nothing when the value did not take', () => {
+    const { doc, window, page } = parse(
+      '<form><label for="d">Start date</label><input id="d" type="date"></form>',
+    );
+    const events = record(doc);
+    const ref = refOf(page, /Start date/);
+    // happy-dom does not sanitise dates, so make the getter report what a browser would.
+    const proto = window.HTMLInputElement.prototype;
+    const original = Object.getOwnPropertyDescriptor(proto, 'value');
+    Object.defineProperty(proto, 'value', {
+      configurable: true,
+      get: () => '',
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      set: original?.set,
+    });
+    expect(
+      applyWrites(page.elements, [{ ref, kind: 'value', value: '2026-13-45' }]),
+    ).toEqual([{ ref, outcome: 'failed' }]);
+    if (original) Object.defineProperty(proto, 'value', original);
+    expect(events).toEqual([]);
+  });
+
+  it('reports written for a textarea value with CRLF line breaks', () => {
+    const { doc, page } = load('lever-like.html');
+    const ref = refOf(page, /Additional/);
+    expect(
+      applyWrites(page.elements, [
+        { ref, kind: 'value', value: 'one\r\ntwo\rthree' },
+      ]),
+    ).toEqual([{ ref, outcome: 'written' }]);
+    const stored = (doc.querySelector('textarea') as HTMLTextAreaElement).value;
+    expect(stored.replace(/\r\n?/g, '\n')).toBe('one\ntwo\nthree');
+  });
+
+  it('fails an option disabled after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const auth = refOf(page, /authorized/);
+    doc.querySelectorAll('option')[1]?.setAttribute('disabled', '');
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 0 }]),
+    ).toEqual([{ ref: auth, outcome: 'failed' }]);
+    expect((doc.querySelector('select') as HTMLSelectElement).value).toBe('');
+    expect(events).toEqual([]);
+  });
+
+  it('writes a select with nothing chosen', () => {
+    const { doc, page } = load('lever-like.html');
+    const auth = refOf(page, /authorized/);
+    const select = doc.querySelector('select') as HTMLSelectElement;
+    select.selectedIndex = -1;
+    expect(select.selectedIndex).toBe(-1);
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: auth, outcome: 'written' }]);
+    expect(select.options[select.selectedIndex]?.text).toBe('No');
+  });
+
+  it('leaves a checkbox group with one member checked alone', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const sponsor = refOf(page, /sponsorship/);
+    const boxes = doc.querySelectorAll('[name="sponsorship"]');
+    (boxes[0] as HTMLInputElement).checked = true;
+    expect(
+      applyWrites(page.elements, [{ ref: sponsor, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: sponsor, outcome: 'not_empty' }]);
+    expect((boxes[1] as HTMLInputElement).checked).toBe(false);
+    expect(events).toEqual([]);
+  });
 });

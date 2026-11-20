@@ -65,6 +65,23 @@ function protoSetter(
     Setter | undefined;
 }
 
+type Getter = (this: Element) => unknown;
+
+/** A property getter from the element's own window, or undefined. */
+function protoGetter(
+  el: Element,
+  ctor: 'HTMLInputElement' | 'HTMLTextAreaElement' | 'HTMLSelectElement',
+  property: 'value' | 'selectedIndex' | 'checked',
+): Getter | undefined {
+  const view = el.ownerDocument.defaultView;
+  const proto = view?.[ctor]?.prototype;
+  if (!proto) return undefined;
+  // The getter is always called with .call on the element.
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  return Object.getOwnPropertyDescriptor(proto, property)?.get as
+    Getter | undefined;
+}
+
 function applyOne(
   fe: FieldElements | undefined,
   write: Write,
@@ -83,7 +100,18 @@ function applyOne(
     );
     if (!setter) return 'failed';
     if ((el as HTMLInputElement).value !== '') return 'not_empty';
+    const ctor =
+      el.localName === 'textarea' ? 'HTMLTextAreaElement' : 'HTMLInputElement';
+    const getter = protoGetter(el, ctor, 'value');
+    if (!getter) return 'failed';
     setter.call(el, write.value as never);
+    // A browser may sanitise the value, and a text area stores line breaks as LF.
+    const stored = getter.call(el);
+    const expected =
+      control === 'textarea'
+        ? write.value.replace(/\r\n?/g, '\n')
+        : write.value;
+    if (stored !== write.value && stored !== expected) return 'failed';
     notifyChanged(el);
     return 'written';
   }
@@ -95,9 +123,12 @@ function applyOne(
     const option = fe.options[write.index];
     if (!option || option.localName !== 'option') return 'failed';
     if (isOptionDisabled(option)) return 'failed';
-    const setter = protoSetter(el, 'HTMLSelectElement', 'selectedIndex');
-    if (!setter) return 'failed';
     const select = el as HTMLSelectElement;
+    const optionIndex = (option as HTMLOptionElement).index;
+    if (select.options[optionIndex] !== option) return 'gone';
+    const setter = protoSetter(el, 'HTMLSelectElement', 'selectedIndex');
+    const getter = protoGetter(el, 'HTMLSelectElement', 'selectedIndex');
+    if (!setter || !getter) return 'failed';
     const chosen = select.options[select.selectedIndex];
     if (
       chosen &&
@@ -105,7 +136,8 @@ function applyOne(
     ) {
       return 'not_empty';
     }
-    setter.call(el, (option as HTMLOptionElement).index as never);
+    setter.call(el, optionIndex as never);
+    if (getter.call(el) !== optionIndex) return 'failed';
     notifyChanged(el);
     return 'written';
   }
@@ -118,12 +150,14 @@ function applyOne(
     if (isDisabled(member)) return 'failed';
     if (!member.isConnected) return 'gone';
     const setter = protoSetter(member, 'HTMLInputElement', 'checked');
-    if (!setter) return 'failed';
+    const getter = protoGetter(member, 'HTMLInputElement', 'checked');
+    if (!setter || !getter) return 'failed';
     const anyChecked = fe.options.some(
       (m) => (m as HTMLInputElement).checked === true,
     );
     if (anyChecked) return 'not_empty';
     setter.call(member, true as never);
+    if (getter.call(member) !== true) return 'failed';
     notifyChanged(member);
     return 'written';
   }
