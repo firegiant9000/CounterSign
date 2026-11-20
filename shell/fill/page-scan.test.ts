@@ -497,6 +497,206 @@ describe('scanForm: frames', () => {
   });
 });
 
+function labels(html: string): string[] {
+  return scanForm(parse(`<form>${html}</form>`)).scan.fields.map(
+    (f) => f.label,
+  );
+}
+
+describe('scanForm: fix round 1, skips', () => {
+  it('skips when any autocomplete token is blocked', () => {
+    expect(
+      labels(`
+      <input aria-label="a" autocomplete="current-password webauthn" />
+      <input aria-label="b" autocomplete="section-a cc-number webauthn" />
+      <input aria-label="c" autocomplete="ONE-TIME-CODE" />
+      <input aria-label="d" autocomplete="new-password webauthn" />
+      <input aria-label="e" autocomplete="section-a shipping given-name" />`),
+    ).toEqual(['e']);
+  });
+
+  it('still reports the last token as autocomplete', () => {
+    const doc = parse(
+      '<form><input aria-label="a" autocomplete="Section-A Shipping Given-Name" /></form>',
+    );
+    expect(scanForm(doc).scan.fields[0]?.autocomplete).toBe('given-name');
+  });
+
+  it('skips aria-hidden in any case or padding', () => {
+    expect(
+      labels(`
+      <input aria-label="a" aria-hidden="True" />
+      <input aria-label="b" aria-hidden=" TRUE " />
+      <input aria-label="c" aria-hidden="false" />`),
+    ).toEqual(['c']);
+  });
+
+  it('reads role tokens for combobox', () => {
+    const doc = parse(`<form>
+      <input aria-label="a" role="search combobox" />
+      <input aria-label="b" role="Combobox" />
+      <input aria-label="c" role="searchbox" />
+    </form>`);
+    expect(scanForm(doc).scan.fields.map((f) => f.control)).toEqual([
+      'custom',
+      'custom',
+      'text',
+    ]);
+  });
+
+  it('leaves out inputs of types the allow list lacks', () => {
+    expect(
+      labels(`
+      <input type="password" aria-label="a" />
+      <input type="submit" aria-label="b" value="Go" />
+      <input type="button" aria-label="c" value="Go" />
+      <input type="image" aria-label="d" />
+      <input type="reset" aria-label="e" />
+      <input type="search" aria-label="f" />
+      <input type="text" aria-label="g" />`),
+    ).toEqual(['g']);
+  });
+
+  it('does not trim the type attribute', () => {
+    expect(
+      labels(`
+      <input type=" radio" name="r" aria-label="a" />
+      <input type=" password" aria-label="b" />
+      <input type="text" aria-label="c" />`),
+    ).toEqual(['c']);
+  });
+
+  it('keeps a file input under a display:none ancestor', () => {
+    const { scan } = scanForm(
+      parse(
+        '<form><div style="display:none"><input type="file" aria-label="Resume" /></div></form>',
+      ),
+    );
+    expect(scan.fields.map((f) => f.control)).toEqual(['file']);
+  });
+});
+
+describe('scanForm: fix round 1, defaults', () => {
+  it('pins values for custom, file and date', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input role="combobox" aria-label="a" value="typed" />
+        <input type="file" aria-label="b" />
+        <input type="date" aria-label="c" value="2026-12-01" />
+      </form>`),
+    );
+    expect(scan.fields.map((f) => [f.control, f.value])).toEqual([
+      ['custom', ''],
+      ['file', ''],
+      ['date', '2026-12-01'],
+    ]);
+    expect(toFormScan(scan)).toEqual(scan);
+  });
+
+  it('trims again after cutting a value', () => {
+    const value = `${'x'.repeat(499)} y`;
+    const { scan } = scanForm(
+      parse(`<form><input aria-label="a" value="${value}" /></form>`),
+    );
+    expect(scan.fields[0]?.value).toBe('x'.repeat(499));
+    expect(toFormScan(scan)).toEqual(scan);
+  });
+});
+
+describe('scanForm: fix round 1, groups and options', () => {
+  it('cuts a 60 member checkbox group at 50', () => {
+    const members = Array.from(
+      { length: 60 },
+      (_, i) => `<input type="checkbox" name="g" value="v${i}" />`,
+    ).join('');
+    const { scan, elements } = scanForm(parse(`<form>${members}</form>`));
+    expect(scan.fields).toHaveLength(1);
+    expect(scan.fields[0]?.options).toHaveLength(50);
+    expect(scan.fields[0]?.optionsTruncated).toBe(true);
+    expect(elements[0]?.options).toHaveLength(50);
+    expect(toFormScan(scan)).toEqual(scan);
+  });
+
+  it('lists every checked radio', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" checked />
+        <input type="radio" name="r" value="b" />
+        <input type="radio" name="r" value="c" checked />
+      </form>`),
+    );
+    expect(scan.fields[0]?.checked).toEqual([0, 2]);
+  });
+
+  it('makes two groups of a radio and a checkbox sharing a name', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="radio" name="x" value="a" />
+        <input type="checkbox" name="x" value="b" />
+        <input type="radio" name="x" value="c" />
+      </form>`),
+    );
+    expect(scan.fields).toHaveLength(2);
+    expect(scan.fields.map((f) => f.options)).toEqual([['a', 'c'], ['b']]);
+    expect(scan.fields.map((f) => f.multiple)).toEqual([false, true]);
+  });
+
+  it('leaves a disabled member out of the options', () => {
+    const { scan, elements } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" disabled />
+        <input type="radio" name="r" value="c" />
+      </form>`),
+    );
+    expect(scan.fields[0]?.options).toEqual(['a', 'c']);
+    expect(elements[0]?.options).toHaveLength(2);
+  });
+
+  it('requires the group when any member is required', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="checkbox" name="c" value="a" />
+        <input type="checkbox" name="c" value="b" required />
+      </form>`),
+    );
+    expect(scan.fields[0]?.required).toBe(true);
+  });
+
+  it('cuts a select with a placeholder and 60 options at 50', () => {
+    const options = Array.from(
+      { length: 60 },
+      (_, i) => `<option value="v${i}">Option ${i}</option>`,
+    ).join('');
+    const { scan, elements } = scanForm(
+      parse(
+        `<form><select aria-label="s"><option value="">Choose</option>${options}</select></form>`,
+      ),
+    );
+    const field = scan.fields[0];
+    expect(field?.options).toHaveLength(50);
+    expect(field?.options[0]).toBe('Option 0');
+    expect(field?.optionsTruncated).toBe(true);
+    expect(elements[0]?.options).toHaveLength(50);
+  });
+
+  it('leaves disabled options and disabled optgroups out of both lists', () => {
+    const { scan, elements } = scanForm(
+      parse(`<form><select aria-label="s">
+        <option value="">Choose</option>
+        <option value="a">Alpha</option>
+        <option value="b" disabled>Beta</option>
+        <optgroup label="g" disabled><option value="c">Gamma</option></optgroup>
+        <optgroup label="h"><option value="d">Delta</option></optgroup>
+      </select></form>`),
+    );
+    expect(scan.fields[0]?.options).toEqual(['Alpha', 'Delta']);
+    expect(
+      elements[0]?.options.map((o) => (o as HTMLOptionElement).text),
+    ).toEqual(['Alpha', 'Delta']);
+  });
+});
+
 describe('scanForm: validation', () => {
   it.each(FIXTURES)('%s passes toFormScan unchanged', (name) => {
     const { scan } = scanForm(load(name));

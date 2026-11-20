@@ -5,6 +5,7 @@ import {
   MAX_FIELDS,
   MAX_FRAMES,
   MAX_FRAME_SRC,
+  MAX_LABEL,
   MAX_OPTIONS,
   MAX_VALUE,
   type ControlKind,
@@ -27,8 +28,6 @@ export interface PageScan {
   elements: FieldElements[];
 }
 
-const MAX_OPTION_TEXT = 300;
-
 const INPUT_TYPES = new Set([
   '',
   'text',
@@ -49,7 +48,7 @@ const AUTOFILL_BLOCKED = new Set([
 ]);
 
 function inputType(el: Element): string {
-  return (el.getAttribute('type') ?? '').trim().toLowerCase();
+  return (el.getAttribute('type') ?? '').toLowerCase();
 }
 
 function isAllowed(el: Element): boolean {
@@ -64,20 +63,35 @@ function isAllowed(el: Element): boolean {
   }
 }
 
+function tokensOf(raw: string | null): string[] {
+  return (raw ?? '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t !== '');
+}
+
 function lastToken(raw: string | null): string {
-  const tokens = (raw ?? '').trim().toLowerCase().split(/\s+/);
+  const tokens = tokensOf(raw);
   return (tokens[tokens.length - 1] ?? '').slice(0, MAX_AUTOCOMPLETE);
 }
 
 function cut(text: string, max: number): string {
-  return text.trim().slice(0, max);
+  return text.trim().slice(0, max).trim();
+}
+
+function isOptionDisabled(option: Element): boolean {
+  return (
+    option.hasAttribute('disabled') ||
+    option.closest('optgroup[disabled]') !== null
+  );
 }
 
 function isHiddenByAttribute(el: Element): boolean {
   return (
     el.hasAttribute('hidden') ||
     el.hasAttribute('inert') ||
-    el.getAttribute('aria-hidden') === 'true'
+    (el.getAttribute('aria-hidden') ?? '').trim().toLowerCase() === 'true'
   );
 }
 
@@ -105,8 +119,10 @@ function isDisabled(el: Element): boolean {
 
 function isSkipped(el: Element): boolean {
   if (isDisabled(el) || el.hasAttribute('readonly')) return true;
-  const token = lastToken(el.getAttribute('autocomplete'));
-  if (AUTOFILL_BLOCKED.has(token) || token.startsWith('cc-')) return true;
+  const blocked = tokensOf(el.getAttribute('autocomplete')).some(
+    (token) => AUTOFILL_BLOCKED.has(token) || token.startsWith('cc-'),
+  );
+  if (blocked) return true;
   return isHidden(el);
 }
 
@@ -115,7 +131,7 @@ function isCandidate(el: Element): boolean {
 }
 
 function isCustom(el: Element): boolean {
-  if (el.getAttribute('role') === 'combobox') return true;
+  if (tokensOf(el.getAttribute('role')).includes('combobox')) return true;
   const popup = el.getAttribute('aria-haspopup');
   if (popup !== null && popup !== 'false') return true;
   const auto = el.getAttribute('aria-autocomplete');
@@ -162,6 +178,7 @@ function buildSelect(el: HTMLSelectElement): Built {
   const kept: HTMLOptionElement[] = [];
   let truncated = false;
   all.forEach((option, index) => {
+    if (isOptionDisabled(option)) return;
     if (isPlaceholderOption(option.text, option.value, index)) return;
     if (kept.length >= MAX_OPTIONS) {
       truncated = true;
@@ -181,7 +198,7 @@ function buildSelect(el: HTMLSelectElement): Built {
       autocomplete: lastToken(el.getAttribute('autocomplete')),
       required: isRequired(el),
       value,
-      options: kept.map((o) => cut(o.text, MAX_OPTION_TEXT)),
+      options: kept.map((o) => cut(o.text, MAX_LABEL)),
       checked: [],
       multiple: el.multiple,
       optionsTruncated: truncated,
@@ -196,7 +213,7 @@ function buildGroup(members: HTMLInputElement[]): Built {
   const options = kept.map((member) =>
     cut(
       fieldLabel(member, isCandidate) || (member.getAttribute('value') ?? ''),
-      MAX_OPTION_TEXT,
+      MAX_LABEL,
     ),
   );
   const checked: number[] = [];
