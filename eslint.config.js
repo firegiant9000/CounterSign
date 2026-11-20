@@ -65,14 +65,16 @@ const navigationSyntax = [
   `AssignmentExpression[left.property.name='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
   `AssignmentExpression[left.property.value='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
 ].map((selector) => ({ selector, message: NAVIGATION_MESSAGE }));
-// Reading tabs and injecting scripts are confined to two shell files.
-const TABS_MESSAGE = 'Use tabs only in open-dashboard.ts or capture/inject.ts.';
+// Reading tabs and injecting scripts are confined to three shell files.
+const TABS_MESSAGE =
+  'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.';
 const tabsSyntax = [
   "MemberExpression[property.name='tabs']",
   "MemberExpression[property.value='tabs']",
   "Property[key.name='tabs']",
 ].map((selector) => ({ selector, message: TABS_MESSAGE }));
-const SCRIPTING_MESSAGE = 'Inject only through shell/capture/inject.ts.';
+const SCRIPTING_MESSAGE =
+  'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
 const scriptingSyntax = [
   "MemberExpression[property.name='scripting']",
   "MemberExpression[property.value='scripting']",
@@ -102,6 +104,21 @@ export default defineConfig(
     rules: {
       'no-restricted-globals': ['error', ...networkGlobals],
       'no-restricted-properties': ['error', ...networkProperties],
+      // The apply call writes into the user's page, so only the controller
+      // (and the injector's own test) may import it.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)fill/inject$|^\\./inject$',
+              importNames: ['applyToPage', 'browserFillApi'],
+              message:
+                'Only shell/fill/controller.ts may import the fill apply call.',
+            },
+          ],
+        },
+      ],
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
@@ -156,9 +173,9 @@ export default defineConfig(
       ],
     },
   },
-  // capture/inject.ts may use both tabs and scripting.
+  // The two injectors may use both tabs and scripting.
   {
-    files: ['shell/capture/inject.ts'],
+    files: ['shell/capture/inject.ts', 'shell/fill/inject.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -167,6 +184,11 @@ export default defineConfig(
         ...navigationSyntax,
       ],
     },
+  },
+  // The controller and the injector's test may import the apply call.
+  {
+    files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   // core/ is framework-free: no framework, storage or browser access.
   {

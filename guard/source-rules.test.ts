@@ -254,10 +254,12 @@ describe('download guard', { timeout: 60_000 }, () => {
 describe('navigation and injection guard', { timeout: 60_000 }, () => {
   const navMessage = 'Countersign never navigates away or opens windows.';
   const tabsMessage =
-    'Use tabs only in open-dashboard.ts or capture/inject.ts.';
-  const scriptingMessage = 'Inject only through shell/capture/inject.ts.';
+    'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.';
+  const scriptingMessage =
+    'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
   const dashboard = 'shell/open-dashboard.ts';
   const inject = 'shell/capture/inject.ts';
+  const fillInject = 'shell/fill/inject.ts';
   const save = "browser.downloads.download({ url: 'blob:x' });";
   // Probe paths such as shell/ui/x.tsx and shell/capture/inject.ts do not exist
   // on disk, so type-aware parsing would fail. Switch type information off;
@@ -321,27 +323,38 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     const found = await syntaxMessages(code, 'shell/ui/x.tsx');
     expect(found.some((m) => m.message === tabsMessage)).toBe(true);
   });
-  it.each([dashboard, inject])('allows tabs access in %s', async (file) => {
-    const found = await syntaxMessages('browser.tabs.query({});', file);
-    expect(found.some((m) => m.message === tabsMessage)).toBe(false);
-  });
+  it.each([dashboard, inject, fillInject])(
+    'allows tabs access in %s',
+    async (file) => {
+      const found = await syntaxMessages('browser.tabs.query({});', file);
+      expect(found.some((m) => m.message === tabsMessage)).toBe(false);
+    },
+  );
   it.each([
     'browser.scripting.executeScript({});',
     "browser['scripting'].executeScript({});",
     'const { scripting } = browser;',
   ])('rejects scripting access %s outside inject.ts', async (code) => {
-    for (const file of ['shell/ui/x.tsx', dashboard]) {
+    for (const file of [
+      'shell/ui/x.tsx',
+      dashboard,
+      'shell/fill/controller.ts',
+      'shell/fill/page/scan.ts',
+    ]) {
       const found = await syntaxMessages(code, file);
       expect(found.some((m) => m.message === scriptingMessage)).toBe(true);
     }
   });
-  it('allows scripting access in inject.ts', async () => {
-    const found = await syntaxMessages(
-      'browser.scripting.executeScript({});',
-      inject,
-    );
-    expect(found.some((m) => m.message === scriptingMessage)).toBe(false);
-  });
+  it.each([inject, fillInject])(
+    'allows scripting access in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        'browser.scripting.executeScript({});',
+        file,
+      );
+      expect(found.some((m) => m.message === scriptingMessage)).toBe(false);
+    },
+  );
   it('rejects tabs access in the download wrapper', async () => {
     const found = await syntaxMessages(
       'browser.tabs.query({});',
@@ -349,7 +362,7 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.message === tabsMessage)).toBe(true);
   });
-  it.each([dashboard, inject])(
+  it.each([dashboard, inject, fillInject])(
     'keeps the download, network and navigation rules in %s',
     async (file) => {
       for (const [code, message] of [
@@ -371,6 +384,35 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
       'core/src/status.ts',
     );
     expect(found.some((m) => m.message === navMessage)).toBe(true);
+  });
+  it.each([
+    [
+      "import { applyToPage } from '../fill/inject';",
+      'shell/ui/FillSection.tsx',
+    ],
+    ["import { applyToPage } from './inject';", 'shell/fill/other.ts'],
+    ["import { browserFillApi } from '../fill/inject';", 'shell/ui/Popup.tsx'],
+    ["import * as inject from '../fill/inject';", 'shell/ui/x.tsx'],
+    ["export { applyToPage } from './inject';", 'shell/fill/index.ts'],
+  ])('rejects the apply import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
+  });
+  it.each([
+    ["import { applyToPage } from './inject';", 'shell/fill/controller.ts'],
+    ["import { applyToPage } from './inject';", 'shell/fill/inject.test.ts'],
+    ["import type { ScanOutcome } from '../fill/inject';", 'shell/ui/x.tsx'],
+    ["import { scanPage } from './inject';", 'shell/fill/other.ts'],
+  ])('allows the import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(false);
+  });
+  it('still rejects shell imports in core/', async () => {
+    const found = await syntaxMessages(
+      "import { x } from '../../shell/fill/inject';",
+      'core/src/status.ts',
+    );
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
   });
   const styleMessage = 'No inline styles: the CSP blocks them. Use a class.';
   it.each(['shell/ui/x.tsx', 'entrypoints/popup/x.tsx'])(
