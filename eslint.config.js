@@ -65,14 +65,16 @@ const navigationSyntax = [
   `AssignmentExpression[left.property.name='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
   `AssignmentExpression[left.property.value='href'][left.object.property.name='location'][left.object.object.name=${GLOBAL_OBJECTS}]`,
 ].map((selector) => ({ selector, message: NAVIGATION_MESSAGE }));
-// Reading tabs and injecting scripts are confined to two shell files.
-const TABS_MESSAGE = 'Use tabs only in open-dashboard.ts or capture/inject.ts.';
+// Reading tabs and injecting scripts are confined to three shell files.
+const TABS_MESSAGE =
+  'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.';
 const tabsSyntax = [
   "MemberExpression[property.name='tabs']",
   "MemberExpression[property.value='tabs']",
   "Property[key.name='tabs']",
 ].map((selector) => ({ selector, message: TABS_MESSAGE }));
-const SCRIPTING_MESSAGE = 'Inject only through shell/capture/inject.ts.';
+const SCRIPTING_MESSAGE =
+  'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
 const scriptingSyntax = [
   "MemberExpression[property.name='scripting']",
   "MemberExpression[property.value='scripting']",
@@ -84,6 +86,90 @@ const STYLE_MESSAGE = 'No inline styles: the CSP blocks them. Use a class.';
 const styleSyntax = [
   { selector: "JSXAttribute[name.name='style']", message: STYLE_MESSAGE },
 ];
+// no-restricted-imports cannot see import(), so a dynamic import of the fill
+// apply call is caught here. It applies to every file, controller.ts included.
+const applyImportSyntax = [
+  {
+    selector:
+      'ImportExpression[source.value=/(^|\\/)fill\\/inject(\\.[jt]s)?$|^\\.\\/inject(\\.[jt]s)?$/]',
+    message: 'Only shell/fill/controller.ts may import the fill apply call.',
+  },
+];
+// The fill page script runs inside the user's page. It reads fields and sets
+// their values, nothing else. Each part below is a named list so that
+// shell/fill/page/events.ts can drop exactly the dispatch and constructor
+// selectors it needs to change.
+const FILL_PAGE_MESSAGE =
+  'The fill page script only reads fields and sets their values.';
+/** @param {string[]} names */
+const callNames = (names) => `/^(${names.join('|')})$/`;
+/** @param {string[]} names */
+const callSelectors = (names) => [
+  `CallExpression[callee.property.name=${callNames(names)}]`,
+  `CallExpression[callee.property.value=${callNames(names)}]`,
+];
+/** @param {string[]} names */
+const memberSelectors = (names) => [
+  `MemberExpression[property.name=${callNames(names)}]`,
+  `MemberExpression[property.value=${callNames(names)}]`,
+];
+/** @param {string[]} selectors */
+const asFillSyntax = (selectors) =>
+  selectors.map((selector) => ({ selector, message: FILL_PAGE_MESSAGE }));
+const fillCallSyntax = asFillSyntax(
+  callSelectors(['createEvent', 'execCommand']),
+);
+// Plain member access is banned, not just calls, so el.focus.call(el),
+// Reflect.apply(el.focus, ...) and const f = el.scrollIntoView are caught too.
+const fillActionSyntax = asFillSyntax(
+  memberSelectors([
+    'submit',
+    'requestSubmit',
+    'click',
+    'focus',
+    'blur',
+    'scrollIntoView',
+  ]),
+);
+const fillDispatchSyntax = asFillSyntax(memberSelectors(['dispatchEvent']));
+/** @param {string} pattern */
+const eventCtorSelectors = (pattern) => [
+  `NewExpression[callee.name=${pattern}]`,
+  `NewExpression[callee.property.name=${pattern}]`,
+  `NewExpression[callee.property.value=${pattern}]`,
+];
+const fillEventCtorSyntax = asFillSyntax(eventCtorSelectors('/Event$/'));
+// events.ts: every name longer than Event stays banned, and a plain Event is
+// banned unless its first argument is the literal 'input' or 'change'.
+const notInputOrChange =
+  ":not([arguments.0.type='Literal'][arguments.0.value=/^(input|change)$/])";
+const fillPlainEventCtorSyntax = asFillSyntax([
+  ...eventCtorSelectors('/.+Event$/'),
+  `NewExpression[callee.name='Event']${notInputOrChange}`,
+  `NewExpression[callee.property.name='Event']${notInputOrChange}`,
+  `NewExpression[callee.property.value='Event']${notInputOrChange}`,
+]);
+const fillDomSyntax = asFillSyntax(
+  memberSelectors([
+    'createElement',
+    'setAttribute',
+    'removeAttribute',
+    'toggleAttribute',
+    'dataset',
+    'innerHTML',
+    'outerHTML',
+    'insertAdjacentHTML',
+    'append',
+    'appendChild',
+  ]),
+);
+const fillLeakSyntax = asFillSyntax([
+  `Identifier[name=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
+  // The Identifier selector already catches these by name, so a computed
+  // string is the only member form left to add.
+  `MemberExpression[property.value=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
+  ...memberSelectors(['cookie']),
+]);
 
 export default defineConfig(
   {
@@ -102,11 +188,27 @@ export default defineConfig(
     rules: {
       'no-restricted-globals': ['error', ...networkGlobals],
       'no-restricted-properties': ['error', ...networkProperties],
+      // The apply call writes into the user's page, so only the controller
+      // (and the injector's own test) may import it.
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '(^|/)fill/inject(\\.[jt]s)?$|^\\./inject(\\.[jt]s)?$',
+              importNames: ['applyToPage', 'browserFillApi'],
+              message:
+                'Only shell/fill/controller.ts may import the fill apply call.',
+            },
+          ],
+        },
+      ],
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
       ],
@@ -122,6 +224,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...styleSyntax,
@@ -138,6 +241,7 @@ export default defineConfig(
         'error',
         ...networkSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
       ],
@@ -152,19 +256,67 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...scriptingSyntax,
       ],
     },
   },
-  // capture/inject.ts may use both tabs and scripting.
+  // The two injectors may use both tabs and scripting.
   {
-    files: ['shell/capture/inject.ts'],
+    files: ['shell/capture/inject.ts', 'shell/fill/inject.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
+      ],
+    },
+  },
+  // The controller and the injector's test may import the apply call.
+  {
+    files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  // The fill page script may only read fields and set their values.
+  {
+    files: ['shell/fill/page/**', 'entrypoints/fill.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillCallSyntax,
+        ...fillActionSyntax,
+        ...fillDispatchSyntax,
+        ...fillEventCtorSyntax,
+        ...fillDomSyntax,
+        ...fillLeakSyntax,
+      ],
+    },
+  },
+  // events.ts alone may dispatch an event, and only a plain Event.
+  {
+    files: ['shell/fill/page/events.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillCallSyntax,
+        ...fillActionSyntax,
+        ...fillPlainEventCtorSyntax,
+        ...fillDomSyntax,
+        ...fillLeakSyntax,
       ],
     },
   },
