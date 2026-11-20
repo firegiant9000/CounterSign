@@ -516,4 +516,116 @@ describe('createFillController', () => {
     controller.refresh();
     expect(heard).toHaveLength(3);
   });
+
+  it('keeps the result when the plan rebuild throws after the apply', async () => {
+    let calls = 0;
+    const { controller } = setup(undefined, {
+      input: () => {
+        calls += 1;
+        if (calls > 1) throw new Error('boom');
+        return FULL;
+      },
+      apply: () =>
+        Promise.resolve(
+          okApply(
+            [
+              { ref: 1, outcome: 'written' },
+              { ref: 2, outcome: 'written' },
+              { ref: 3, outcome: 'gone' },
+            ],
+            threeFields(),
+          ),
+        ),
+    });
+    await controller.start();
+    const result = await controller.fill();
+
+    expect(result?.rows.map((r) => r.outcome)).toEqual([
+      'written',
+      'written',
+      'gone',
+    ]);
+    const state = ready(controller.state());
+    expect(state.filled).toBe(2);
+    expect(state.failed.map((r) => r.ref)).toEqual([3]);
+    expect(state.plan.writes).toEqual([]);
+    expect(state.busy).toBe(false);
+  });
+
+  it('start resolves and hides when input throws', async () => {
+    const { controller } = setup(undefined, {
+      input: () => {
+        throw new Error('boom');
+      },
+    });
+    await expect(controller.start()).resolves.toBeUndefined();
+    expect(controller.state()).toEqual({ status: 'hidden' });
+  });
+
+  it('refresh leaves the state unchanged when input throws', async () => {
+    let broken = false;
+    const { controller } = setup(undefined, {
+      input: () => {
+        if (broken) throw new Error('boom');
+        return FULL;
+      },
+    });
+    await controller.start();
+    const before = controller.state();
+    const heard = vi.fn();
+    controller.subscribe(heard);
+
+    broken = true;
+    expect(() => controller.refresh()).not.toThrow();
+
+    expect(controller.state()).toBe(before);
+    expect(heard).not.toHaveBeenCalled();
+  });
+
+  it('a failed second apply keeps the first fill counts', async () => {
+    let n = 0;
+    const { controller } = setup(undefined, {
+      apply: () => {
+        n += 1;
+        return Promise.resolve(
+          n === 1
+            ? okApply([{ ref: 1, outcome: 'written' }], threeFields())
+            : { ok: false },
+        );
+      },
+    });
+    await controller.start();
+    await controller.fill();
+    const first = ready(controller.state());
+    expect(first.filled).toBe(1);
+    expect(first.failed).toHaveLength(2);
+
+    expect(await controller.fill()).toBeUndefined();
+
+    const state = ready(controller.state());
+    expect(state.applyFailed).toBe(true);
+    expect(state.filled).toBe(1);
+    expect(state.failed).toEqual(first.failed);
+    expect(state.plan).toBe(first.plan);
+    expect(state.busy).toBe(false);
+  });
+
+  it('counts one will_fill row once when its ref is reported twice as written', async () => {
+    const one = scanOf([field(1, { label: 'Email' })]);
+    const { controller } = setup(okScan(one), {
+      apply: () =>
+        Promise.resolve(
+          okApply(
+            [
+              { ref: 1, outcome: 'written' },
+              { ref: 1, outcome: 'written' },
+            ],
+            one,
+          ),
+        ),
+    });
+    await controller.start();
+    await controller.fill();
+    expect(ready(controller.state()).filled).toBe(1);
+  });
 });

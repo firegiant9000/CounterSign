@@ -83,7 +83,13 @@ export function createFillController(options: {
     tabId = outcome.tabId;
     tabUrl = outcome.url;
     lastScan = outcome.scan;
-    const plan = buildPlan(outcome.scan, options.input());
+    let plan: FillPlan;
+    try {
+      plan = buildPlan(outcome.scan, options.input());
+    } catch {
+      set({ status: 'hidden' });
+      return;
+    }
     const recognised = plan.rows.some((row) => row.target !== undefined);
     if (!recognised && outcome.scan.frames.length === 0) {
       set({ status: 'hidden' });
@@ -96,7 +102,13 @@ export function createFillController(options: {
     if (state.status !== 'ready' || state.busy || lastScan === undefined) {
       return;
     }
-    set({ ...state, plan: buildPlan(lastScan, options.input()) });
+    let plan: FillPlan;
+    try {
+      plan = buildPlan(lastScan, options.input());
+    } catch {
+      return;
+    }
+    set({ ...state, plan });
   }
 
   async function fill(): Promise<FillResult | undefined> {
@@ -114,13 +126,9 @@ export function createFillController(options: {
         outcome = { ok: false };
       }
       if (!outcome.ok) {
-        set({
-          status: 'ready',
-          plan: applied,
-          busy: false,
-          failed: [],
-          applyFailed: true,
-        });
+        if (state.status === 'ready') {
+          set({ ...state, busy: false, applyFailed: true });
+        }
         return undefined;
       }
 
@@ -140,22 +148,31 @@ export function createFillController(options: {
         }
       }
 
-      lastScan = scan;
-      set({
-        status: 'ready',
-        plan: buildPlan(scan, options.input()),
-        busy: false,
-        filled,
-        failed,
-        applyFailed: false,
-      });
-      return buildFillResult({
+      const result = buildFillResult({
         tabUrl,
         relCanonical: options.relCanonical?.(),
         at: options.now(),
         plan: applied,
         outcomes,
       });
+
+      lastScan = scan;
+      let plan: FillPlan;
+      try {
+        plan = buildPlan(scan, options.input());
+      } catch {
+        // No fresh plan: keep the applied one but with nothing left to write.
+        plan = { ...applied, writes: [] };
+      }
+      set({
+        status: 'ready',
+        plan,
+        busy: false,
+        filled,
+        failed,
+        applyFailed: false,
+      });
+      return result;
     } finally {
       if (state.status === 'ready' && state.busy) {
         set({ ...state, busy: false });
