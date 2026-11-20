@@ -5,6 +5,8 @@ Countersign is a Manifest V3 Firefox extension built with WXT and Preact. It sto
 ## The core and the shell
 
 - `core/` holds the rules: types, status logic, dates, application operations, list filtering, answers, documents, export, validation and migrations. It is plain TypeScript.
+- `core/src/fill/` holds the matching and planning for the form filler. It has no DOM.
+- `shell/fill/` holds the page script (`shell/fill/page/`), the injector (`shell/fill/inject.ts`) and the controller (`shell/fill/controller.ts`).
 - `shell/` and `entrypoints/` hold everything that touches the browser: IndexedDB, `storage.local`, file saving, the Preact UI and the toolbar button.
 
 The split is enforced three ways:
@@ -59,11 +61,17 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## The privacy guard
 
-Three parts keep "no network, nothing reads a page until you click" true. The local automatic backup check is the one thing that runs without a click.
+Four parts keep "no network, nothing reads or touches a page until you click, never submits" true. The local automatic backup check is the one thing that runs without a click.
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
 2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.
 3. **Manifest and CSP checks** (`guard/build.test.ts`) assert that permissions stay within a short allowlist, no host access, no content scripts, no remote resources in built pages, and the exact Content Security Policy from `wxt.config.ts`.
+4. **Fill guard** keeps filling click-only and submit-free:
+   - A lint block in `eslint.config.js` for `shell/fill/page/**` and `entrypoints/fill.ts` bans calls to submit, requestSubmit, click, focus, blur, scrollIntoView and dispatchEvent, constructing events, creating elements, setting attributes or HTML, and console, storage, postMessage and cookie access. Only `shell/fill/page/events.ts` may dispatch an event, and only a plain `input` or `change`.
+   - Only `shell/fill/inject.ts` may use `scripting` and `tabs` for the fill script. An import rule (`no-restricted-imports` plus an `import()` selector in `eslint.config.js`) lets only `shell/fill/controller.ts` import its apply call.
+   - The built-output scan (`guard/scan.ts`, run by `guard/build.test.ts`) looks for `submit`, `requestSubmit`, `click`, `KeyboardEvent`, `MouseEvent`, `PointerEvent` and `SubmitEvent` in the built `fill.js`.
+   - The behaviour test `shell/fill/page-apply.test.ts` fills a fixture form and sees no submit, no new element and no new attribute.
+   - The controller test `shell/fill/controller.test.ts` shows that scanning never applies, and `shell/ui/fill-section-source.test.ts` shows that `fill()` is called only from the Fill button's click handler.
 
 ## Look and feel
 
