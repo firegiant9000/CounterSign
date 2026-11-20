@@ -172,7 +172,7 @@ function isHidden(el: Element): boolean {
 }
 
 /** A radio that is not a candidate but is checked, in the same browser group. */
-function hasCheckedPeer(first: HTMLInputElement, name: string): boolean {
+export function hasCheckedPeer(first: HTMLInputElement, name: string): boolean {
   const form = first.closest('form');
   const doc = first.ownerDocument;
   return Array.from(doc.querySelectorAll('input')).some(
@@ -200,7 +200,7 @@ function isSkipped(el: Element): boolean {
   return isHidden(el);
 }
 
-function isCandidate(el: Element): boolean {
+export function isCandidate(el: Element): boolean {
   return isAllowed(el) && !isSkipped(el);
 }
 
@@ -212,7 +212,7 @@ function isCustom(el: Element): boolean {
   return auto !== null && auto !== 'none';
 }
 
-function controlOf(el: Element): ControlKind {
+export function controlOf(el: Element): ControlKind {
   if (isCustom(el)) return 'custom';
   switch (el.localName) {
     case 'textarea':

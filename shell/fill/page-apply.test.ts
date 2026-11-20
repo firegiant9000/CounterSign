@@ -438,6 +438,112 @@ describe('applyWrites', () => {
     expect(select.options[select.selectedIndex]?.text).toBe('No');
   });
 
+  describe('recheck at write time', () => {
+    const ONE =
+      '<form><label for="a">Alpha</label><input id="a" type="text"></form>';
+
+    function expectUntouched(
+      change: (doc: Document) => void,
+      html = ONE,
+    ): void {
+      const { doc, page } = parse(html);
+      const events = record(doc);
+      const ref = refOf(page, /Alpha/);
+      change(doc);
+      expect(
+        applyWrites(page.elements, [{ ref, kind: 'value', value: 'x' }]),
+      ).toEqual([{ ref, outcome: 'gone' }]);
+      expect(doc.querySelector('#a')?.getAttribute('value')).toBeNull();
+      expect((doc.querySelector('#a') as HTMLInputElement).value).not.toBe('x');
+      expect(events).toEqual([]);
+    }
+
+    it('does not write a field hidden with display:none', () => {
+      expectUntouched((doc) =>
+        (doc.querySelector('#a') as HTMLElement).style.setProperty(
+          'display',
+          'none',
+        ),
+      );
+    });
+
+    it('does not write a text input made transparent', () => {
+      expectUntouched((doc) =>
+        (doc.querySelector('#a') as HTMLElement).style.setProperty(
+          'opacity',
+          '0',
+        ),
+      );
+    });
+
+    it('does not write a field switched to a password', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('type', 'password'),
+      );
+    });
+
+    it('does not write a field given a card autocomplete', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('autocomplete', 'cc-number'),
+      );
+    });
+
+    it('does not write a field whose control kind changed', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('type', 'checkbox'),
+      );
+    });
+
+    it('does not write a radio group that gained a checked disabled peer', () => {
+      const { doc, page } = parse(
+        '<form><fieldset><legend>Gamma</legend>' +
+          '<label><input type="radio" name="g" value="1"> One</label>' +
+          '<label><input type="radio" name="g" value="2"> Two</label>' +
+          '<label><input type="radio" name="g" value="3" disabled> Three</label>' +
+          '</fieldset></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Gamma/);
+      const radios = doc.querySelectorAll('[name="g"]');
+      (radios[2] as HTMLInputElement).checked = true;
+      expect(
+        applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+      ).toEqual([{ ref, outcome: 'gone' }]);
+      expect((radios[0] as HTMLInputElement).checked).toBe(false);
+      expect(events).toEqual([]);
+    });
+
+    it('puts a text field back to empty when the value did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><label for="d">Start date</label><input id="d" type="date"></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Start date/);
+      const proto = window.HTMLInputElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'value');
+      let stored = '';
+      Object.defineProperty(proto, 'value', {
+        configurable: true,
+        // A browser keeps a sanitised value, here a different one.
+        get: () => stored,
+        set: (v: string) => {
+          stored = v === '' ? '' : 'sanitised';
+        },
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [
+            { ref, kind: 'value', value: '2026-13-45' },
+          ]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+        expect(stored).toBe('');
+      } finally {
+        if (original) Object.defineProperty(proto, 'value', original);
+      }
+      expect(events).toEqual([]);
+    });
+  });
+
   it('leaves a checkbox group with one member checked alone', () => {
     const { doc, page } = load('lever-like.html');
     const events = record(doc);

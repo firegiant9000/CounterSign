@@ -5,7 +5,12 @@ import {
   type WriteReport,
 } from '../../../core/src/fill/types';
 import { notifyChanged } from './events';
-import type { FieldElements } from './scan';
+import {
+  controlOf,
+  hasCheckedPeer,
+  isCandidate,
+  type FieldElements,
+} from './scan';
 
 type Write =
   | { ref: number; kind: 'value'; value: string }
@@ -82,6 +87,11 @@ function protoGetter(
     Getter | undefined;
 }
 
+/** The scan's own test, run again: still a candidate and still the same kind of control. */
+function stillFillable(el: Element, control: string): boolean {
+  return isCandidate(el) && controlOf(el) === control;
+}
+
 function applyOne(
   fe: FieldElements | undefined,
   write: Write,
@@ -93,6 +103,7 @@ function applyOne(
     if (write.kind !== 'value') return 'failed';
     if (isDisabled(el) || el.hasAttribute('readonly')) return 'failed';
     if (control === 'date' && !DATE_VALUE.test(write.value)) return 'failed';
+    if (!stillFillable(el, control)) return 'gone';
     const setter = protoSetter(
       el,
       el.localName === 'textarea' ? 'HTMLTextAreaElement' : 'HTMLInputElement',
@@ -111,7 +122,11 @@ function applyOne(
       control === 'textarea'
         ? write.value.replace(/\r\n?/g, '\n')
         : write.value;
-    if (stored !== write.value && stored !== expected) return 'failed';
+    if (stored !== write.value && stored !== expected) {
+      // The field was empty before, so put it back. No events.
+      setter.call(el, '' as never);
+      return 'failed';
+    }
     notifyChanged(el);
     return 'written';
   }
@@ -126,6 +141,7 @@ function applyOne(
     const select = el as HTMLSelectElement;
     const optionIndex = (option as HTMLOptionElement).index;
     if (select.options[optionIndex] !== option) return 'gone';
+    if (!stillFillable(el, control)) return 'gone';
     const setter = protoSetter(el, 'HTMLSelectElement', 'selectedIndex');
     const getter = protoGetter(el, 'HTMLSelectElement', 'selectedIndex');
     if (!setter || !getter) return 'failed';
@@ -136,8 +152,12 @@ function applyOne(
     ) {
       return 'not_empty';
     }
+    const previous = getter.call(el) as number;
     setter.call(el, optionIndex as never);
-    if (getter.call(el) !== optionIndex) return 'failed';
+    if (getter.call(el) !== optionIndex) {
+      setter.call(el, previous as never);
+      return 'failed';
+    }
     notifyChanged(el);
     return 'written';
   }
@@ -149,6 +169,15 @@ function applyOne(
     if (!member || member.localName !== 'input') return 'failed';
     if (isDisabled(member)) return 'failed';
     if (!member.isConnected) return 'gone';
+    if (!stillFillable(el, control) || !isCandidate(member)) return 'gone';
+    const name = member.getAttribute('name') ?? '';
+    if (
+      name !== '' &&
+      (member as HTMLInputElement).type === 'radio' &&
+      hasCheckedPeer(member as HTMLInputElement, name)
+    ) {
+      return 'gone';
+    }
     const setter = protoSetter(member, 'HTMLInputElement', 'checked');
     const getter = protoGetter(member, 'HTMLInputElement', 'checked');
     if (!setter || !getter) return 'failed';
@@ -157,7 +186,10 @@ function applyOne(
     );
     if (anyChecked) return 'not_empty';
     setter.call(member, true as never);
-    if (getter.call(member) !== true) return 'failed';
+    if (getter.call(member) !== true) {
+      setter.call(member, false as never);
+      return 'failed';
+    }
     notifyChanged(member);
     return 'written';
   }
