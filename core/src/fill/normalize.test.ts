@@ -25,6 +25,18 @@ describe('normalizeLabel', () => {
   it('returns an empty string for empty input', () => {
     expect(normalizeLabel('')).toBe('');
   });
+
+  it('keeps words apart when a required marker sits between them', () => {
+    expect(normalizeLabel('Name(required)here')).toBe('name here');
+  });
+
+  it('collapses repeated spaces inside a label', () => {
+    expect(normalizeLabel('FIRST   NAME')).toBe('first name');
+  });
+
+  it('drops a leading optional marker', () => {
+    expect(normalizeLabel('(Optional) City')).toBe('city');
+  });
 });
 
 describe('containsPhrase', () => {
@@ -61,8 +73,14 @@ describe('hasNegation', () => {
     'Are you not authorized',
     "Don't you need sponsorship?",
     'Don’t you',
+    'Donʼt you',
+    'Don‘t you',
+    'Don`t you',
     'without sponsorship',
     'no longer eligible',
+    'no\nlonger eligible',
+    'no  longer eligible',
+    'no longer eligible',
     'cannot work',
     'unless sponsored',
   ])('is true for %j', (raw) => {
@@ -92,6 +110,12 @@ describe('isPlaceholderOption', () => {
   it('treats a first option with no letters or digits as a placeholder', () => {
     expect(isPlaceholderOption('--', 'x', 0)).toBe(true);
     expect(isPlaceholderOption('--', 'x', 1)).toBe(false);
+  });
+
+  it('does not treat a word that only starts with a placeholder word as one', () => {
+    expect(isPlaceholderOption('Pickup', 'p', 0)).toBe(false);
+    expect(isPlaceholderOption('Selection', 's', 0)).toBe(false);
+    expect(isPlaceholderOption('Chooser', 'c', 0)).toBe(false);
   });
 
   it('keeps a real option that is not first', () => {

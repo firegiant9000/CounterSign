@@ -1,16 +1,16 @@
 const NEGATION_WORDS =
-  /(?<![\p{L}\p{N}])(?:not|never|without|unless|except|cannot|no longer)(?![\p{L}\p{N}])/u;
-const CONTRACTION = /[\p{L}\p{N}]n['’]t(?![\p{L}\p{N}])/u;
-const PLACEHOLDER_START = /^(?:select|choose|please|pick)/;
+  /(?<![\p{L}\p{N}])(?:not|never|without|unless|except|cannot|no\s+longer)(?![\p{L}\p{N}])/u;
+const CONTRACTION = /[\p{L}\p{N}]n['’ʼ‘`]t(?![\p{L}\p{N}])/u;
+const PLACEHOLDER_START = /^(?:select|choose|please|pick)(?![\p{L}\p{N}])/u;
 
 /** Lower-cases a label and reduces it to single-spaced letter and digit words. */
 export function normalizeLabel(text: string): string {
   return text
     .toLowerCase()
     .split('(required)')
-    .join('')
+    .join(' ')
     .split('(optional)')
-    .join('')
+    .join(' ')
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
