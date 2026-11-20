@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 import {
   assetExists,
   cssProblems,
+  FILL_TOKENS,
   fontFamiliesIn,
   NETWORK_TOKENS,
   parseCsp,
   scanText,
+  scanTextWithUsage,
   validateAllowlist,
 } from './scan';
 
@@ -56,6 +58,63 @@ describe('scanText', () => {
     expect(() =>
       scanText('a.js', 'x', [{ token: 'fetch', near: '', reason: 'r' }]),
     ).toThrow(/allowlist/i);
+  });
+  it('finds each fill token as a whole word', () => {
+    for (const token of FILL_TOKENS) {
+      expect(
+        scanTextWithUsage('fill.js', `x.${token}()`, [], FILL_TOKENS).hits,
+      ).toHaveLength(1);
+    }
+  });
+  it('ignores longer words', () => {
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'submitted=1;onclick;clicked()',
+        [],
+        FILL_TOKENS,
+      ).hits,
+    ).toEqual([]);
+  });
+  it('the network scan ignores fill words', () => {
+    expect(scanText('a.js', 'form.submit()', [])).toEqual([]);
+  });
+  it('an allowlist entry may name a fill token', () => {
+    const allow = [
+      { token: 'click', near: 'label:"click to expand"', reason: 'test' },
+    ];
+    expect(validateAllowlist(allow)).toEqual([]);
+    const text = 'x={label:"click to expand"};y.click()';
+    const result = scanTextWithUsage('fill.js', text, allow, FILL_TOKENS);
+    expect(result.hits).toHaveLength(1);
+    expect(result.hits[0]?.context).toContain('y.click()');
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'label:"click to expand";fetch(1)',
+        allow,
+        FILL_TOKENS,
+      ).hits,
+    ).toEqual([]);
+  });
+  it('a fill entry never hides a network hit, nor a network entry a fill hit', () => {
+    const fillEntry = [
+      { token: 'click', near: 'label:"click to expand"', reason: 'test' },
+    ];
+    expect(
+      scanText('a.js', 'label:"click to expand";fetch(1)', fillEntry),
+    ).toHaveLength(1);
+    const netEntry = [
+      { token: 'fetch', near: 'errorMessage="fetch failed"', reason: 'test' },
+    ];
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'errorMessage="fetch failed";x.click()',
+        netEntry,
+        FILL_TOKENS,
+      ).hits,
+    ).toHaveLength(1);
   });
 });
 

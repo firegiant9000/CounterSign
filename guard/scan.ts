@@ -11,6 +11,17 @@ export const NETWORK_TOKENS: readonly string[] = [
   'RTCPeerConnection',
 ];
 
+/** Words the built fill script must not contain (it only reads and sets values). */
+export const FILL_TOKENS: readonly string[] = [
+  'submit',
+  'requestSubmit',
+  'click',
+  'KeyboardEvent',
+  'MouseEvent',
+  'PointerEvent',
+  'SubmitEvent',
+];
+
 export interface AllowEntry {
   token: string;
   near: string;
@@ -41,7 +52,10 @@ export function validateAllowlist(allow: readonly AllowEntry[]): string[] {
   const problems: string[] = [];
   allow.forEach((entry, i) => {
     const label = `allowlist[${i}]`;
-    if (!NETWORK_TOKENS.includes(entry.token)) {
+    if (
+      !NETWORK_TOKENS.includes(entry.token) &&
+      !FILL_TOKENS.includes(entry.token)
+    ) {
       problems.push(`${label}: unknown token "${entry.token}"`);
       return;
     }
@@ -64,6 +78,7 @@ export function scanTextWithUsage(
   file: string,
   text: string,
   allow: readonly AllowEntry[],
+  tokens: readonly string[] = NETWORK_TOKENS,
 ): ScanResult {
   const problems = validateAllowlist(allow);
   if (problems.length > 0) {
@@ -71,7 +86,7 @@ export function scanTextWithUsage(
   }
   const hits: Hit[] = [];
   const usedEntries = new Set<number>();
-  for (const token of NETWORK_TOKENS) {
+  for (const token of tokens) {
     for (const match of text.matchAll(tokenPattern(token))) {
       const start = match.index;
       const end = start + token.length;

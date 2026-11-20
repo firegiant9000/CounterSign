@@ -5,15 +5,18 @@ import allowlist from './allowlist.json';
 import {
   assetExists,
   cssProblems,
+  FILL_TOKENS,
   fontFamiliesIn,
   parseCsp,
   scanDirectory,
   scanDirectoryWithUsage,
+  scanTextWithUsage,
   type AllowEntry,
 } from './scan';
 
 const OUT = resolve(import.meta.dirname, '..', '.output', 'firefox-mv3');
 const MANIFEST = join(OUT, 'manifest.json');
+const FILL = join(OUT, 'fill.js');
 
 if (!existsSync(MANIFEST)) {
   throw new Error(
@@ -130,13 +133,35 @@ describe('built extension', () => {
   it('ships no network calls', () => {
     expect(scanDirectory(OUT, allowlist as AllowEntry[])).toEqual([]);
   });
+  it('ships the fill script only as a file', () => {
+    expect(existsSync(FILL)).toBe(true);
+    expect(manifest.content_scripts).toBeUndefined();
+    expect(manifest.web_accessible_resources).toBeUndefined();
+  });
+  it('the fill script has no submit, click or key words', () => {
+    const entries = allowlist as AllowEntry[];
+    const { hits } = scanTextWithUsage(
+      FILL,
+      readFileSync(FILL, 'utf8'),
+      entries,
+      FILL_TOKENS,
+    );
+    expect(hits).toEqual([]);
+  });
   it('has no stale allowlist entries', () => {
     const entries = allowlist as AllowEntry[];
-    const { usedEntries } = scanDirectoryWithUsage(OUT, entries);
+    const network = scanDirectoryWithUsage(OUT, entries);
+    const fill = scanTextWithUsage(
+      FILL,
+      readFileSync(FILL, 'utf8'),
+      entries,
+      FILL_TOKENS,
+    );
     entries.forEach((entry, i) => {
-      expect(usedEntries.has(i), `unused allowlist entry: ${entry.near}`).toBe(
-        true,
-      );
+      expect(
+        network.usedEntries.has(i) || fill.usedEntries.has(i),
+        `unused allowlist entry: ${entry.near}`,
+      ).toBe(true);
     });
   });
   it('ships only local CSS assets', () => {
