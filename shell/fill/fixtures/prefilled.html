@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Example Robotics - Update your application</title>
+  </head>
+  <body>
+    <form action="https://example.com/update" method="post">
+      <input type="hidden" name="application" value="hidden-app-2208" />
+      <div>
+        <label for="email">Email</label>
+        <input id="email" type="email" value="someone@example.com" />
+      </div>
+      <div>
+        <label for="phone">Phone</label>
+        <input id="phone" type="tel" value="555-0100" />
+      </div>
+      <div>
+        <label for="relocate">Willing to relocate?</label>
+        <select id="relocate">
+          <option value="">Select</option>
+          <option value="yes" selected>Yes</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <fieldset>
+        <legend>Are you over 18?</legend>
+        <label><input type="radio" name="adult" value="yes" /> Yes</label>
+        <label><input type="radio" name="adult" value="no" checked /> No</label>
+      </fieldset>
+      <div>
+        <label for="ref">Reference code</label>
+        <input id="ref" type="text" value="REF-1" readonly />
+      </div>
+      <div>
+        <label for="note">Recruiter note</label>
+        <input id="note" type="text" value="locked" disabled />
+      </div>
+      <button type="submit">Save</button>
+    </form>
+  </body>
+</html>
