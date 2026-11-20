@@ -184,6 +184,11 @@ const fillDomSyntax = asFillSyntax(
     'addEventListener',
     'removeEventListener',
     'attachShadow',
+    'insertAdjacentText',
+    'setHTMLUnsafe',
+    'write',
+    'writeln',
+    'normalize',
   ]),
 );
 // classList and style are readable, but changing them is not.
@@ -206,8 +211,19 @@ const ASSIGNED = [
   'style',
   'cssText',
   'classList',
+  'hidden',
+  'title',
+  'disabled',
+  'slot',
+  'nodeValue',
+  'data',
+  'lang',
 ];
+// `.add` and `.toggle` are banned on classList only: scan.ts and label.ts call
+// Set.add.
 const fillMutationSyntax = asFillSyntax([
+  "CallExpression[callee.object.name='Object'][callee.property.name='assign']",
+  "CallExpression[callee.object.name='Object'][callee.property.value='assign']",
   ...objectCallSelectors('classList', ['add', 'remove', 'toggle', 'replace']),
   ...objectCallSelectors('style', ['setProperty', 'removeProperty']),
   `AssignmentExpression[left.type='MemberExpression'][left.property.name=${callNames(ASSIGNED)}]`,
@@ -225,6 +241,35 @@ const fillNameSyntax = [
   `TemplateElement[value.cooked=${FILL_NAME}]`,
   "Identifier[name='__countersignFill']",
 ].map((selector) => ({ selector, message: FILL_NAME_MESSAGE }));
+// fill() writes into the page, so only the Fill button's click handler in
+// FillSection.tsx may reach it. The selectors ban reading `.fill` in any form
+// (call, reference, computed key, optional call) and destructuring it.
+const FILL_CALL_MESSAGE =
+  'Only the Fill button in shell/ui/FillSection.tsx may read fill() from the controller.';
+const fillCallerSyntax = [
+  "MemberExpression[property.name='fill']",
+  "MemberExpression[property.value='fill']",
+  "ObjectPattern > Property[key.name='fill']",
+  "ObjectPattern > Property[key.value='fill']",
+].map((selector) => ({ selector, message: FILL_CALL_MESSAGE }));
+// Module-wide import bans. The apply call is the controller's alone, and the
+// controller is Popup.tsx's alone. Type imports stay free.
+const injectImport = {
+  regex: '(^|/)fill/inject(\\.[jt]s)?$',
+  allowTypeImports: true,
+  message: 'Only shell/fill/controller.ts may import shell/fill/inject.ts.',
+};
+const siblingInjectImport = {
+  ...injectImport,
+  regex: '^\\./inject(\\.[jt]s)?$',
+};
+const controllerImport = {
+  regex: '(^|/)fill/controller(\\.[jt]s)?$|^\\./controller(\\.[jt]s)?$',
+  allowTypeImports: true,
+  message: 'Only shell/ui/Popup.tsx may import the fill controller.',
+};
+/** @param {object[]} patterns */
+const restrictImports = (...patterns) => ['error', { patterns }];
 const fillLeakSyntax = asFillSyntax([
   `Identifier[name=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
   // The Identifier selector already catches these by name, so a computed
@@ -267,26 +312,17 @@ export default defineConfig(
       ],
       // Value imports of the fill controller are Popup.tsx's alone; its
       // default injector writes to the page. Type imports stay free.
-      '@typescript-eslint/no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex:
-                '(^|/)fill/controller(\\.[jt]s)?$|^\\./controller(\\.[jt]s)?$',
-              allowTypeImports: true,
-              message:
-                'Only shell/ui/Popup.tsx may import the fill controller.',
-            },
-          ],
-        },
-      ],
+      '@typescript-eslint/no-restricted-imports': restrictImports(
+        controllerImport,
+        injectImport,
+      ),
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
@@ -304,6 +340,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
@@ -322,6 +359,7 @@ export default defineConfig(
         ...networkSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
@@ -338,6 +376,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
       ],
@@ -354,6 +393,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...fillNameSyntax,
       ],
     },
@@ -367,18 +407,45 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
       ],
     },
   },
-  // The controller and the injector's test may import the apply call.
+  // Inside shell/fill/, a sibling './inject' is the fill injector too.
+  {
+    files: ['shell/fill/**'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': restrictImports(
+        controllerImport,
+        injectImport,
+        siblingInjectImport,
+      ),
+    },
+  },
+  // The controller and the injector's test may import the injector.
   {
     files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
-    rules: { 'no-restricted-imports': 'off' },
+    rules: {
+      'no-restricted-imports': 'off',
+      '@typescript-eslint/no-restricted-imports':
+        restrictImports(controllerImport),
+    },
   },
   // Popup.tsx and the controller's own test may import the controller.
   {
-    files: ['shell/ui/Popup.tsx', 'shell/fill/controller.test.ts'],
-    rules: { '@typescript-eslint/no-restricted-imports': 'off' },
+    files: ['shell/ui/Popup.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': restrictImports(injectImport),
+    },
+  },
+  {
+    files: ['shell/fill/controller.test.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': restrictImports(
+        injectImport,
+        siblingInjectImport,
+      ),
+    },
   },
   // The fill page script may only read fields and set their values.
   {
@@ -390,6 +457,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
@@ -413,6 +481,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,
@@ -435,6 +504,7 @@ export default defineConfig(
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
+        ...fillCallerSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,
@@ -462,10 +532,54 @@ export default defineConfig(
       ],
     },
   },
+  // fill() is read only by FillSection.tsx. The controller defines it and its
+  // test calls it. These blocks keep every other selector for those files.
+  {
+    files: ['shell/fill/controller.ts', 'shell/fill/controller.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
+      ],
+    },
+  },
+  {
+    files: ['shell/ui/FillSection.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
+        ...styleSyntax,
+      ],
+    },
+  },
   // core/ is framework-free: no framework, storage or browser access.
   {
     files: ['core/**'],
     rules: {
+      // core/ cannot reach the controller, and Array.fill is legitimate here.
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
+      ],
       'no-restricted-imports': [
         'error',
         {
