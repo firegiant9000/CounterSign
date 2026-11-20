@@ -703,3 +703,182 @@ describe('scanForm: validation', () => {
     expect(toFormScan(scan)).toEqual(scan);
   });
 });
+
+describe('scanForm: visually hidden fields', () => {
+  function count(html: string): number {
+    return scanForm(parse(`<form>${html}</form>`)).scan.fields.length;
+  }
+
+  function stubBox(
+    doc: Document,
+    selector: string,
+    box: Partial<DOMRect>,
+  ): void {
+    const el = doc.querySelector(selector) as Element;
+    const full = {
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+      ...box,
+    };
+    el.getBoundingClientRect = () => full as DOMRect;
+  }
+
+  it('keeps an ordinary field', () => {
+    expect(count('<input type="text" name="a" />')).toBe(1);
+  });
+
+  it('skips opacity:0 on the field', () => {
+    expect(count('<input type="text" style="opacity:0" />')).toBe(0);
+  });
+
+  it('skips opacity:0 on an ancestor', () => {
+    expect(count('<div style="opacity:0"><textarea></textarea></div>')).toBe(0);
+  });
+
+  it.each([
+    'clip: rect(0px, 0px, 0px, 0px)',
+    'clip: rect(1px, 1px, 1px, 1px)',
+    'clip-path: inset(50%)',
+    'clip-path: inset(100%)',
+  ])('skips %s', (style) => {
+    expect(count(`<input type="text" style="${style}" />`)).toBe(0);
+  });
+
+  it('skips a field with a 1px computed size', () => {
+    expect(count('<input type="text" style="width:1px;height:1px" />')).toBe(0);
+  });
+
+  it('skips a select that is opacity:0', () => {
+    expect(count('<select style="opacity:0"><option>a</option></select>')).toBe(
+      0,
+    );
+  });
+
+  it('skips a tiny laid-out box', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 10,
+      right: 11,
+      bottom: 30,
+      width: 1,
+      height: 20,
+    });
+    expect(scanForm(doc).scan.fields).toHaveLength(0);
+  });
+
+  it('skips a box left of the page', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    stubBox(doc, '#t', {
+      left: -10200,
+      top: 10,
+      right: -10000,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(scanForm(doc).scan.fields).toHaveLength(0);
+  });
+
+  it('skips a box above the page', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    stubBox(doc, '#t', {
+      left: 10,
+      top: -5000,
+      right: 210,
+      bottom: -4980,
+      width: 200,
+      height: 20,
+    });
+    expect(scanForm(doc).scan.fields).toHaveLength(0);
+  });
+
+  it('keeps a normal laid-out box', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 10,
+      right: 210,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(scanForm(doc).scan.fields).toHaveLength(1);
+  });
+
+  it('still scans a radio group with opacity:0 members', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" style="opacity:0" />
+        <input type="radio" name="r" value="b" style="opacity:0" />
+      </form>`),
+    );
+    expect(scan.fields).toHaveLength(1);
+    expect(scan.fields[0]?.options).toEqual(['a', 'b']);
+  });
+});
+
+describe('scanForm: a checked radio that is not a candidate', () => {
+  function outcome(hiddenMember: string): number {
+    const { scan, elements } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+        ${hiddenMember}
+      </form>`),
+    );
+    expect(elements).toHaveLength(scan.fields.length);
+    return scan.fields.length;
+  }
+
+  it('leaves the group out when a disabled member is checked', () => {
+    expect(
+      outcome('<input type="radio" name="r" value="c" disabled checked />'),
+    ).toBe(0);
+  });
+
+  it('leaves the group out when a display:none member is checked', () => {
+    expect(
+      outcome(
+        '<input type="radio" name="r" value="c" style="display:none" checked />',
+      ),
+    ).toBe(0);
+  });
+
+  it('leaves the group out when a readonly member is checked', () => {
+    expect(
+      outcome('<input type="radio" name="r" value="c" readonly checked />'),
+    ).toBe(0);
+  });
+
+  it('keeps the group when the non-candidate member is unchecked', () => {
+    expect(outcome('<input type="radio" name="r" value="c" disabled />')).toBe(
+      1,
+    );
+  });
+
+  it('ignores a checked radio of the same name in another form', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+      </form><form><input type="radio" name="r" value="c" disabled checked /></form>`),
+    );
+    expect(scan.fields).toHaveLength(1);
+  });
+
+  it('produces no write in the plan', () => {
+    const { scan } = scanForm(
+      parse(`<form>
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+        <input type="radio" name="r" value="c" disabled checked />
+      </form>`),
+    );
+    expect(scan.fields.some((f) => f.control === 'choice_group')).toBe(false);
+  });
+});

@@ -102,13 +102,87 @@ function isHiddenByStyle(el: Element): boolean {
   return style.display === 'none' || style.visibility === 'hidden';
 }
 
+/** Custom-styled radios and checkboxes are often opacity:0; the file input is exempt from style checks. */
+function isTextLike(el: Element): boolean {
+  if (el.localName !== 'input') return true;
+  const type = inputType(el);
+  return type !== 'radio' && type !== 'checkbox' && type !== 'file';
+}
+
+function isTinyPx(value: string): boolean {
+  const px = Number.parseFloat(value);
+  return Number.isFinite(px) && px <= 1;
+}
+
+function isClipped(style: CSSStyleDeclaration): boolean {
+  const rect = /^\s*rect\(([^)]*)\)\s*$/i.exec(style.clip);
+  if (rect) {
+    const nums = (rect[1] ?? '')
+      .split(/[\s,]+/)
+      .filter((part) => part !== '')
+      .map((part) => Number.parseFloat(part));
+    if (nums.length === 4 && nums.every(Number.isFinite)) {
+      const [top, right, bottom, left] = nums as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      if (right - left <= 1 || bottom - top <= 1) return true;
+    }
+  }
+  const path = style.clipPath.replace(/\s+/g, '').toLowerCase();
+  const inset = /^inset\((\d+(?:\.\d+)?)(%|px)?/.exec(path);
+  if (inset) {
+    const amount = Number(inset[1]);
+    if (inset[2] === '%' && amount >= 50) return true;
+  }
+  return path === 'circle(0)' || path === 'circle(0px)';
+}
+
+/** Hidden to the eye without display:none: invisible, clipped, tiny or off the page. */
+function isVisuallyHidden(el: Element): boolean {
+  const view = el.ownerDocument.defaultView;
+  if (!view) return false;
+  for (let cur: Element | null = el; cur; cur = cur.parentElement) {
+    if (Number.parseFloat(view.getComputedStyle(cur).opacity) === 0) {
+      return true;
+    }
+  }
+  const style = view.getComputedStyle(el);
+  if (isClipped(style)) return true;
+  if (isTinyPx(style.width) || isTinyPx(style.height)) return true;
+  // happy-dom does no layout and reports an all-zero box; only trust a box
+  // that carries some layout information.
+  const box = el.getBoundingClientRect();
+  const laidOut =
+    box.width !== 0 || box.height !== 0 || box.left !== 0 || box.top !== 0;
+  if (!laidOut) return false;
+  if (box.width <= 1 || box.height <= 1) return true;
+  return box.right + view.scrollX < 0 || box.bottom + view.scrollY < 0;
+}
+
 function isHidden(el: Element): boolean {
   const checkStyle = !(el.localName === 'input' && inputType(el) === 'file');
   for (let cur: Element | null = el; cur; cur = cur.parentElement) {
     if (isHiddenByAttribute(cur)) return true;
     if (checkStyle && isHiddenByStyle(cur)) return true;
   }
-  return false;
+  return isTextLike(el) && isVisuallyHidden(el);
+}
+
+/** A radio that is not a candidate but is checked, in the same browser group. */
+function hasCheckedPeer(first: HTMLInputElement, name: string): boolean {
+  const form = first.closest('form');
+  const doc = first.ownerDocument;
+  return Array.from(doc.querySelectorAll('input')).some(
+    (other) =>
+      inputType(other) === 'radio' &&
+      other.getAttribute('name') === name &&
+      other.closest('form') === form &&
+      other.checked &&
+      !isCandidate(other),
+  );
 }
 
 function isDisabled(el: Element): boolean {
@@ -324,6 +398,7 @@ export function scanForm(doc: Document): PageScan {
 
   const groups = new Map<string, HTMLInputElement[]>();
   const slots: Slot[] = [];
+  const blocked = new Set<string>();
 
   for (const el of candidates) {
     const control = controlOf(el);
@@ -334,9 +409,20 @@ export function scanForm(doc: Document): PageScan {
     const input = el as HTMLInputElement;
     const name = el.getAttribute('name') ?? '';
     const key = `${inputType(el)}:${name}`;
+    if (blocked.has(key)) continue;
     const existing = name === '' ? undefined : groups.get(key);
     if (existing) {
       existing.push(input);
+      continue;
+    }
+    // A checked radio we cannot fill still holds the group's value, and
+    // checking another member would clear it. Leave the whole group out.
+    if (
+      name !== '' &&
+      inputType(el) === 'radio' &&
+      hasCheckedPeer(input, name)
+    ) {
+      blocked.add(key);
       continue;
     }
     const members = [input];
