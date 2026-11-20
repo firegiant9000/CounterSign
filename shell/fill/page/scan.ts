@@ -119,10 +119,6 @@ function hasLayout(box: DOMRect): boolean {
   return box.width !== 0 || box.height !== 0 || box.left !== 0 || box.top !== 0;
 }
 
-function isTinyBox(box: DOMRect): boolean {
-  return hasLayout(box) && (box.width <= 1 || box.height <= 1);
-}
-
 /** Expands the 1 to 4 value shorthand to [top, right, bottom, left]. */
 function expandSides(parts: string[]): string[] | undefined {
   const a = parts[0];
@@ -199,10 +195,13 @@ function clipsOverflow(style: CSSStyleDeclaration): boolean {
   );
 }
 
+// contentVisibilityAuto is left off on purpose. The spec makes checkVisibility
+// return false for a content-visibility:hidden ancestor regardless of options,
+// and the content of a closed <details> has no client rects, which the empty
+// getClientRects() check catches.
 const VISIBILITY_OPTIONS = {
   opacityProperty: true,
   visibilityProperty: true,
-  contentVisibilityAuto: true,
 };
 
 function isUnrendered(el: Element, options: object): boolean {
@@ -221,6 +220,10 @@ function isVisuallyHidden(el: Element): boolean {
   const view = el.ownerDocument.defaultView;
   if (!view) return false;
   if (isUnrendered(el, VISIBILITY_OPTIONS)) return true;
+  const style = view.getComputedStyle(el);
+  if (Number.parseFloat(style.opacity) === 0) return true;
+  const box = el.getBoundingClientRect();
+  const doc = el.ownerDocument;
   for (
     let cur: Element | null = el.parentElement;
     cur;
@@ -229,23 +232,39 @@ function isVisuallyHidden(el: Element): boolean {
     const parent = view.getComputedStyle(cur);
     if (Number.parseFloat(parent.opacity) === 0) return true;
     if (isClipped(parent)) return true;
-    if (clipsOverflow(parent)) {
+    // The root and body overflow propagates to the viewport and clips nothing;
+    // inline and contents boxes ignore overflow.
+    if (cur === doc.documentElement || cur === doc.body) continue;
+    if (parent.display === 'inline' || parent.display === 'contents') continue;
+    if (!clipsOverflow(parent)) continue;
+    const parentBox = cur.getBoundingClientRect();
+    if (hasLayout(parentBox) && hasLayout(box)) {
+      // Real layout: hidden only if the wrapper leaves at most 1px of the field showing.
+      const width =
+        Math.min(box.right, parentBox.right) -
+        Math.max(box.left, parentBox.left);
+      const height =
+        Math.min(box.bottom, parentBox.bottom) -
+        Math.max(box.top, parentBox.top);
+      if (width <= 1 || height <= 1) return true;
+    } else if (!hasLayout(parentBox) && !hasLayout(box)) {
       if (isTinyPx(parent.width) || isTinyPx(parent.height)) return true;
-      if (isTinyBox(cur.getBoundingClientRect())) return true;
     }
   }
-  const style = view.getComputedStyle(el);
-  if (Number.parseFloat(style.opacity) === 0) return true;
-  const box = el.getBoundingClientRect();
   if (isClipped(style, box)) return true;
   if (isTinyPx(style.width) || isTinyPx(style.height)) return true;
   if (!hasLayout(box)) return false;
   if (box.width <= 1 || box.height <= 1) return true;
   if (box.bottom + view.scrollY < 0) return true;
-  // Firefox reports a negative scrollX on right-to-left pages.
-  const rtl =
-    view.getComputedStyle(el.ownerDocument.documentElement).direction === 'rtl';
-  return !rtl && box.right + view.scrollX < 0;
+  const root = doc.documentElement;
+  if (view.getComputedStyle(root).direction === 'rtl') {
+    // Firefox rtl: the document origin is at the right, scrollX <= 0, and the
+    // right edge of the document sits at clientWidth - scrollX in viewport
+    // coordinates. Content to the left is reachable by scrolling, so only a box
+    // starting at or beyond that right edge is off the page.
+    return box.left + view.scrollX >= root.clientWidth;
+  }
+  return box.right + view.scrollX < 0;
 }
 
 function isHidden(el: Element): boolean {
@@ -257,10 +276,7 @@ function isHidden(el: Element): boolean {
   if (isTextLike(el)) return isVisuallyHidden(el);
   // Radios and checkboxes may be opacity:0, but not unrendered (closed details).
   if (checkStyle) {
-    return isUnrendered(el, {
-      visibilityProperty: true,
-      contentVisibilityAuto: true,
-    });
+    return isUnrendered(el, { visibilityProperty: true });
   }
   return false;
 }
@@ -445,9 +461,17 @@ function candidatesIn(root: ParentNode): Element[] {
   return Array.from(root.querySelectorAll(FIELD_SELECTOR)).filter(isCandidate);
 }
 
+/** Groups by form owner as the browser does: a radio can sit inside one form and belong to another through its form attribute. */
+function groupKey(owners: Map<Element | null, number>, el: Element): string {
+  const owner = formOwner(el);
+  if (!owners.has(owner)) owners.set(owner, owners.size);
+  return `${owners.get(owner)}|${inputType(el)}:${el.getAttribute('name') ?? ''}`;
+}
+
 /** Counts a choice group as one field, as the scan does. */
 function countSlots(candidates: Element[]): number {
   const seen = new Set<string>();
+  const owners = new Map<Element | null, number>();
   let count = 0;
   for (const el of candidates) {
     const name = el.getAttribute('name') ?? '';
@@ -455,7 +479,7 @@ function countSlots(candidates: Element[]): number {
       count += 1;
       continue;
     }
-    const key = `${inputType(el)}:${name}`;
+    const key = groupKey(owners, el);
     if (seen.has(key)) continue;
     seen.add(key);
     count += 1;
@@ -514,9 +538,7 @@ export function scanForm(doc: Document): PageScan {
     const name = el.getAttribute('name') ?? '';
     // Group by form owner as the browser does: a radio can sit inside one
     // form and belong to another through its form attribute.
-    const owner = formOwner(input);
-    if (!owners.has(owner)) owners.set(owner, owners.size);
-    const key = `${owners.get(owner)}|${inputType(el)}:${name}`;
+    const key = groupKey(owners, el);
     if (blocked.has(key)) continue;
     const existing = name === '' ? undefined : groups.get(key);
     if (existing) {

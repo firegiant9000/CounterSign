@@ -993,6 +993,161 @@ describe('scanForm: fix round 1, parents, unrendered fields, form owners', () =>
     };
     expect(fieldCount(doc)).toBe(0);
     expect(seen.opacityProperty).toBeUndefined();
+    expect(seen).not.toHaveProperty('contentVisibilityAuto');
+  });
+
+  it('does not pass contentVisibilityAuto to checkVisibility for a text field', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    const el = doc.querySelector('#t') as unknown as {
+      checkVisibility: (o: Record<string, boolean>) => boolean;
+    };
+    let seen: Record<string, boolean> | undefined;
+    el.checkVisibility = (o) => {
+      seen = o;
+      return true;
+    };
+    expect(fieldCount(doc)).toBe(1);
+    expect(seen).toBeDefined();
+    expect(seen).not.toHaveProperty('contentVisibilityAuto');
+  });
+
+  it('keeps a field when body clips overflow and has a zero-height rect', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    doc.body.style.overflowX = 'hidden';
+    stubBox(doc, 'body', {
+      left: 0,
+      top: 0,
+      right: 800,
+      bottom: 0,
+      width: 800,
+      height: 0,
+    });
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 10,
+      right: 210,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('keeps a field inside an inline span with overflow hidden', () => {
+    const doc = parse(
+      '<form><span id="w" style="display:inline;overflow:hidden"><input type="text" id="t" /></span></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 10,
+      top: 10,
+      right: 10,
+      bottom: 10,
+      width: 0,
+      height: 0,
+    });
+    stubBox(doc, '#t', {
+      left: 10,
+      top: 10,
+      right: 210,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('skips a field when a laid-out clipping wrapper does not intersect it', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 0,
+      top: 0,
+      right: 1,
+      bottom: 1,
+      width: 1,
+      height: 1,
+    });
+    stubBox(doc, '#t', {
+      left: 50,
+      top: 50,
+      right: 250,
+      bottom: 70,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps a field when a laid-out clipping wrapper intersects it', () => {
+    const doc = parse(
+      '<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>',
+    );
+    stubBox(doc, '#w', {
+      left: 40,
+      top: 40,
+      right: 300,
+      bottom: 100,
+      width: 260,
+      height: 60,
+    });
+    stubBox(doc, '#t', {
+      left: 50,
+      top: 50,
+      right: 250,
+      bottom: 70,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('judges the horizontal edge on a right-to-left page', () => {
+    const make = (left: number) => {
+      const doc = parse('<form><input type="text" id="t" /></form>');
+      doc.documentElement.style.direction = 'rtl';
+      Object.defineProperty(doc.documentElement, 'clientWidth', {
+        value: 1000,
+        configurable: true,
+      });
+      Object.defineProperty(doc.defaultView, 'scrollX', {
+        value: -200,
+        configurable: true,
+      });
+      stubBox(doc, '#t', {
+        left,
+        top: 10,
+        right: left + 200,
+        bottom: 30,
+        width: 200,
+        height: 20,
+      });
+      return doc;
+    };
+    // Page x = left + scrollX; the document's right edge is at clientWidth.
+    expect(fieldCount(make(900))).toBe(1);
+    expect(fieldCount(make(1300))).toBe(0);
+  });
+
+  it('keeps two same-name radios apart when one belongs to another form by attribute', () => {
+    const doc = parse(
+      `<form id="f1">
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" form="f2" />
+      </form><form id="f2"></form>`,
+    );
+    expect(fieldCount(doc)).toBe(2);
+  });
+
+  it('is not blocked by a checked disabled peer when form points at no form', () => {
+    const doc = parse(
+      `<form>
+        <input type="radio" name="r" value="a" form="nope" />
+        <input type="radio" name="r" value="b" form="nope" />
+        <input type="radio" name="r" value="c" disabled checked />
+      </form>`,
+    );
+    expect(fieldCount(doc)).toBe(1);
   });
 
   it.each([
@@ -1042,6 +1197,20 @@ describe('scanForm: fix round 1, parents, unrendered fields, form owners', () =>
       height: 20,
     });
     expect(fieldCount(kept)).toBe(1);
+    const near = parse('<form><input type="text" id="t" /></form>');
+    Object.defineProperty(near.defaultView, 'scrollY', {
+      value: 300,
+      configurable: true,
+    });
+    stubBox(near, '#t', {
+      left: 10,
+      top: -350,
+      right: 210,
+      bottom: -320,
+      width: 200,
+      height: 30,
+    });
+    expect(fieldCount(near)).toBe(0);
     const skipped = parse('<form><input type="text" id="t" /></form>');
     Object.defineProperty(skipped.defaultView, 'scrollY', {
       value: 300,
