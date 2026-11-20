@@ -86,6 +86,15 @@ const STYLE_MESSAGE = 'No inline styles: the CSP blocks them. Use a class.';
 const styleSyntax = [
   { selector: "JSXAttribute[name.name='style']", message: STYLE_MESSAGE },
 ];
+// no-restricted-imports cannot see import(), so a dynamic import of the fill
+// apply call is caught here. It applies to every file, controller.ts included.
+const applyImportSyntax = [
+  {
+    selector:
+      'ImportExpression[source.value=/(^|\\/)fill\\/inject(\\.[jt]s)?$|^\\.\\/inject(\\.[jt]s)?$/]',
+    message: 'Only shell/fill/controller.ts may import the fill apply call.',
+  },
+];
 // The fill page script runs inside the user's page. It reads fields and sets
 // their values, nothing else. Each part below is a named list so that
 // shell/fill/page/events.ts can drop exactly the dispatch and constructor
@@ -177,7 +186,7 @@ export default defineConfig(
         {
           patterns: [
             {
-              regex: '(^|/)fill/inject$|^\\./inject$',
+              regex: '(^|/)fill/inject(\\.[jt]s)?$|^\\./inject(\\.[jt]s)?$',
               importNames: ['applyToPage', 'browserFillApi'],
               message:
                 'Only shell/fill/controller.ts may import the fill apply call.',
@@ -190,6 +199,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
       ],
@@ -205,6 +215,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...styleSyntax,
@@ -221,6 +232,7 @@ export default defineConfig(
         'error',
         ...networkSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
       ],
@@ -235,6 +247,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...scriptingSyntax,
       ],
     },
@@ -248,6 +261,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
       ],
     },
   },
@@ -265,6 +279,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,
@@ -284,6 +299,7 @@ export default defineConfig(
         ...networkSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
+        ...applyImportSyntax,
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,

@@ -394,9 +394,25 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     ["import { browserFillApi } from '../fill/inject';", 'shell/ui/Popup.tsx'],
     ["import * as inject from '../fill/inject';", 'shell/ui/x.tsx'],
     ["export { applyToPage } from './inject';", 'shell/fill/index.ts'],
+    ["export * from './inject';", 'shell/fill/index.ts'],
+    ["import { applyToPage } from '../fill/inject.js';", 'shell/ui/x.tsx'],
   ])('rejects the apply import %s in %s', async (code, file) => {
     const found = await syntaxMessages(code, file);
     expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
+  });
+  it.each([
+    ["const m = await import('./inject');", 'shell/fill/other.ts'],
+    ["const m = await import('./inject');", 'shell/fill/controller.ts'],
+    ["const m = await import('../fill/inject');", 'shell/ui/x.tsx'],
+  ])('rejects the dynamic import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/fill/controller.ts may import the fill apply call.',
+      ),
+    ).toBe(true);
   });
   it.each([
     ["import { applyToPage } from './inject';", 'shell/fill/controller.ts'],
