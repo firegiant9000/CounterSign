@@ -112,7 +112,7 @@ export function fillView(
   const count = plan.writes.length;
   if (count > 0) {
     view.button = `Fill ${count} empty ${plural(count, 'field', 'fields')}`;
-  } else {
+  } else if (!state.applyFailed) {
     view.nothing = 'Nothing to fill.';
   }
 

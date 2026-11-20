@@ -25,6 +25,10 @@ describe('fill section source', () => {
     expect(popup).not.toMatch(/fill\/inject/);
   });
 
+  it('shows what will be filled before the click', () => {
+    expect(section).toMatch(/group\('Will fill', view\.willFill, true\)/);
+  });
+
   it('the popup starts the scan beside capture', () => {
     const effect = /useEffect\(\(\) => \{[\s\S]*?\}, \[\]\)/.exec(popup);
     expect(effect).not.toBeNull();

@@ -275,7 +275,7 @@ describe('createFillController', () => {
     });
   });
 
-  it('apply failed keeps the plan and sets applyFailed', async () => {
+  it('apply failed keeps the rows, drops the writes and sets applyFailed', async () => {
     const { controller } = setup(undefined, {
       apply: () => Promise.resolve({ ok: false }),
     });
@@ -286,9 +286,25 @@ describe('createFillController', () => {
 
     const state = ready(controller.state());
     expect(state.applyFailed).toBe(true);
-    expect(state.plan).toBe(before);
+    expect(state.plan.rows).toEqual(before.rows);
+    expect(state.plan.writes).toEqual([]);
     expect(state.busy).toBe(false);
     expect(state.filled).toBeUndefined();
+  });
+
+  it('after a failed apply, neither refresh nor fill offers the old refs again', async () => {
+    const { controller, apply } = setup(undefined, {
+      apply: () => Promise.resolve({ ok: false }),
+    });
+    await controller.start();
+    await controller.fill();
+    expect(apply).toHaveBeenCalledTimes(1);
+
+    controller.refresh();
+    expect(ready(controller.state()).plan.writes).toEqual([]);
+
+    expect(await controller.fill()).toBeUndefined();
+    expect(apply).toHaveBeenCalledTimes(1);
   });
 
   it('a rejecting apply is treated like a failed apply', async () => {
@@ -302,7 +318,8 @@ describe('createFillController', () => {
 
     const state = ready(controller.state());
     expect(state.applyFailed).toBe(true);
-    expect(state.plan).toBe(before);
+    expect(state.plan.rows).toEqual(before.rows);
+    expect(state.plan.writes).toEqual([]);
     expect(state.busy).toBe(false);
   });
 
@@ -685,7 +702,8 @@ describe('createFillController', () => {
     expect(state.applyFailed).toBe(true);
     expect(state.filled).toBe(1);
     expect(state.failed).toEqual(first.failed);
-    expect(state.plan).toBe(first.plan);
+    expect(state.plan.rows).toEqual(first.plan.rows);
+    expect(state.plan.writes).toEqual([]);
     expect(state.busy).toBe(false);
   });
 

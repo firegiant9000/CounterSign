@@ -116,7 +116,7 @@ export function FillSection(props: {
             {view.error}
           </p>
         ) : null}
-        {group('Will fill', view.willFill, false)}
+        {group('Will fill', view.willFill, true)}
         {group('Matches your details', view.matches, false)}
         {group('Already has a different value', view.differs, true)}
         {group('Not filled', view.notFilled, true)}

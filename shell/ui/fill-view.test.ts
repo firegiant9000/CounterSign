@@ -299,6 +299,12 @@ describe('fillView', () => {
     expect(fillView(ready()).error).toBeUndefined();
   });
 
+  it('apply failed shows the error, not "Nothing to fill."', () => {
+    const view = fillView(ready({ applyFailed: true }));
+    expect(view.button).toBeUndefined();
+    expect(view.nothing).toBeUndefined();
+  });
+
   it('groups rows by status in plan order', () => {
     const view = fillView(
       ready({

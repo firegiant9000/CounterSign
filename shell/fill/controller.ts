@@ -142,8 +142,17 @@ export function createFillController(options: {
         outcome = { ok: false };
       }
       if (!outcome.ok) {
+        // The page may have written and rescanned before the answer was
+        // lost, renumbering its fields, so the old refs are not safe to send
+        // again: keep the rows for the review but offer no further fill.
+        lastScan = undefined;
         if (state.status === 'ready') {
-          set({ ...state, busy: false, applyFailed: true });
+          set({
+            ...state,
+            plan: { ...state.plan, writes: [] },
+            busy: false,
+            applyFailed: true,
+          });
         }
         return undefined;
       }
