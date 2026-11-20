@@ -542,6 +542,105 @@ describe('applyWrites', () => {
       }
       expect(events).toEqual([]);
     });
+
+    it('restores the previous option when the select did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><label for="s">Sierra</label><select id="s">' +
+          '<option value="">Choose</option><option value="x">X</option>' +
+          '</select></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Sierra/);
+      const select = doc.querySelector('#s') as HTMLSelectElement;
+      const proto = window.HTMLSelectElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'selectedIndex');
+      const calls: number[] = [];
+      Object.defineProperty(proto, 'selectedIndex', {
+        configurable: true,
+        // The first read after a write reports a different index, as a browser that refused it.
+        get(this: HTMLSelectElement) {
+          return calls.length === 1
+            ? -1
+            : (original?.get?.call(this) as number);
+        },
+        set(this: HTMLSelectElement, v: number) {
+          calls.push(v);
+          original?.set?.call(this, v);
+        },
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+        expect(calls).toEqual([1, 0]);
+      } finally {
+        if (original) Object.defineProperty(proto, 'selectedIndex', original);
+      }
+      expect(select.selectedIndex).toBe(0);
+      expect(events).toEqual([]);
+    });
+
+    it('unchecks the member when the checked state did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><fieldset><legend>Gamma</legend>' +
+          '<label><input type="radio" name="g" value="1"> One</label>' +
+          '<label><input type="radio" name="g" value="2"> Two</label>' +
+          '</fieldset></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Gamma/);
+      const radios = doc.querySelectorAll('[name="g"]');
+      const proto = window.HTMLInputElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'checked');
+      Object.defineProperty(proto, 'checked', {
+        configurable: true,
+        get: () => false,
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        set: original?.set,
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+      } finally {
+        if (original) Object.defineProperty(proto, 'checked', original);
+      }
+      expect((radios[0] as HTMLInputElement).checked).toBe(false);
+      expect((radios[1] as HTMLInputElement).checked).toBe(false);
+      expect(events).toEqual([]);
+    });
+
+    describe('a hidden group member', () => {
+      const GROUP =
+        '<form><fieldset><legend>Gamma</legend>' +
+        '<label><input type="radio" name="g" value="1"> One</label>' +
+        '<label><input type="radio" name="g" value="2"> Two</label>' +
+        '<label><input type="radio" name="g" value="3"> Three</label>' +
+        '</fieldset></form>';
+
+      function hideThenWrite(hide: number, target: number): void {
+        const { doc, page } = parse(GROUP);
+        const events = record(doc);
+        const ref = refOf(page, /Gamma/);
+        const radios = Array.from(
+          doc.querySelectorAll<HTMLInputElement>('[name="g"]'),
+        );
+        radios[hide]?.style.setProperty('display', 'none');
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: target }]),
+        ).toEqual([{ ref, outcome: 'gone' }]);
+        expect(radios.some((r) => r.checked)).toBe(false);
+        expect(events).toEqual([]);
+      }
+
+      it('is not written when it is a later member', () => {
+        hideThenWrite(1, 1);
+      });
+
+      it('fails closed when the first member is hidden and a later one is targeted', () => {
+        hideThenWrite(0, 1);
+      });
+    });
   });
 
   it('leaves a checkbox group with one member checked alone', () => {
