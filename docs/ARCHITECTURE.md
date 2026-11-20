@@ -5,6 +5,8 @@ Countersign is a Manifest V3 Firefox extension built with WXT and Preact. It sto
 ## The core and the shell
 
 - `core/` holds the rules: types, status logic, dates, application operations, list filtering, answers, documents, export, validation and migrations. It is plain TypeScript.
+- `core/src/fill/` holds the matching and planning for the form filler. It has no DOM.
+- `shell/fill/` holds the page script (`shell/fill/page/`), the injector (`shell/fill/inject.ts`) and the controller (`shell/fill/controller.ts`).
 - `shell/` and `entrypoints/` hold everything that touches the browser: IndexedDB, `storage.local`, file saving, the Preact UI and the toolbar button.
 
 The split is enforced three ways:
@@ -59,11 +61,19 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## The privacy guard
 
-Three parts keep "no network, nothing reads a page until you click" true. The local automatic backup check is the one thing that runs without a click.
+Four parts keep "no network, nothing reads or touches a page until you click, never submits" true. The local automatic backup check is the one thing that runs without a click.
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
 2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.
 3. **Manifest and CSP checks** (`guard/build.test.ts`) assert that permissions stay within a short allowlist, no host access, no content scripts, no remote resources in built pages, and the exact Content Security Policy from `wxt.config.ts`.
+4. **Fill guard** keeps filling click-only and submit-free:
+   - A lint block in `eslint.config.js` for `shell/fill/page/**` and `entrypoints/fill.ts` bans calls to submit, requestSubmit, click, focus, blur, scrollIntoView and dispatchEvent, constructing events, console, storage, postMessage and cookie access, and the common ways of changing the page, such as creating, removing or moving elements, setting attributes, text, classes, styles or HTML, adding event listeners, resetting a form and `Object.assign`. It is a denylist, so it does not prove that no other change is possible. Only `shell/fill/page/events.ts` may dispatch an event, and only a plain `input` or `change`.
+   - Outside tests, `eslint.config.js` checks that only `shell/fill/inject.ts` and `entrypoints/fill.ts` write the fill script's name (`fill.js`) or its hook's name (`__countersignFill`) as a literal. This is a check on literal names, not proof that no other file can inject the script. Outside tests, import rules (`no-restricted-imports` plus `import()` selectors, and `@typescript-eslint/no-restricted-imports`) let only `shell/fill/controller.ts` import the injector and only `shell/ui/Popup.tsx` import the controller by value; type imports are free for both. A syntax rule lets only `shell/ui/FillSection.tsx` read the controller's `fill()` (the `core/` folder is exempt because `core/` cannot import the controller).
+   - The built-output scan (`guard/scan.ts`, run by `guard/build.test.ts`) looks for `submit`, `requestSubmit`, `click`, `KeyboardEvent`, `MouseEvent`, `PointerEvent` and `SubmitEvent` in the built `fill.js`.
+   - The behaviour test `shell/fill/page-apply.test.ts` fills a fixture form and sees no submit, no new element and no new attribute.
+   - These lint rules catch ordinary code by name and path. They do not stop code written to get around them, such as a path like `..//inject` or a name built from pieces. Code review is the backstop for that.
+   - The scan skips text, textarea and select fields it judges hidden (`shell/fill/page/scan.ts`): zero opacity, clipped, unrendered, collapsed or cut off by a clipping parent, or off the page. This check is best-effort. It does not see a field covered by another element, a parent a few pixels wide, or a fixed field below the bottom of the window. The review list is the guard: every field that will be filled is shown before you click Fill.
+   - The controller test `shell/fill/controller.test.ts` shows that scanning never applies, and `shell/ui/fill-section-source.test.ts` shows that `fill()` is called only from the Fill button's click handler.
 
 ## Look and feel
 

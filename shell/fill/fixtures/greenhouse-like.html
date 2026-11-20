@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Example Robotics - Careers</title>
+    <style>
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Robotics Engineer, Example Robotics</h1>
+    <form action="https://example.com/apply" method="post">
+      <input type="hidden" name="job_id" value="hidden-job-4410" />
+      <div class="field">
+        <label for="first_name">First Name <span>*</span></label>
+        <input id="first_name" type="text" autocomplete="given-name" required />
+      </div>
+      <div class="field">
+        <label for="last_name">Last Name</label>
+        <input id="last_name" type="text" autocomplete="family-name" />
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="text" autocomplete="email" />
+      </div>
+      <div class="field">
+        <label for="phone">Phone</label>
+        <input id="phone" type="tel" />
+      </div>
+      <div class="field">
+        <label for="resume">Resume/CV</label>
+        <input id="resume" class="visually-hidden" type="file" />
+      </div>
+      <div class="field">
+        <label for="linkedin">LinkedIn Profile</label>
+        <input id="linkedin" type="text" />
+      </div>
+      <div class="field">
+        <label for="website">Website</label>
+        <input id="website" type="text" />
+      </div>
+      <div class="field">
+        <label for="auth">
+          Are you legally authorized to work in the United States?
+        </label>
+        <input
+          id="auth"
+          type="text"
+          role="combobox"
+          aria-haspopup="true"
+          aria-expanded="false"
+        />
+        <input type="text" aria-hidden="true" tabindex="-1" />
+      </div>
+      <div class="field">
+        <label for="country">Country</label>
+        <input
+          id="country"
+          type="text"
+          role="combobox"
+          aria-haspopup="true"
+          aria-expanded="false"
+        />
+        <input type="text" aria-hidden="true" tabindex="-1" />
+      </div>
+      <button type="submit">Submit Application</button>
+    </form>
+  </body>
+</html>

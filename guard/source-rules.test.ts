@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 import {
   assetExists,
   cssProblems,
+  FILL_TOKENS,
   fontFamiliesIn,
   NETWORK_TOKENS,
   parseCsp,
   scanText,
+  scanTextWithUsage,
   validateAllowlist,
 } from './scan';
 
@@ -56,6 +58,63 @@ describe('scanText', () => {
     expect(() =>
       scanText('a.js', 'x', [{ token: 'fetch', near: '', reason: 'r' }]),
     ).toThrow(/allowlist/i);
+  });
+  it('finds each fill token as a whole word', () => {
+    for (const token of FILL_TOKENS) {
+      expect(
+        scanTextWithUsage('fill.js', `x.${token}()`, [], FILL_TOKENS).hits,
+      ).toHaveLength(1);
+    }
+  });
+  it('ignores longer words', () => {
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'submitted=1;onclick;clicked()',
+        [],
+        FILL_TOKENS,
+      ).hits,
+    ).toEqual([]);
+  });
+  it('the network scan ignores fill words', () => {
+    expect(scanText('a.js', 'form.submit()', [])).toEqual([]);
+  });
+  it('an allowlist entry may name a fill token', () => {
+    const allow = [
+      { token: 'click', near: 'label:"click to expand"', reason: 'test' },
+    ];
+    expect(validateAllowlist(allow)).toEqual([]);
+    const text = 'x={label:"click to expand"};y.click()';
+    const result = scanTextWithUsage('fill.js', text, allow, FILL_TOKENS);
+    expect(result.hits).toHaveLength(1);
+    expect(result.hits[0]?.context).toContain('y.click()');
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'label:"click to expand";fetch(1)',
+        allow,
+        FILL_TOKENS,
+      ).hits,
+    ).toEqual([]);
+  });
+  it('a fill entry never hides a network hit, nor a network entry a fill hit', () => {
+    const fillEntry = [
+      { token: 'click', near: 'label:"click to expand"', reason: 'test' },
+    ];
+    expect(
+      scanText('a.js', 'label:"click to expand";fetch(1)', fillEntry),
+    ).toHaveLength(1);
+    const netEntry = [
+      { token: 'fetch', near: 'errorMessage="fetch failed"', reason: 'test' },
+    ];
+    expect(
+      scanTextWithUsage(
+        'fill.js',
+        'errorMessage="fetch failed";x.click()',
+        netEntry,
+        FILL_TOKENS,
+      ).hits,
+    ).toHaveLength(1);
   });
 });
 
@@ -254,10 +313,12 @@ describe('download guard', { timeout: 60_000 }, () => {
 describe('navigation and injection guard', { timeout: 60_000 }, () => {
   const navMessage = 'Countersign never navigates away or opens windows.';
   const tabsMessage =
-    'Use tabs only in open-dashboard.ts or capture/inject.ts.';
-  const scriptingMessage = 'Inject only through shell/capture/inject.ts.';
+    'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.';
+  const scriptingMessage =
+    'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
   const dashboard = 'shell/open-dashboard.ts';
   const inject = 'shell/capture/inject.ts';
+  const fillInject = 'shell/fill/inject.ts';
   const save = "browser.downloads.download({ url: 'blob:x' });";
   // Probe paths such as shell/ui/x.tsx and shell/capture/inject.ts do not exist
   // on disk, so type-aware parsing would fail. Switch type information off;
@@ -321,27 +382,38 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     const found = await syntaxMessages(code, 'shell/ui/x.tsx');
     expect(found.some((m) => m.message === tabsMessage)).toBe(true);
   });
-  it.each([dashboard, inject])('allows tabs access in %s', async (file) => {
-    const found = await syntaxMessages('browser.tabs.query({});', file);
-    expect(found.some((m) => m.message === tabsMessage)).toBe(false);
-  });
+  it.each([dashboard, inject, fillInject])(
+    'allows tabs access in %s',
+    async (file) => {
+      const found = await syntaxMessages('browser.tabs.query({});', file);
+      expect(found.some((m) => m.message === tabsMessage)).toBe(false);
+    },
+  );
   it.each([
     'browser.scripting.executeScript({});',
     "browser['scripting'].executeScript({});",
     'const { scripting } = browser;',
   ])('rejects scripting access %s outside inject.ts', async (code) => {
-    for (const file of ['shell/ui/x.tsx', dashboard]) {
+    for (const file of [
+      'shell/ui/x.tsx',
+      dashboard,
+      'shell/fill/controller.ts',
+      'shell/fill/page/scan.ts',
+    ]) {
       const found = await syntaxMessages(code, file);
       expect(found.some((m) => m.message === scriptingMessage)).toBe(true);
     }
   });
-  it('allows scripting access in inject.ts', async () => {
-    const found = await syntaxMessages(
-      'browser.scripting.executeScript({});',
-      inject,
-    );
-    expect(found.some((m) => m.message === scriptingMessage)).toBe(false);
-  });
+  it.each([inject, fillInject])(
+    'allows scripting access in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        'browser.scripting.executeScript({});',
+        file,
+      );
+      expect(found.some((m) => m.message === scriptingMessage)).toBe(false);
+    },
+  );
   it('rejects tabs access in the download wrapper', async () => {
     const found = await syntaxMessages(
       'browser.tabs.query({});',
@@ -349,7 +421,7 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.message === tabsMessage)).toBe(true);
   });
-  it.each([dashboard, inject])(
+  it.each([dashboard, inject, fillInject])(
     'keeps the download, network and navigation rules in %s',
     async (file) => {
       for (const [code, message] of [
@@ -372,6 +444,258 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.message === navMessage)).toBe(true);
   });
+  it.each([
+    [
+      "import { applyToPage } from '../fill/inject';",
+      'shell/ui/FillSection.tsx',
+    ],
+    ["import { applyToPage } from './inject';", 'shell/fill/other.ts'],
+    ["import { browserFillApi } from '../fill/inject';", 'shell/ui/Popup.tsx'],
+    ["import * as inject from '../fill/inject';", 'shell/ui/x.tsx'],
+    ["export { applyToPage } from './inject';", 'shell/fill/index.ts'],
+    ["export * from './inject';", 'shell/fill/index.ts'],
+    ["import { applyToPage } from '../fill/inject.js';", 'shell/ui/x.tsx'],
+  ])('rejects the apply import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
+  });
+  it.each([
+    ["const m = await import('./inject');", 'shell/fill/other.ts'],
+    ["const m = await import('./inject');", 'shell/fill/controller.ts'],
+    ["const m = await import('../fill/inject');", 'shell/ui/x.tsx'],
+  ])('rejects the dynamic import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/fill/controller.ts may import the fill apply call.',
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    ["import { applyToPage } from './inject';", 'shell/fill/controller.ts'],
+    ["import { applyToPage } from './inject';", 'shell/fill/inject.test.ts'],
+    ["import type { ScanOutcome } from '../fill/inject';", 'shell/ui/x.tsx'],
+    ["import type { ScanOutcome } from './inject';", 'shell/fill/other.ts'],
+  ])('allows the import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(false);
+  });
+  it('still rejects shell imports in core/', async () => {
+    const found = await syntaxMessages(
+      "import { x } from '../../shell/fill/inject';",
+      'core/src/status.ts',
+    );
+    expect(found.some((m) => m.ruleId === 'no-restricted-imports')).toBe(true);
+  });
+  const controllerRule = '@typescript-eslint/no-restricted-imports';
+  it.each([
+    [
+      "import { createFillController } from '../fill/controller';",
+      'shell/ui/FillSection.tsx',
+    ],
+    [
+      "import { createFillController } from '../../shell/fill/controller';",
+      'entrypoints/background.ts',
+    ],
+    [
+      "import { createFillController } from './controller.js';",
+      'shell/fill/other.ts',
+    ],
+    ["export * from './controller';", 'shell/fill/index.ts'],
+  ])('rejects the controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
+  });
+  it('rejects a dynamic import of the controller', async () => {
+    const found = await syntaxMessages(
+      "const m = await import('../fill/controller');",
+      'entrypoints/background.ts',
+    );
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/ui/Popup.tsx may import the fill controller.',
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    [
+      "import type { FillController } from '../fill/controller';",
+      'shell/ui/FillSection.tsx',
+    ],
+    [
+      "import { type FillState } from '../fill/controller';",
+      'shell/ui/fill-view.ts',
+    ],
+    [
+      "import { createFillController } from '../fill/controller';",
+      'shell/ui/Popup.tsx',
+    ],
+    [
+      "import { createFillController } from './controller';",
+      'shell/fill/controller.test.ts',
+    ],
+  ])('allows the controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  it.each([
+    [
+      "import { scanPage } from '../shell/fill/inject';",
+      'entrypoints/background.ts',
+    ],
+    ["import { scanPage } from '../fill/inject';", 'shell/capture/inject.ts'],
+    ["import { scanPage } from './inject';", 'shell/fill/other.ts'],
+    ["import { FILL_TIMEOUT_MS } from '../fill/inject';", 'shell/ui/Popup.tsx'],
+    ["import { scanPage } from './inject';", 'shell/fill/controller.test.ts'],
+    ["import { scanPage } from '../inject';", 'shell/fill/page/x.ts'],
+    ["import { scanPage } from '../../inject.js';", 'shell/fill/page/y/x.ts'],
+    ["import { scanPage } from '../../fill/inject';", 'shell/ui/x.ts'],
+    ["import { scanPage } from '../shell/fill/inject';", 'entrypoints/x.ts'],
+  ])('rejects the injector import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
+  });
+  it.each([
+    ["import { scanPage } from './inject';", 'shell/fill/controller.ts'],
+    ["import { scanPage } from './inject';", 'shell/fill/inject.test.ts'],
+    [
+      "import type { ScanOutcome } from '../fill/inject';",
+      'shell/ui/Popup.tsx',
+    ],
+    [
+      "import type { ScanOutcome } from '../fill/inject';",
+      'entrypoints/background.ts',
+    ],
+    ["import { openTab } from './inject';", 'shell/capture/other.ts'],
+    ["import type { ScanOutcome } from '../inject';", 'shell/fill/page/x.ts'],
+  ])('allows the injector import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  it.each([
+    [
+      "import { createFillController } from '../controller';",
+      'shell/fill/page/x.ts',
+    ],
+    ["export * from '../../controller.js';", 'shell/fill/page/y/x.ts'],
+    [
+      "import { createFillController } from '../controller';",
+      'shell/fill/inject.test.ts',
+    ],
+  ])('rejects the parent controller import %s in %s', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(true);
+  });
+  it('allows a type import of the controller from a fill subfolder', async () => {
+    const found = await syntaxMessages(
+      "import type { FillState } from '../controller';",
+      'shell/fill/page/x.ts',
+    );
+    expect(found.some((m) => m.ruleId === controllerRule)).toBe(false);
+  });
+  it.each([
+    ["const m = await import('../inject');", 'shell/fill/page/x.ts'],
+    ["const m = await import('../../inject.js');", 'shell/fill/page/y/x.ts'],
+    ['const m = await import(`../fill/inject`);', 'shell/ui/x.ts'],
+    ['const m = await import(`../fill/controller`);', 'shell/ui/x.ts'],
+    ['const m = await import(x);', 'shell/ui/x.ts'],
+  ])('rejects the dynamic import %s in %s (new forms)', async (code, file) => {
+    const found = await syntaxMessages(code, file);
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+            'Only shell/fill/controller.ts may import the fill apply call.' ||
+          m.message ===
+            'Only shell/ui/Popup.tsx may import the fill controller.' ||
+          m.message === 'import() must use a plain string.',
+      ),
+    ).toBe(true);
+  });
+  it('rejects a dynamic parent controller import', async () => {
+    const found = await syntaxMessages(
+      "const m = await import('../controller');",
+      'shell/fill/page/x.ts',
+    );
+    expect(
+      found.some(
+        (m) =>
+          m.message ===
+          'Only shell/ui/Popup.tsx may import the fill controller.',
+      ),
+    ).toBe(true);
+  });
+  it.each([
+    [
+      'const m = await import(`../fill/inject`);',
+      'import() must use a plain string.',
+    ],
+    ['const m = await import(x);', 'import() must use a plain string.'],
+  ])('flags %s as a non-literal import', async (code, message) => {
+    const found = await syntaxMessages(code, 'shell/ui/x.ts');
+    expect(found.some((m) => m.message === message)).toBe(true);
+  });
+  const fillCallMessage =
+    'Only the Fill button in shell/ui/FillSection.tsx may read fill() from the controller.';
+  it.each([
+    ['shell/ui/Popup.tsx', 'void ctrl.fill();'],
+    ['shell/ui/NewButton.tsx', 'void controller.fill();'],
+    ['shell/ui/Popup.tsx', "void ctrl['fill']();"],
+    ['shell/ui/Popup.tsx', 'const { fill } = ctrl;'],
+    ['shell/ui/Popup.tsx', 'const { fill: go } = ctrl;'],
+    ['shell/ui/Popup.tsx', 'const x = <button onClick={ctrl.fill} />;'],
+    ['shell/ui/Popup.tsx', 'void ctrl.fill?.();'],
+    ['shell/ui/Popup.tsx', 'void ctrl[`fill`]();'],
+    ['shell/ui/Popup.tsx', 'const { [`fill`]: go } = ctrl;'],
+    ['entrypoints/background.ts', 'void controller.fill();'],
+  ])('rejects reading fill() in %s: %s', async (file, code) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.message === fillCallMessage)).toBe(true);
+  });
+  it.each([
+    ['shell/ui/FillSection.tsx', 'void props.controller.fill();'],
+    ['shell/fill/controller.ts', 'const c = { fill };'],
+    ['shell/fill/controller.test.ts', 'await controller.fill();'],
+    ['core/src/fill/x.ts', 'const a = new Array(3).fill(0);'],
+  ])('allows reading fill() in %s: %s', async (file, code) => {
+    const found = await syntaxMessages(code, file);
+    expect(found.some((m) => m.message === fillCallMessage)).toBe(false);
+  });
+  const fillNameMessage =
+    'Only shell/fill/inject.ts and entrypoints/fill.ts may name the fill script or its hook.';
+  it.each([
+    "browser.scripting.executeScript({ target: t, files: ['/fill.js'] });",
+    "const f = 'fill.js';",
+    'const f = `/fill.js`;',
+    "const n = '__countersignFill';",
+    'const h = globalThis.__countersignFill;',
+  ])('rejects the fill name in capture/inject.ts: %s', async (code) => {
+    const found = await syntaxMessages(code, 'shell/capture/inject.ts');
+    expect(found.some((m) => m.message === fillNameMessage)).toBe(true);
+  });
+  it.each([
+    'shell/ui/x.tsx',
+    'entrypoints/background.ts',
+    'shell/fill/page/x.ts',
+    'guard/scan.ts',
+  ])('rejects the fill name in %s', async (file) => {
+    const found = await syntaxMessages("const f = '/fill.js';", file);
+    expect(found.some((m) => m.message === fillNameMessage)).toBe(true);
+  });
+  it.each(['shell/fill/inject.ts', 'entrypoints/fill.ts'])(
+    'allows the fill name in %s',
+    async (file) => {
+      const found = await syntaxMessages(
+        "const f = '/fill.js'; const h = globalThis.__countersignFill;",
+        file,
+      );
+      expect(found.some((m) => m.message === fillNameMessage)).toBe(false);
+    },
+  );
   const styleMessage = 'No inline styles: the CSP blocks them. Use a class.';
   it.each(['shell/ui/x.tsx', 'entrypoints/popup/x.tsx'])(
     'rejects a style prop in %s',
@@ -397,6 +721,236 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
         (m) => m.message === 'This extension makes no network requests.',
       ),
     ).toBe(true);
+  });
+});
+
+describe('fill page guard', { timeout: 60_000 }, () => {
+  const fillMessage =
+    'The fill page script only reads fields and sets their values.';
+  const pageFiles = ['shell/fill/page/x.ts', 'entrypoints/fill.ts'];
+  const eventsFile = 'shell/fill/page/events.ts';
+  // Probe paths do not exist on disk, so switch type information off.
+  const syntaxLint = new ESLint({
+    cwd: resolve(import.meta.dirname, '..'),
+    overrideConfig: tseslint.configs.disableTypeChecked,
+  });
+  async function syntaxMessages(code: string, filePath: string) {
+    const [result] = await syntaxLint.lintText(code, { filePath });
+    const found = result?.messages ?? [];
+    expect(found.filter((m) => m.fatal)).toEqual([]);
+    return found;
+  }
+
+  const rejected = [
+    'form.submit();',
+    'form.requestSubmit();',
+    'el.click();',
+    "el['click']();",
+    'el.focus();',
+    'el.dispatchEvent(e);',
+    'el.scrollIntoView();',
+    "document.createEvent('Event');",
+    "document.execCommand('insertText');",
+    "new Event('input');",
+    "new KeyboardEvent('keydown');",
+    "new MouseEvent('click');",
+    "new window.PointerEvent('pointerdown');",
+    "new CustomEvent('x');",
+    "document.createElement('div');",
+    "el.setAttribute('a', 'b');",
+    "el.removeAttribute('a');",
+    "el.dataset.x = '1';",
+    "el.innerHTML = '';",
+    'el.outerHTML;',
+    "el.insertAdjacentHTML('beforeend', '');",
+    'el.append(x);',
+    'el.appendChild(x);',
+    'console.log(1);',
+    "localStorage.setItem('a', 'b');",
+    'window.sessionStorage;',
+    "postMessage('x');",
+    "window.postMessage('x', '*');",
+    'document.cookie;',
+    "el['dispatchEvent'](e);",
+    "new window['MouseEvent']('x');",
+    "el['innerHTML'] = '';",
+    "document['cookie'];",
+    "window['postMessage']('x');",
+    "window['console'];",
+    "window['localStorage'];",
+    "window['sessionStorage'];",
+    'el.focus.call(el);',
+    'const f = el.scrollIntoView;',
+    'Reflect.apply(el.focus, el, []);',
+    'el.blur();',
+    "el['focus']();",
+    "el['blur']();",
+    "el['scrollIntoView']();",
+    "el['submit']();",
+    "el['requestSubmit']();",
+    "document['createEvent']('Event');",
+    "document['execCommand']('insertText');",
+    "document['createElement']('div');",
+    "el['setAttribute']('a', 'b');",
+    "el['removeAttribute']('a');",
+    "el['toggleAttribute']('a');",
+    'el.toggleAttribute(a);',
+    "el['dataset'];",
+    "el['outerHTML'];",
+    "el['insertAdjacentHTML']('beforeend', '');",
+    "el['append'](x);",
+    "el['appendChild'](x);",
+    'form.reset();',
+    'el.remove();',
+    'el.replaceChildren();',
+    'el.replaceWith(x);',
+    'el.prepend(x);',
+    'el.before(x);',
+    'el.after(x);',
+    'el.insertAdjacentElement(p, x);',
+    'el.insertBefore(x, y);',
+    'el.removeChild(x);',
+    'el.replaceChild(x, y);',
+    "el.addEventListener('input', f);",
+    "el.removeEventListener('input', f);",
+    "el.attachShadow({ mode: 'open' });",
+    "el.setAttributeNS(null, 'a', 'b');",
+    "el['reset']();",
+    "el.classList.add('x');",
+    "el.classList.remove('x');",
+    "el.classList.toggle('x');",
+    "el.classList.replace('x', 'y');",
+    "el['classList'].add('x');",
+    "el.style.setProperty('a', 'b');",
+    "el.style.removeProperty('a');",
+    "el.className = 'x';",
+    "el.id = 'x';",
+    "el.textContent = 'x';",
+    "el.textContent += 'x';",
+    "el.innerText = 'x';",
+    "el.outerText = 'x';",
+    "el.style = 'x';",
+    "el.style.cssText = 'x';",
+    "el.style.color = 'red';",
+    "el.style['color'] = 'red';",
+    "el['textContent'] = 'x';",
+    "el.classList.value = 'x';",
+    "el.insertAdjacentText('beforeend', 'x');",
+    "el.setHTMLUnsafe('x');",
+    "document.write('x');",
+    "document.writeln('x');",
+    'el.normalize();',
+    'el.hidden = true;',
+    "el.title = 'x';",
+    'el.disabled = true;',
+    "el.slot = 'x';",
+    "node.nodeValue = 'x';",
+    "node.data = 'x';",
+    "el.lang = 'x';",
+    "Object.assign(el, { value: 'x' });",
+    "Object['assign'](el.style, {});",
+  ];
+  describe.each(pageFiles)('in %s', (file) => {
+    it.each(rejected)('rejects %s in the page script', async (code) => {
+      const found = await syntaxMessages(code, file);
+      expect(found.some((m) => m.message === fillMessage)).toBe(true);
+    });
+    it.each([
+      "el.value = 'x';",
+      'const v = el.checked;',
+      "setter.call(el, 'x');",
+      "el.querySelectorAll('input');",
+      'const submitted = 1;',
+      'const t = el.textContent;',
+      "const t = (el.textContent ?? '').trim();",
+      'const d = view.getComputedStyle(el).display;',
+      'const s = el.style;',
+      'const c = el.className;',
+      'const i = el.id;',
+      "const h = el.classList.contains('x');",
+      'seen.add(key);',
+      'const t = el.title;',
+      'const d = el.disabled;',
+    ])('allows %s', async (code) => {
+      const found = await syntaxMessages(code, file);
+      expect(found.some((m) => m.message === fillMessage)).toBe(false);
+    });
+  });
+
+  it('events.ts may dispatch a plain Event', async () => {
+    const found = await syntaxMessages(
+      "el.dispatchEvent(new Event('input', { bubbles: true }));",
+      eventsFile,
+    );
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+  it.each([
+    "el.dispatchEvent(new Event('change', { bubbles: true }));",
+    "new Event('input');",
+    "el['dispatchEvent'](new Event('input'));",
+    "el.dispatchEvent(new window.Event('change'));",
+  ])('events.ts allows %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+  it.each([
+    "new window['InputEvent']('x');",
+    "new Event('focus');",
+    'new Event(type);',
+    'new Event();',
+    "new window.Event('focus');",
+    "new window['Event']('focus');",
+    'el.focus();',
+    'el.blur();',
+    "document['createEvent']('Event');",
+  ])('events.ts also rejects %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(true);
+  });
+  it.each([
+    "new KeyboardEvent('keydown');",
+    "new InputEvent('input');",
+    "new window.InputEvent('input');",
+    'el.click();',
+    'form.submit();',
+    'console.log(1);',
+  ])('events.ts may do nothing else: rejects %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(true);
+  });
+  it.each([...pageFiles, eventsFile])(
+    'keeps the shared rules in %s',
+    async (file) => {
+      for (const [code, message] of [
+        [
+          "navigator.sendBeacon('https://example.com');",
+          'This extension makes no network requests.',
+        ],
+        [
+          'location.reload();',
+          'Countersign never navigates away or opens windows.',
+        ],
+        [
+          'browser.tabs.query({});',
+          'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.',
+        ],
+        [
+          'browser.scripting.executeScript({});',
+          'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.',
+        ],
+        [
+          "browser.downloads.download({ url: 'blob:x' });",
+          'Save files only through shell/files/download.ts.',
+        ],
+      ] as const) {
+        const found = await syntaxMessages(code, file);
+        expect(found.some((m) => m.message === message)).toBe(true);
+      }
+    },
+  );
+  it('does not reach other files', async () => {
+    const found = await syntaxMessages('el.click();', 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
   });
 });
 

@@ -1,0 +1,658 @@
+// @vitest-environment happy-dom
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { Window } from 'happy-dom';
+import { describe, expect, it, vi } from 'vitest';
+import { applyWrites } from './page/apply';
+import { scanForm, type PageScan } from './page/scan';
+
+interface Loaded {
+  window: Window;
+  doc: Document;
+  page: PageScan;
+}
+
+function parse(html: string): Loaded {
+  const window = new Window({ url: 'https://example.com/jobs/1' });
+  window.document.write(html);
+  const doc = window.document as unknown as Document;
+  return { window, doc, page: scanForm(doc) };
+}
+
+function load(name: string): Loaded {
+  return parse(
+    readFileSync(join(import.meta.dirname, 'fixtures', name), 'utf8'),
+  );
+}
+
+function refOf(page: PageScan, label: RegExp): number {
+  const field = page.scan.fields.find((f) => label.test(f.label));
+  if (!field) throw new Error(`no field matches ${String(label)}`);
+  return field.ref;
+}
+
+const WATCHED = [
+  'input',
+  'change',
+  'keydown',
+  'keyup',
+  'click',
+  'focus',
+  'blur',
+  'submit',
+];
+
+function record(doc: Document): Event[] {
+  const events: Event[] = [];
+  for (const type of WATCHED) {
+    doc.addEventListener(type, (event) => events.push(event), {
+      capture: true,
+    });
+  }
+  return events;
+}
+
+function attributeMap(doc: Document): string[] {
+  return Array.from(doc.querySelectorAll('*')).map(
+    (el) =>
+      `${el.localName}|` +
+      Array.from(el.attributes)
+        .map((a) => `${a.name}=${a.value}`)
+        .join(','),
+  );
+}
+
+describe('applyWrites', () => {
+  it('writes text, a select option and a checkbox', () => {
+    const { doc, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    const auth = refOf(page, /authorized/);
+    const sponsor = refOf(page, /sponsorship/);
+    const reports = applyWrites(page.elements, [
+      { ref: name, kind: 'value', value: 'Sam Example' },
+      { ref: auth, kind: 'option', index: 0 },
+      { ref: sponsor, kind: 'option', index: 1 },
+    ]);
+    expect(reports).toEqual([
+      { ref: name, outcome: 'written' },
+      { ref: auth, outcome: 'written' },
+      { ref: sponsor, outcome: 'written' },
+    ]);
+    expect((doc.querySelector('[name="name"]') as HTMLInputElement).value).toBe(
+      'Sam Example',
+    );
+    const select = doc.querySelector('select') as HTMLSelectElement;
+    expect(select.options[select.selectedIndex]?.text).toBe('Yes');
+    const boxes = doc.querySelectorAll('[name="sponsorship"]');
+    expect((boxes[0] as HTMLInputElement).checked).toBe(false);
+    expect((boxes[1] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('fires input then change once per field', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    applyWrites(page.elements, [
+      { ref: refOf(page, /Full name/), kind: 'value', value: 'Sam Example' },
+      { ref: refOf(page, /authorized/), kind: 'option', index: 0 },
+      { ref: refOf(page, /sponsorship/), kind: 'option', index: 1 },
+    ]);
+    expect(events.map((e) => e.type)).toEqual([
+      'input',
+      'change',
+      'input',
+      'change',
+      'input',
+      'change',
+    ]);
+    const targets = events.map((e) => e.target);
+    expect(targets[0]).toBe(targets[1]);
+    expect(targets[2]).toBe(targets[3]);
+    expect(targets[4]).toBe(targets[5]);
+    expect(targets[4]).toBe(doc.querySelectorAll('[name="sponsorship"]')[1]);
+  });
+
+  it('leaves a non-empty field alone', () => {
+    const { doc, page } = load('prefilled.html');
+    const events = record(doc);
+    const email = refOf(page, /Email/);
+    const select = refOf(page, /relocate/);
+    const group = refOf(page, /over 18/);
+    const reports = applyWrites(page.elements, [
+      { ref: email, kind: 'value', value: 'other@example.com' },
+      { ref: select, kind: 'option', index: 1 },
+      { ref: group, kind: 'option', index: 0 },
+    ]);
+    expect(reports.map((r) => r.outcome)).toEqual([
+      'not_empty',
+      'not_empty',
+      'not_empty',
+    ]);
+    expect((doc.querySelector('#email') as HTMLInputElement).value).toBe(
+      'someone@example.com',
+    );
+    expect((doc.querySelector('#relocate') as HTMLSelectElement).value).toBe(
+      'yes',
+    );
+    const radios = doc.querySelectorAll('[name="adult"]');
+    expect((radios[0] as HTMLInputElement).checked).toBe(false);
+    expect((radios[1] as HTMLInputElement).checked).toBe(true);
+    expect(events).toEqual([]);
+  });
+
+  it('treats a field holding only spaces as not empty', () => {
+    const { doc, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    (doc.querySelector('[name="name"]') as HTMLInputElement).value = '  ';
+    const reports = applyWrites(page.elements, [
+      { ref: name, kind: 'value', value: 'Sam Example' },
+    ]);
+    expect(reports).toEqual([{ ref: name, outcome: 'not_empty' }]);
+  });
+
+  it('a detached element is gone', () => {
+    const { doc, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    doc.querySelector('[name="name"]')?.remove();
+    const reports = applyWrites(page.elements, [
+      { ref: name, kind: 'value', value: 'Sam Example' },
+      { ref: 999, kind: 'value', value: 'x' },
+    ]);
+    expect(reports).toEqual([
+      { ref: name, outcome: 'gone' },
+      { ref: 999, outcome: 'gone' },
+    ]);
+  });
+
+  it('the page changed after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    const input = doc.querySelector('[name="name"]') as HTMLInputElement;
+    input.value = 'Typed by the visitor';
+    const reports = applyWrites(page.elements, [
+      { ref: name, kind: 'value', value: 'Sam Example' },
+    ]);
+    expect(reports).toEqual([{ ref: name, outcome: 'not_empty' }]);
+    expect(input.value).toBe('Typed by the visitor');
+  });
+
+  it('wrong shapes fail', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const before = attributeMap(doc);
+    const name = refOf(page, /Full name/);
+    const auth = refOf(page, /authorized/);
+    const file = page.scan.fields.find((f) => f.control === 'file');
+    const custom = page.scan.fields.find((f) => f.control === 'custom');
+    expect(file).toBeDefined();
+    expect(custom).toBeDefined();
+    const writes = [
+      { ref: name, kind: 'option', index: 0 },
+      { ref: auth, kind: 'value', value: 'Yes' },
+      { ref: auth, kind: 'option', index: 9 },
+      { ref: name, kind: 'value', value: 'x'.repeat(501) },
+      { ref: name, kind: 'value' },
+      { ref: auth, kind: 'option', index: -1 },
+      { ref: auth, kind: 'option', index: 1.5 },
+      { ref: file?.ref ?? -1, kind: 'value', value: 'a' },
+      { ref: custom?.ref ?? -1, kind: 'value', value: 'a' },
+      { ref: name, kind: 'other' },
+    ];
+    const reports = applyWrites(page.elements, writes);
+    expect(reports).toHaveLength(writes.length);
+    expect(reports.every((r) => r.outcome === 'failed')).toBe(true);
+    expect((doc.querySelector('[name="name"]') as HTMLInputElement).value).toBe(
+      '',
+    );
+    expect((doc.querySelector('select') as HTMLSelectElement).value).toBe('');
+    expect(events).toEqual([]);
+    expect(attributeMap(doc)).toEqual(before);
+  });
+
+  it('fails a date that is not YYYY-MM-DD and writes one that is', () => {
+    const { doc, page } = parse(
+      '<form><label for="d">Start date</label><input id="d" type="date"></form>',
+    );
+    const ref = refOf(page, /Start date/);
+    expect(page.scan.fields[0]?.control).toBe('date');
+    expect(
+      applyWrites(page.elements, [{ ref, kind: 'value', value: '12/01/2026' }]),
+    ).toEqual([{ ref, outcome: 'failed' }]);
+    expect(
+      applyWrites(page.elements, [{ ref, kind: 'value', value: '2026-12-01' }]),
+    ).toEqual([{ ref, outcome: 'written' }]);
+    expect((doc.querySelector('#d') as HTMLInputElement).value).toBe(
+      '2026-12-01',
+    );
+  });
+
+  it('fails a field that became disabled or read-only after the scan', () => {
+    const { doc, page } = parse(
+      '<form>' +
+        '<label for="a">Alpha</label><input id="a" type="text">' +
+        '<label for="b">Bravo</label><input id="b" type="text">' +
+        '<fieldset id="fs"><label for="c">Charlie</label>' +
+        '<input id="c" type="text"></fieldset>' +
+        '<label for="s">Sierra</label><select id="s">' +
+        '<option value="">Choose</option><option value="x">X</option></select>' +
+        '<fieldset><legend>Gamma</legend>' +
+        '<label><input type="radio" name="g" value="1"> One</label>' +
+        '<label><input type="radio" name="g" value="2"> Two</label>' +
+        '</fieldset></form>',
+    );
+    const writes = [
+      { ref: refOf(page, /Alpha/), kind: 'value', value: 'x' },
+      { ref: refOf(page, /Bravo/), kind: 'value', value: 'x' },
+      { ref: refOf(page, /Charlie/), kind: 'value', value: 'x' },
+      { ref: refOf(page, /Sierra/), kind: 'option', index: 0 },
+      { ref: refOf(page, /Gamma/), kind: 'option', index: 1 },
+    ];
+    doc.querySelector('#a')?.setAttribute('disabled', '');
+    doc.querySelector('#b')?.setAttribute('readonly', '');
+    doc.querySelector('#fs')?.setAttribute('disabled', '');
+    doc.querySelector('#s')?.setAttribute('disabled', '');
+    doc.querySelectorAll('[name="g"]')[1]?.setAttribute('disabled', '');
+    const reports = applyWrites(page.elements, writes);
+    expect(reports.map((r) => r.outcome)).toEqual([
+      'failed',
+      'failed',
+      'failed',
+      'failed',
+      'failed',
+    ]);
+    for (const id of ['a', 'b', 'c']) {
+      expect((doc.querySelector('#' + id) as HTMLInputElement).value).toBe('');
+    }
+    expect((doc.querySelector('#s') as HTMLSelectElement).value).toBe('');
+    expect(
+      (doc.querySelectorAll('[name="g"]')[1] as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it('fails a field disabled after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    doc.querySelector('[name="name"]')?.setAttribute('disabled', '');
+    expect(
+      applyWrites(page.elements, [{ ref: name, kind: 'value', value: 'x' }]),
+    ).toEqual([{ ref: name, outcome: 'failed' }]);
+  });
+
+  it('hostile writes', () => {
+    const { page } = load('lever-like.html');
+    expect(applyWrites(page.elements, 'x')).toEqual([]);
+    expect(applyWrites(page.elements, { length: 3 })).toEqual([]);
+    expect(applyWrites(page.elements, null)).toEqual([]);
+    const name = refOf(page, /Full name/);
+    const many = Array.from({ length: 5000 }, () => ({
+      ref: name,
+      kind: 'value',
+      value: 'x',
+    }));
+    expect(applyWrites(page.elements, many).length).toBeLessThanOrEqual(200);
+    expect(
+      applyWrites(page.elements, [null, 'x', [], { kind: 'value' }]),
+    ).toEqual([]);
+    expect(
+      applyWrites(page.elements, [{ ref: 'a', kind: 'value', value: 'x' }]),
+    ).toEqual([]);
+  });
+
+  it('reads at most 200 entries, counting skipped ones', () => {
+    const { page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    const writes: unknown[] = Array.from({ length: 200 }, () => null);
+    writes.push({ ref: name, kind: 'value', value: 'Sam Example' });
+    expect(applyWrites(page.elements, writes)).toEqual([]);
+  });
+
+  it('goes through the prototype setter', () => {
+    const { doc, window, page } = load('lever-like.html');
+    const name = refOf(page, /Full name/);
+    const input = doc.querySelector('[name="name"]') as HTMLInputElement;
+    const calls: string[] = [];
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get() {
+        return '';
+      },
+      set(v: string) {
+        calls.push(v);
+      },
+    });
+    const reports = applyWrites(page.elements, [
+      { ref: name, kind: 'value', value: 'Sam Example' },
+    ]);
+    expect(reports).toEqual([{ ref: name, outcome: 'written' }]);
+    expect(calls).toEqual([]);
+    // The getter is always called with .call on the element.
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    const get = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.get;
+    expect(get?.call(input)).toBe('Sam Example');
+  });
+
+  it('behaviour guard: a full fill only sets values', () => {
+    const { doc, window, page } = load('lever-like.html');
+    const events = record(doc);
+    const submit = vi.spyOn(window.HTMLFormElement.prototype, 'submit');
+    const requestSubmit = vi.spyOn(
+      window.HTMLFormElement.prototype,
+      'requestSubmit',
+    );
+    const countBefore = doc.querySelectorAll('*').length;
+    const attributesBefore = attributeMap(doc);
+    const activeBefore = doc.activeElement;
+
+    const reports = applyWrites(page.elements, [
+      { ref: refOf(page, /Full name/), kind: 'value', value: 'Sam Example' },
+      { ref: refOf(page, /Email/), kind: 'value', value: 'sam@example.com' },
+      { ref: refOf(page, /Phone/), kind: 'value', value: '555-0100' },
+      { ref: refOf(page, /authorized/), kind: 'option', index: 0 },
+      { ref: refOf(page, /sponsorship/), kind: 'option', index: 1 },
+      { ref: refOf(page, /Additional/), kind: 'value', value: 'Hello' },
+    ]);
+
+    expect(reports.every((r) => r.outcome === 'written')).toBe(true);
+    expect(events.map((e) => e.type)).not.toContain('submit');
+    for (const type of ['keydown', 'keyup', 'click', 'focus', 'blur']) {
+      expect(events.map((e) => e.type)).not.toContain(type);
+    }
+    expect(submit).not.toHaveBeenCalled();
+    expect(requestSubmit).not.toHaveBeenCalled();
+    expect(doc.querySelectorAll('*').length).toBe(countBefore);
+    expect(attributeMap(doc)).toEqual(attributesBefore);
+    expect(doc.activeElement).toBe(activeBefore);
+  });
+
+  it('reports gone when the select options were replaced after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const auth = refOf(page, /authorized/);
+    const select = doc.querySelector('select') as HTMLSelectElement;
+    select.innerHTML =
+      '<option value="">Choose one</option><option value="yes">Yes</option>';
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: auth, outcome: 'gone' }]);
+    expect(select.selectedIndex).toBe(0);
+    expect(events).toEqual([]);
+  });
+
+  it('reports failed and fires nothing when the value did not take', () => {
+    const { doc, window, page } = parse(
+      '<form><label for="d">Start date</label><input id="d" type="date"></form>',
+    );
+    const events = record(doc);
+    const ref = refOf(page, /Start date/);
+    // happy-dom does not sanitise dates, so make the getter report what a browser would.
+    const proto = window.HTMLInputElement.prototype;
+    const original = Object.getOwnPropertyDescriptor(proto, 'value');
+    Object.defineProperty(proto, 'value', {
+      configurable: true,
+      get: () => '',
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      set: original?.set,
+    });
+    expect(
+      applyWrites(page.elements, [{ ref, kind: 'value', value: '2026-13-45' }]),
+    ).toEqual([{ ref, outcome: 'failed' }]);
+    if (original) Object.defineProperty(proto, 'value', original);
+    expect(events).toEqual([]);
+  });
+
+  it('reports written for a textarea value with CRLF line breaks', () => {
+    const { doc, page } = load('lever-like.html');
+    const ref = refOf(page, /Additional/);
+    expect(
+      applyWrites(page.elements, [
+        { ref, kind: 'value', value: 'one\r\ntwo\rthree' },
+      ]),
+    ).toEqual([{ ref, outcome: 'written' }]);
+    const stored = (doc.querySelector('textarea') as HTMLTextAreaElement).value;
+    expect(stored.replace(/\r\n?/g, '\n')).toBe('one\ntwo\nthree');
+  });
+
+  it('fails an option disabled after the scan', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const auth = refOf(page, /authorized/);
+    doc.querySelectorAll('option')[1]?.setAttribute('disabled', '');
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 0 }]),
+    ).toEqual([{ ref: auth, outcome: 'failed' }]);
+    expect((doc.querySelector('select') as HTMLSelectElement).value).toBe('');
+    expect(events).toEqual([]);
+  });
+
+  it('writes a select with nothing chosen', () => {
+    const { doc, page } = load('lever-like.html');
+    const auth = refOf(page, /authorized/);
+    const select = doc.querySelector('select') as HTMLSelectElement;
+    select.selectedIndex = -1;
+    expect(select.selectedIndex).toBe(-1);
+    expect(
+      applyWrites(page.elements, [{ ref: auth, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: auth, outcome: 'written' }]);
+    expect(select.options[select.selectedIndex]?.text).toBe('No');
+  });
+
+  describe('recheck at write time', () => {
+    const ONE =
+      '<form><label for="a">Alpha</label><input id="a" type="text"></form>';
+
+    function expectUntouched(
+      change: (doc: Document) => void,
+      html = ONE,
+    ): void {
+      const { doc, page } = parse(html);
+      const events = record(doc);
+      const ref = refOf(page, /Alpha/);
+      change(doc);
+      expect(
+        applyWrites(page.elements, [{ ref, kind: 'value', value: 'x' }]),
+      ).toEqual([{ ref, outcome: 'gone' }]);
+      expect(doc.querySelector('#a')?.getAttribute('value')).toBeNull();
+      expect((doc.querySelector('#a') as HTMLInputElement).value).not.toBe('x');
+      expect(events).toEqual([]);
+    }
+
+    it('does not write a field hidden with display:none', () => {
+      expectUntouched((doc) =>
+        (doc.querySelector('#a') as HTMLElement).style.setProperty(
+          'display',
+          'none',
+        ),
+      );
+    });
+
+    it('does not write a text input made transparent', () => {
+      expectUntouched((doc) =>
+        (doc.querySelector('#a') as HTMLElement).style.setProperty(
+          'opacity',
+          '0',
+        ),
+      );
+    });
+
+    it('does not write a field switched to a password', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('type', 'password'),
+      );
+    });
+
+    it('does not write a field given a card autocomplete', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('autocomplete', 'cc-number'),
+      );
+    });
+
+    it('does not write a field whose control kind changed', () => {
+      expectUntouched((doc) =>
+        doc.querySelector('#a')?.setAttribute('type', 'checkbox'),
+      );
+    });
+
+    it('does not write a radio group that gained a checked disabled peer', () => {
+      const { doc, page } = parse(
+        '<form><fieldset><legend>Gamma</legend>' +
+          '<label><input type="radio" name="g" value="1"> One</label>' +
+          '<label><input type="radio" name="g" value="2"> Two</label>' +
+          '<label><input type="radio" name="g" value="3" disabled> Three</label>' +
+          '</fieldset></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Gamma/);
+      const radios = doc.querySelectorAll('[name="g"]');
+      (radios[2] as HTMLInputElement).checked = true;
+      expect(
+        applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+      ).toEqual([{ ref, outcome: 'gone' }]);
+      expect((radios[0] as HTMLInputElement).checked).toBe(false);
+      expect(events).toEqual([]);
+    });
+
+    it('puts a text field back to empty when the value did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><label for="d">Start date</label><input id="d" type="date"></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Start date/);
+      const proto = window.HTMLInputElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'value');
+      let stored = '';
+      Object.defineProperty(proto, 'value', {
+        configurable: true,
+        // A browser keeps a sanitised value, here a different one.
+        get: () => stored,
+        set: (v: string) => {
+          stored = v === '' ? '' : 'sanitised';
+        },
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [
+            { ref, kind: 'value', value: '2026-13-45' },
+          ]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+        expect(stored).toBe('');
+      } finally {
+        if (original) Object.defineProperty(proto, 'value', original);
+      }
+      expect(events).toEqual([]);
+    });
+
+    it('restores the previous option when the select did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><label for="s">Sierra</label><select id="s">' +
+          '<option value="">Choose</option><option value="x">X</option>' +
+          '</select></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Sierra/);
+      const select = doc.querySelector('#s') as HTMLSelectElement;
+      const proto = window.HTMLSelectElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'selectedIndex');
+      const calls: number[] = [];
+      Object.defineProperty(proto, 'selectedIndex', {
+        configurable: true,
+        // The first read after a write reports a different index, as a browser that refused it.
+        get(this: HTMLSelectElement) {
+          return calls.length === 1
+            ? -1
+            : (original?.get?.call(this) as number);
+        },
+        set(this: HTMLSelectElement, v: number) {
+          calls.push(v);
+          original?.set?.call(this, v);
+        },
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+        expect(calls).toEqual([1, 0]);
+      } finally {
+        if (original) Object.defineProperty(proto, 'selectedIndex', original);
+      }
+      expect(select.selectedIndex).toBe(0);
+      expect(events).toEqual([]);
+    });
+
+    it('unchecks the member when the checked state did not take', () => {
+      const { doc, window, page } = parse(
+        '<form><fieldset><legend>Gamma</legend>' +
+          '<label><input type="radio" name="g" value="1"> One</label>' +
+          '<label><input type="radio" name="g" value="2"> Two</label>' +
+          '</fieldset></form>',
+      );
+      const events = record(doc);
+      const ref = refOf(page, /Gamma/);
+      const radios = doc.querySelectorAll('[name="g"]');
+      const proto = window.HTMLInputElement.prototype;
+      const original = Object.getOwnPropertyDescriptor(proto, 'checked');
+      Object.defineProperty(proto, 'checked', {
+        configurable: true,
+        get: () => false,
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        set: original?.set,
+      });
+      try {
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: 0 }]),
+        ).toEqual([{ ref, outcome: 'failed' }]);
+      } finally {
+        if (original) Object.defineProperty(proto, 'checked', original);
+      }
+      expect((radios[0] as HTMLInputElement).checked).toBe(false);
+      expect((radios[1] as HTMLInputElement).checked).toBe(false);
+      expect(events).toEqual([]);
+    });
+
+    describe('a hidden group member', () => {
+      const GROUP =
+        '<form><fieldset><legend>Gamma</legend>' +
+        '<label><input type="radio" name="g" value="1"> One</label>' +
+        '<label><input type="radio" name="g" value="2"> Two</label>' +
+        '<label><input type="radio" name="g" value="3"> Three</label>' +
+        '</fieldset></form>';
+
+      function hideThenWrite(hide: number, target: number): void {
+        const { doc, page } = parse(GROUP);
+        const events = record(doc);
+        const ref = refOf(page, /Gamma/);
+        const radios = Array.from(
+          doc.querySelectorAll<HTMLInputElement>('[name="g"]'),
+        );
+        radios[hide]?.style.setProperty('display', 'none');
+        expect(
+          applyWrites(page.elements, [{ ref, kind: 'option', index: target }]),
+        ).toEqual([{ ref, outcome: 'gone' }]);
+        expect(radios.some((r) => r.checked)).toBe(false);
+        expect(events).toEqual([]);
+      }
+
+      it('is not written when it is a later member', () => {
+        hideThenWrite(1, 1);
+      });
+
+      it('fails closed when the first member is hidden and a later one is targeted', () => {
+        hideThenWrite(0, 1);
+      });
+    });
+  });
+
+  it('leaves a checkbox group with one member checked alone', () => {
+    const { doc, page } = load('lever-like.html');
+    const events = record(doc);
+    const sponsor = refOf(page, /sponsorship/);
+    const boxes = doc.querySelectorAll('[name="sponsorship"]');
+    (boxes[0] as HTMLInputElement).checked = true;
+    expect(
+      applyWrites(page.elements, [{ ref: sponsor, kind: 'option', index: 1 }]),
+    ).toEqual([{ ref: sponsor, outcome: 'not_empty' }]);
+    expect((boxes[1] as HTMLInputElement).checked).toBe(false);
+    expect(events).toEqual([]);
+  });
+});

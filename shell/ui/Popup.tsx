@@ -8,12 +8,16 @@ import {
   saveJobOps,
 } from '../../core/src/job-ops';
 import type { JobInput } from '../../core/src/job-ops';
+import { profileValues } from '../../core/src/profile';
 import { canonicalizeUrl } from '../../core/src/url';
 import { capturePage } from '../capture/inject';
 import type { CaptureOutcome } from '../capture/inject';
+import { createFillController } from '../fill/controller';
+import type { FillController } from '../fill/controller';
 import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
+import { FillSection } from './FillSection';
 import { Button } from './components/Button';
 import { Fact } from './components/Fact';
 import { Field } from './components/Field';
@@ -84,9 +88,41 @@ export function Popup(): VNode {
   const [createError, setCreateError] = useState<string | undefined>(undefined);
   const [openError, setOpenError] = useState<string | undefined>(undefined);
 
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const depsRef = useRef(deps);
+  depsRef.current = deps;
+  const captureRef = useRef<Capture>(capture);
+  captureRef.current = capture;
+  const controllerRef = useRef<FillController | undefined>(undefined);
+  if (controllerRef.current === undefined) {
+    controllerRef.current = createFillController({
+      input: () => ({
+        profile: profileValues(dataRef.current),
+        answers: Array.isArray(dataRef.current.canonicalAnswers)
+          ? dataRef.current.canonicalAnswers
+          : [],
+      }),
+      now: () => depsRef.current.now(),
+      relCanonical: () => {
+        const c = captureRef.current;
+        if (c.status !== 'done' || !c.outcome.ok) return undefined;
+        return c.outcome.capture.source !== 'none'
+          ? c.outcome.capture.relCanonical
+          : undefined;
+      },
+    });
+  }
+  const controller = controllerRef.current;
+
+  useEffect(() => {
+    controller.refresh();
+  }, [data]);
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    void controller.start();
     capturePage().then(
       (outcome) => setCapture({ status: 'done', outcome }),
       (err: unknown) =>
@@ -331,6 +367,7 @@ export function Popup(): VNode {
             </div>
           </section>
         ) : null}
+        <FillSection controller={controller} />
         <div class="popup-actions">
           <Button variant="link" onClick={open}>
             Open dashboard

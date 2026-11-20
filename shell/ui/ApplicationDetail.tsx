@@ -335,7 +335,7 @@ export function ApplicationDetail(props: { id: Id }): VNode {
         <RoundsSection applicationId={id} companyId={app.companyId} />
       </IndexCard>
 
-      <IndexCard title="Formhand log">
+      <IndexCard title="Fill log">
         <div class="detail-fields">
           <Field label="Application site">
             <select
