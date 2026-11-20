@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Window } from 'happy-dom';
 import { describe, expect, it } from 'vitest';
+import { buildPlan } from '../../core/src/fill/plan';
+import { FRAME_HOSTS } from '../../core/src/fill/site';
+import type { PlanInput } from '../../core/src/fill/types';
 import { toFormScan } from '../../core/src/fill/validate';
 import { scanForm } from './page/scan';
 
@@ -23,6 +26,11 @@ const FIXTURES = [
   'greenhouse-like.html',
   'autocomplete-only.html',
   'prefilled.html',
+  'two-forms.html',
+  'referee-block.html',
+  'no-form.html',
+  'embed-greenhouse.html',
+  'embed-ashby.html',
 ];
 
 describe('scanForm: lever-like', () => {
@@ -365,6 +373,127 @@ describe('scanForm: caps', () => {
       `<form><input aria-label="a" value="${'x'.repeat(600)}" /></form>`,
     );
     expect(scanForm(doc).scan.fields[0]?.value).toHaveLength(500);
+  });
+});
+
+const GREENHOUSE_SRC =
+  'https://job-boards.greenhouse.io/embed/job_app?for=exampleco&token=1234567&validityToken=abc';
+
+describe('scanForm: the form choice', () => {
+  it('scans the application form and ignores the newsletter box', () => {
+    const { scan, elements } = scanForm(load('two-forms.html'));
+    expect(scan.fields).toHaveLength(4);
+    expect(elements).toHaveLength(4);
+    expect(scan.fields.filter((f) => f.label === 'Email')).toHaveLength(1);
+  });
+
+  it('picks the first form on a tie', () => {
+    const doc = parse(`<form>
+      <input aria-label="A1" /><input aria-label="A2" />
+    </form><form>
+      <input aria-label="B1" /><input aria-label="B2" />
+    </form>`);
+    expect(scanForm(doc).scan.fields.map((f) => f.label)).toEqual(['A1', 'A2']);
+  });
+
+  it('scans the whole document when there is no form', () => {
+    const doc = parse(
+      '<div><input aria-label="A" /><input aria-label="B" /></div>',
+    );
+    expect(scanForm(doc).scan.fields.map((f) => f.label)).toEqual(['A', 'B']);
+  });
+
+  it('finds nothing on a posting page with only a search box', () => {
+    const { scan } = scanForm(load('no-form.html'));
+    expect(scan.fields).toEqual([]);
+    expect(scan.frames).toEqual([]);
+  });
+
+  it('forms a group only from members inside the chosen form', () => {
+    const doc = parse(`<form>
+      <input aria-label="A" /><input aria-label="B" />
+      <input type="radio" name="r" value="x" /><input type="radio" name="r" value="y" />
+    </form><form><input type="radio" name="r" value="z" /></form>`);
+    const { scan } = scanForm(doc);
+    expect(scan.fields).toHaveLength(3);
+    expect(scan.fields[2]?.options).toEqual(['x', 'y']);
+  });
+
+  it('plans the referee block as four ambiguous rows', () => {
+    const sam: PlanInput = {
+      profile: { full_name: 'Sam Example', email: 'sam@example.com' },
+      answers: [],
+    };
+    const { scan } = scanForm(load('referee-block.html'));
+    expect(scan.fields.map((f) => f.label)).toEqual([
+      'Name',
+      'Email',
+      'Name',
+      'Email',
+    ]);
+    const plan = buildPlan(scan, sam);
+    expect(plan.rows).toHaveLength(4);
+    for (const row of plan.rows) {
+      expect(row.status).toBe('not_filled');
+      expect(row.reason).toBe('ambiguous');
+    }
+    expect(plan.writes).toEqual([]);
+  });
+});
+
+describe('scanForm: frames', () => {
+  it('reports the Greenhouse embed and no fields', () => {
+    const { scan } = scanForm(load('embed-greenhouse.html'));
+    expect(scan.frames).toEqual([GREENHOUSE_SRC]);
+    expect(scan.fields).toEqual([]);
+  });
+
+  it('reports the Ashby embed', () => {
+    const { scan } = scanForm(load('embed-ashby.html'));
+    expect(scan.frames).toEqual([
+      'https://jobs.ashbyhq.com/exampleco/0000?embed=js',
+    ]);
+  });
+
+  it('reports every known frame host', () => {
+    const frames = Array.from(FRAME_HOSTS.keys()).map(
+      (host) => `<iframe src="https://${host}/x"></iframe>`,
+    );
+    const { scan } = scanForm(parse(frames.join('')));
+    expect(scan.frames).toHaveLength(FRAME_HOSTS.size);
+  });
+
+  it('stops at five frames', () => {
+    const frames = Array.from(
+      { length: 6 },
+      (_, i) => `<iframe src="${GREENHOUSE_SRC}&n=${i}"></iframe>`,
+    ).join('');
+    expect(scanForm(parse(frames)).scan.frames).toHaveLength(5);
+  });
+
+  it('resolves a relative src and skips other protocols and no src', () => {
+    const doc = parse(`
+      <iframe src="//boards.greenhouse.io/embed/job_app?for=a"></iframe>
+      <iframe src="http://boards.greenhouse.io/embed/job_app?for=b"></iframe>
+      <iframe src="/local/page"></iframe>
+      <iframe></iframe>`);
+    expect(scanForm(doc).scan.frames).toEqual([
+      'https://boards.greenhouse.io/embed/job_app?for=a',
+    ]);
+  });
+
+  it('cuts a long src at 2,000 characters', () => {
+    const doc = parse(
+      `<iframe src="https://boards.greenhouse.io/x?q=${'a'.repeat(2500)}"></iframe>`,
+    );
+    expect(scanForm(doc).scan.frames[0]).toHaveLength(2000);
+  });
+
+  it('finds frames outside the chosen form', () => {
+    const doc = parse(
+      `<form><input aria-label="A" /></form><iframe src="${GREENHOUSE_SRC}"></iframe>`,
+    );
+    expect(scanForm(doc).scan.frames).toEqual([GREENHOUSE_SRC]);
   });
 });
 

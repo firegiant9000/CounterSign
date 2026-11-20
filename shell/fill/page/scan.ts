@@ -1,7 +1,10 @@
 import { isPlaceholderOption } from '../../../core/src/fill/normalize';
+import { FRAME_HOSTS } from '../../../core/src/fill/site';
 import {
   MAX_AUTOCOMPLETE,
   MAX_FIELDS,
+  MAX_FRAMES,
+  MAX_FRAME_SRC,
   MAX_OPTIONS,
   MAX_VALUE,
   type ControlKind,
@@ -242,10 +245,65 @@ interface Slot {
   members?: HTMLInputElement[];
 }
 
+const FIELD_SELECTOR = 'input, textarea, select';
+
+function candidatesIn(root: ParentNode): Element[] {
+  return Array.from(root.querySelectorAll(FIELD_SELECTOR)).filter(isCandidate);
+}
+
+/** Counts a choice group as one field, as the scan does. */
+function countSlots(candidates: Element[]): number {
+  const seen = new Set<string>();
+  let count = 0;
+  for (const el of candidates) {
+    const name = el.getAttribute('name') ?? '';
+    if (controlOf(el) !== 'choice_group' || name === '') {
+      count += 1;
+      continue;
+    }
+    const key = `${inputType(el)}:${name}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    count += 1;
+  }
+  return count;
+}
+
+function chooseCandidates(doc: Document): Element[] {
+  let best: Element[] = [];
+  let bestCount = 0;
+  for (const form of Array.from(doc.querySelectorAll('form'))) {
+    const found = candidatesIn(form);
+    const count = countSlots(found);
+    if (count > bestCount) {
+      best = found;
+      bestCount = count;
+    }
+  }
+  return bestCount > 0 ? best : candidatesIn(doc);
+}
+
+function scanFrames(doc: Document): string[] {
+  const frames: string[] = [];
+  for (const frame of Array.from(doc.querySelectorAll('iframe'))) {
+    if (frames.length >= MAX_FRAMES) break;
+    const src = frame.getAttribute('src');
+    if (!src) continue;
+    let url: URL;
+    try {
+      url = new URL(src, doc.baseURI);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== 'https:') continue;
+    if (!FRAME_HOSTS.has(url.hostname.toLowerCase())) continue;
+    frames.push(url.href.slice(0, MAX_FRAME_SRC));
+  }
+  return frames;
+}
+
 export function scanForm(doc: Document): PageScan {
-  const candidates = Array.from(
-    doc.querySelectorAll('input, textarea, select'),
-  ).filter(isCandidate);
+  const candidates = chooseCandidates(doc);
 
   const groups = new Map<string, HTMLInputElement[]>();
   const slots: Slot[] = [];
@@ -279,7 +337,7 @@ export function scanForm(doc: Document): PageScan {
   return {
     scan: {
       fields: built.map((b, ref) => ({ ref, ...b.field })),
-      frames: [],
+      frames: scanFrames(doc),
       truncated: slots.length > MAX_FIELDS,
     },
     elements: built.map((b) => b.elements),
