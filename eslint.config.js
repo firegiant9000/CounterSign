@@ -86,6 +86,72 @@ const STYLE_MESSAGE = 'No inline styles: the CSP blocks them. Use a class.';
 const styleSyntax = [
   { selector: "JSXAttribute[name.name='style']", message: STYLE_MESSAGE },
 ];
+// The fill page script runs inside the user's page. It reads fields and sets
+// their values, nothing else. Each part below is a named list so that
+// shell/fill/page/events.ts can drop exactly the dispatch and constructor
+// selectors it needs to change.
+const FILL_PAGE_MESSAGE =
+  'The fill page script only reads fields and sets their values.';
+/** @param {string[]} names */
+const callNames = (names) => `/^(${names.join('|')})$/`;
+/** @param {string[]} names */
+const callSelectors = (names) => [
+  `CallExpression[callee.property.name=${callNames(names)}]`,
+  `CallExpression[callee.property.value=${callNames(names)}]`,
+];
+/** @param {string[]} names */
+const memberSelectors = (names) => [
+  `MemberExpression[property.name=${callNames(names)}]`,
+  `MemberExpression[property.value=${callNames(names)}]`,
+];
+/** @param {string[]} selectors */
+const asFillSyntax = (selectors) =>
+  selectors.map((selector) => ({ selector, message: FILL_PAGE_MESSAGE }));
+const fillCallSyntax = asFillSyntax(
+  callSelectors([
+    'submit',
+    'requestSubmit',
+    'click',
+    'focus',
+    'scrollIntoView',
+    'createEvent',
+    'execCommand',
+  ]),
+);
+const fillDispatchSyntax = asFillSyntax(callSelectors(['dispatchEvent']));
+/** @param {string} pattern */
+const eventCtorSelectors = (pattern) => [
+  `NewExpression[callee.name=${pattern}]`,
+  `NewExpression[callee.property.name=${pattern}]`,
+  `NewExpression[callee.property.value=${pattern}]`,
+];
+const fillEventCtorSyntax = asFillSyntax(eventCtorSelectors('/Event$/'));
+// Same as above but a bare Event is allowed: the name must have a prefix.
+const fillPlainEventCtorSyntax = asFillSyntax(eventCtorSelectors('/.+Event$/'));
+const fillDomSyntax = asFillSyntax(
+  memberSelectors([
+    'createElement',
+    'setAttribute',
+    'removeAttribute',
+    'toggleAttribute',
+    'dataset',
+    'innerHTML',
+    'outerHTML',
+    'insertAdjacentHTML',
+    'append',
+    'appendChild',
+  ]),
+);
+const fillLeakSyntax = asFillSyntax([
+  `Identifier[name=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
+  ...memberSelectors([
+    'console',
+    'localStorage',
+    'sessionStorage',
+    'postMessage',
+    'cookie',
+  ]),
+]);
 
 export default defineConfig(
   {
@@ -189,6 +255,43 @@ export default defineConfig(
   {
     files: ['shell/fill/controller.ts', 'shell/fill/inject.test.ts'],
     rules: { 'no-restricted-imports': 'off' },
+  },
+  // The fill page script may only read fields and set their values.
+  {
+    files: ['shell/fill/page/**', 'entrypoints/fill.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillCallSyntax,
+        ...fillDispatchSyntax,
+        ...fillEventCtorSyntax,
+        ...fillDomSyntax,
+        ...fillLeakSyntax,
+      ],
+    },
+  },
+  // events.ts alone may dispatch an event, and only a plain Event.
+  {
+    files: ['shell/fill/page/events.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...tabsSyntax,
+        ...scriptingSyntax,
+        ...fillCallSyntax,
+        ...fillPlainEventCtorSyntax,
+        ...fillDomSyntax,
+        ...fillLeakSyntax,
+      ],
+    },
   },
   // core/ is framework-free: no framework, storage or browser access.
   {

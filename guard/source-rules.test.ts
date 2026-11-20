@@ -442,6 +442,125 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
   });
 });
 
+describe('fill page guard', { timeout: 60_000 }, () => {
+  const fillMessage =
+    'The fill page script only reads fields and sets their values.';
+  const pageFiles = ['shell/fill/page/x.ts', 'entrypoints/fill.ts'];
+  const eventsFile = 'shell/fill/page/events.ts';
+  // Probe paths do not exist on disk, so switch type information off.
+  const syntaxLint = new ESLint({
+    cwd: resolve(import.meta.dirname, '..'),
+    overrideConfig: tseslint.configs.disableTypeChecked,
+  });
+  async function syntaxMessages(code: string, filePath: string) {
+    const [result] = await syntaxLint.lintText(code, { filePath });
+    const found = result?.messages ?? [];
+    expect(found.filter((m) => m.fatal)).toEqual([]);
+    return found;
+  }
+
+  const rejected = [
+    'form.submit();',
+    'form.requestSubmit();',
+    'el.click();',
+    "el['click']();",
+    'el.focus();',
+    'el.dispatchEvent(e);',
+    'el.scrollIntoView();',
+    "document.createEvent('Event');",
+    "document.execCommand('insertText');",
+    "new Event('input');",
+    "new KeyboardEvent('keydown');",
+    "new MouseEvent('click');",
+    "new window.PointerEvent('pointerdown');",
+    "new CustomEvent('x');",
+    "document.createElement('div');",
+    "el.setAttribute('a', 'b');",
+    "el.removeAttribute('a');",
+    "el.dataset.x = '1';",
+    "el.innerHTML = '';",
+    'el.outerHTML;',
+    "el.insertAdjacentHTML('beforeend', '');",
+    'el.append(x);',
+    'el.appendChild(x);',
+    'console.log(1);',
+    "localStorage.setItem('a', 'b');",
+    'window.sessionStorage;',
+    "postMessage('x');",
+    "window.postMessage('x', '*');",
+    'document.cookie;',
+  ];
+  describe.each(pageFiles)('in %s', (file) => {
+    it.each(rejected)('rejects %s in the page script', async (code) => {
+      const found = await syntaxMessages(code, file);
+      expect(found.some((m) => m.message === fillMessage)).toBe(true);
+    });
+    it.each([
+      "el.value = 'x';",
+      'const v = el.checked;',
+      "setter.call(el, 'x');",
+      "el.querySelectorAll('input');",
+      'const submitted = 1;',
+    ])('allows %s', async (code) => {
+      const found = await syntaxMessages(code, file);
+      expect(found.some((m) => m.message === fillMessage)).toBe(false);
+    });
+  });
+
+  it('events.ts may dispatch a plain Event', async () => {
+    const found = await syntaxMessages(
+      "el.dispatchEvent(new Event('input', { bubbles: true }));",
+      eventsFile,
+    );
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+  it.each([
+    "new KeyboardEvent('keydown');",
+    "new InputEvent('input');",
+    "new window.InputEvent('input');",
+    'el.click();',
+    'form.submit();',
+    'console.log(1);',
+  ])('events.ts may do nothing else: rejects %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(true);
+  });
+  it.each([...pageFiles, eventsFile])(
+    'keeps the shared rules in %s',
+    async (file) => {
+      for (const [code, message] of [
+        [
+          "navigator.sendBeacon('https://example.com');",
+          'This extension makes no network requests.',
+        ],
+        [
+          'location.reload();',
+          'Countersign never navigates away or opens windows.',
+        ],
+        [
+          'browser.tabs.query({});',
+          'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.',
+        ],
+        [
+          'browser.scripting.executeScript({});',
+          'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.',
+        ],
+        [
+          "browser.downloads.download({ url: 'blob:x' });",
+          'Save files only through shell/files/download.ts.',
+        ],
+      ] as const) {
+        const found = await syntaxMessages(code, file);
+        expect(found.some((m) => m.message === message)).toBe(true);
+      }
+    },
+  );
+  it('does not reach other files', async () => {
+    const found = await syntaxMessages('el.click();', 'shell/ui/x.tsx');
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+});
+
 describe(
   'core/ restrictions still bite alongside the network rules',
   { timeout: 60_000 },
