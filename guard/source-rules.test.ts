@@ -505,6 +505,35 @@ describe('fill page guard', { timeout: 60_000 }, () => {
     "postMessage('x');",
     "window.postMessage('x', '*');",
     'document.cookie;',
+    "el['dispatchEvent'](e);",
+    "new window['MouseEvent']('x');",
+    "el['innerHTML'] = '';",
+    "document['cookie'];",
+    "window['postMessage']('x');",
+    "window['console'];",
+    "window['localStorage'];",
+    "window['sessionStorage'];",
+    'el.focus.call(el);',
+    'const f = el.scrollIntoView;',
+    'Reflect.apply(el.focus, el, []);',
+    'el.blur();',
+    "el['focus']();",
+    "el['blur']();",
+    "el['scrollIntoView']();",
+    "el['submit']();",
+    "el['requestSubmit']();",
+    "document['createEvent']('Event');",
+    "document['execCommand']('insertText');",
+    "document['createElement']('div');",
+    "el['setAttribute']('a', 'b');",
+    "el['removeAttribute']('a');",
+    "el['toggleAttribute']('a');",
+    'el.toggleAttribute(a);',
+    "el['dataset'];",
+    "el['outerHTML'];",
+    "el['insertAdjacentHTML']('beforeend', '');",
+    "el['append'](x);",
+    "el['appendChild'](x);",
   ];
   describe.each(pageFiles)('in %s', (file) => {
     it.each(rejected)('rejects %s in the page script', async (code) => {
@@ -529,6 +558,29 @@ describe('fill page guard', { timeout: 60_000 }, () => {
       eventsFile,
     );
     expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+  it.each([
+    "el.dispatchEvent(new Event('change', { bubbles: true }));",
+    "new Event('input');",
+    "el['dispatchEvent'](new Event('input'));",
+    "el.dispatchEvent(new window.Event('change'));",
+  ])('events.ts allows %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(false);
+  });
+  it.each([
+    "new window['InputEvent']('x');",
+    "new Event('focus');",
+    'new Event(type);',
+    'new Event();',
+    "new window.Event('focus');",
+    "new window['Event']('focus');",
+    'el.focus();',
+    'el.blur();',
+    "document['createEvent']('Event');",
+  ])('events.ts also rejects %s', async (code) => {
+    const found = await syntaxMessages(code, eventsFile);
+    expect(found.some((m) => m.message === fillMessage)).toBe(true);
   });
   it.each([
     "new KeyboardEvent('keydown');",

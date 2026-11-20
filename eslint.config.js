@@ -117,17 +117,21 @@ const memberSelectors = (names) => [
 const asFillSyntax = (selectors) =>
   selectors.map((selector) => ({ selector, message: FILL_PAGE_MESSAGE }));
 const fillCallSyntax = asFillSyntax(
-  callSelectors([
+  callSelectors(['createEvent', 'execCommand']),
+);
+// Plain member access is banned, not just calls, so el.focus.call(el),
+// Reflect.apply(el.focus, ...) and const f = el.scrollIntoView are caught too.
+const fillActionSyntax = asFillSyntax(
+  memberSelectors([
     'submit',
     'requestSubmit',
     'click',
     'focus',
+    'blur',
     'scrollIntoView',
-    'createEvent',
-    'execCommand',
   ]),
 );
-const fillDispatchSyntax = asFillSyntax(callSelectors(['dispatchEvent']));
+const fillDispatchSyntax = asFillSyntax(memberSelectors(['dispatchEvent']));
 /** @param {string} pattern */
 const eventCtorSelectors = (pattern) => [
   `NewExpression[callee.name=${pattern}]`,
@@ -135,8 +139,16 @@ const eventCtorSelectors = (pattern) => [
   `NewExpression[callee.property.value=${pattern}]`,
 ];
 const fillEventCtorSyntax = asFillSyntax(eventCtorSelectors('/Event$/'));
-// Same as above but a bare Event is allowed: the name must have a prefix.
-const fillPlainEventCtorSyntax = asFillSyntax(eventCtorSelectors('/.+Event$/'));
+// events.ts: every name longer than Event stays banned, and a plain Event is
+// banned unless its first argument is the literal 'input' or 'change'.
+const notInputOrChange =
+  ":not([arguments.0.type='Literal'][arguments.0.value=/^(input|change)$/])";
+const fillPlainEventCtorSyntax = asFillSyntax([
+  ...eventCtorSelectors('/.+Event$/'),
+  `NewExpression[callee.name='Event']${notInputOrChange}`,
+  `NewExpression[callee.property.name='Event']${notInputOrChange}`,
+  `NewExpression[callee.property.value='Event']${notInputOrChange}`,
+]);
 const fillDomSyntax = asFillSyntax(
   memberSelectors([
     'createElement',
@@ -153,13 +165,10 @@ const fillDomSyntax = asFillSyntax(
 );
 const fillLeakSyntax = asFillSyntax([
   `Identifier[name=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
-  ...memberSelectors([
-    'console',
-    'localStorage',
-    'sessionStorage',
-    'postMessage',
-    'cookie',
-  ]),
+  // The Identifier selector already catches these by name, so a computed
+  // string is the only member form left to add.
+  `MemberExpression[property.value=${callNames(['console', 'localStorage', 'sessionStorage', 'postMessage'])}]`,
+  ...memberSelectors(['cookie']),
 ]);
 
 export default defineConfig(
@@ -283,6 +292,7 @@ export default defineConfig(
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,
+        ...fillActionSyntax,
         ...fillDispatchSyntax,
         ...fillEventCtorSyntax,
         ...fillDomSyntax,
@@ -303,6 +313,7 @@ export default defineConfig(
         ...tabsSyntax,
         ...scriptingSyntax,
         ...fillCallSyntax,
+        ...fillActionSyntax,
         ...fillPlainEventCtorSyntax,
         ...fillDomSyntax,
         ...fillLeakSyntax,
