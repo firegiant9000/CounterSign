@@ -882,3 +882,243 @@ describe('scanForm: a checked radio that is not a candidate', () => {
     expect(scan.fields.some((f) => f.control === 'choice_group')).toBe(false);
   });
 });
+
+describe('scanForm: fix round 1, parents, unrendered fields, form owners', () => {
+  type Box = Partial<DOMRect>;
+  const rectOf = (box: Box): DOMRect =>
+    ({
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+      ...box,
+    }) as DOMRect;
+
+  function stubBox(doc: Document, selector: string, box: Box): void {
+    const el = doc.querySelector(selector) as Element;
+    el.getBoundingClientRect = () => rectOf(box);
+  }
+
+  function fieldCount(doc: Document): number {
+    return scanForm(doc).scan.fields.length;
+  }
+
+  it('skips a field in an sr-only wrapper', () => {
+    const doc = parse(
+      `<form><div style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0px,0px,0px,0px)"><input type="text" name="website" /></div></form>`,
+    );
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips a field in a collapsed accordion', () => {
+    const doc = parse(
+      `<form><div style="height:0;overflow:hidden"><input type="text" name="a" /></div></form>`,
+    );
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips a field in a laid-out wrapper of 1px that clips', () => {
+    const doc = parse(
+      `<form><div id="w" style="overflow:hidden"><input type="text" id="t" /></div></form>`,
+    );
+    stubBox(doc, '#w', {
+      left: 5,
+      top: 5,
+      right: 205,
+      bottom: 5,
+      width: 200,
+      height: 0,
+    });
+    stubBox(doc, '#t', {
+      left: 5,
+      top: 5,
+      right: 205,
+      bottom: 25,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps a field in a small wrapper that does not clip', () => {
+    const doc = parse(
+      `<form><div style="height:0"><input type="text" name="a" /></div></form>`,
+    );
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('skips a field when checkVisibility says it is not visible', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    (
+      doc.querySelector('#t') as unknown as { checkVisibility: () => boolean }
+    ).checkVisibility = () => false;
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips a field with no client rects when checkVisibility exists', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    const el = doc.querySelector('#t') as unknown as {
+      checkVisibility: () => boolean;
+      getClientRects: () => unknown[];
+    };
+    el.checkVisibility = () => true;
+    el.getClientRects = () => [];
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('skips a text field inside a closed details when it is unrendered', () => {
+    const doc = parse(
+      '<form><details><summary>s</summary><input type="text" id="t" /></details></form>',
+    );
+    const el = doc.querySelector('#t') as unknown as {
+      checkVisibility: () => boolean;
+    };
+    el.checkVisibility = () => false;
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('asks checkVisibility without opacityProperty for a radio, and skips it when unrendered', () => {
+    const doc = parse(
+      '<form><input type="radio" name="r" id="t" value="a" style="opacity:0" /></form>',
+    );
+    const el = doc.querySelector('#t') as unknown as {
+      checkVisibility: (o: Record<string, boolean>) => boolean;
+    };
+    let seen: Record<string, boolean> = {};
+    el.checkVisibility = (o) => {
+      seen = o;
+      return false;
+    };
+    expect(fieldCount(doc)).toBe(0);
+    expect(seen.opacityProperty).toBeUndefined();
+  });
+
+  it.each([
+    'inset(0px 50%)',
+    'inset(0px 0px 100% 0px)',
+    'inset(50% 0px 50% 0px)',
+  ])('skips clip-path %s', (path) => {
+    const doc = parse(
+      `<form><input type="text" style="clip-path:${path}" /></form>`,
+    );
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('keeps a small clip-path inset', () => {
+    const doc = parse(
+      '<form><input type="text" style="clip-path:inset(10% 0px)" /></form>',
+    );
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('keeps a box left of the page on a right-to-left page', () => {
+    const doc = parse('<form><input type="text" id="t" /></form>');
+    doc.documentElement.style.direction = 'rtl';
+    stubBox(doc, '#t', {
+      left: -300,
+      top: 10,
+      right: -100,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(doc)).toBe(1);
+  });
+
+  it('adds scrollY before judging a box above the page', () => {
+    const kept = parse('<form><input type="text" id="t" /></form>');
+    Object.defineProperty(kept.defaultView, 'scrollY', {
+      value: 300,
+      configurable: true,
+    });
+    stubBox(kept, '#t', {
+      left: 10,
+      top: -200,
+      right: 210,
+      bottom: -180,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(kept)).toBe(1);
+    const skipped = parse('<form><input type="text" id="t" /></form>');
+    Object.defineProperty(skipped.defaultView, 'scrollY', {
+      value: 300,
+      configurable: true,
+    });
+    stubBox(skipped, '#t', {
+      left: 10,
+      top: -420,
+      right: 210,
+      bottom: -400,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(skipped)).toBe(0);
+  });
+
+  it('adds scrollX before judging a box left of the page', () => {
+    const kept = parse('<form><input type="text" id="t" /></form>');
+    Object.defineProperty(kept.defaultView, 'scrollX', {
+      value: 300,
+      configurable: true,
+    });
+    stubBox(kept, '#t', {
+      left: -400,
+      top: 10,
+      right: -200,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(kept)).toBe(1);
+    const skipped = parse('<form><input type="text" id="t" /></form>');
+    Object.defineProperty(skipped.defaultView, 'scrollX', {
+      value: 300,
+      configurable: true,
+    });
+    stubBox(skipped, '#t', {
+      left: -600,
+      top: 10,
+      right: -400,
+      bottom: 30,
+      width: 200,
+      height: 20,
+    });
+    expect(fieldCount(skipped)).toBe(0);
+  });
+
+  it('blocks a group for a checked disabled radio outside the form that belongs to it', () => {
+    const doc = parse(`<form id="f1">
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+      </form>
+      <input type="radio" name="r" value="c" form="f1" disabled checked />`);
+    expect(fieldCount(doc)).toBe(0);
+  });
+
+  it('treats a radio inside one form with form="other" as another group', () => {
+    const doc = parse(`<form id="f1">
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+        <input type="radio" name="r" value="x" form="f2" disabled checked />
+      </form><form id="f2"></form>`);
+    const { scan } = scanForm(doc);
+    expect(scan.fields).toHaveLength(1);
+    expect(scan.fields[0]?.options).toEqual(['a', 'b']);
+  });
+
+  it('does not let a checked peer in another form block this form', () => {
+    const doc = parse(`<form id="f1">
+        <input type="radio" name="r" value="a" />
+        <input type="radio" name="r" value="b" />
+      </form>
+      <form id="f2">
+        <input type="radio" name="r" value="d" />
+        <input type="radio" name="r" value="c" disabled checked />
+      </form>`);
+    const { scan } = scanForm(doc);
+    expect(scan.fields.map((f) => f.options)).toEqual([['a', 'b']]);
+  });
+});

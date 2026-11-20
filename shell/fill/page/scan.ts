@@ -114,7 +114,62 @@ function isTinyPx(value: string): boolean {
   return Number.isFinite(px) && px <= 1;
 }
 
-function isClipped(style: CSSStyleDeclaration): boolean {
+/** happy-dom does no layout and reports an all-zero box; only trust a box with layout information. */
+function hasLayout(box: DOMRect): boolean {
+  return box.width !== 0 || box.height !== 0 || box.left !== 0 || box.top !== 0;
+}
+
+function isTinyBox(box: DOMRect): boolean {
+  return hasLayout(box) && (box.width <= 1 || box.height <= 1);
+}
+
+/** Expands the 1 to 4 value shorthand to [top, right, bottom, left]. */
+function expandSides(parts: string[]): string[] | undefined {
+  const a = parts[0];
+  if (parts.length < 1 || parts.length > 4 || a === undefined) return undefined;
+  const b = parts[1] ?? a;
+  return [a, b, parts[2] ?? a, parts[3] ?? b];
+}
+
+function insetCollapses(args: string, box: DOMRect | undefined): boolean {
+  const body = (args.split(/\sround\s/i)[0] ?? '').trim();
+  const sides = expandSides(body.split(/\s+/).filter((p) => p !== ''));
+  if (!sides) return false;
+  const parsed = sides.map((side) => {
+    const m = /^(-?\d+(?:\.\d+)?)(%|px)?$/.exec(side);
+    if (!m) return undefined;
+    return { n: Number(m[1]), unit: m[2] ?? (m[1] === '0' ? 'px' : '') };
+  });
+  if (parsed.some((p) => p === undefined)) return false;
+  const [top, right, bottom, left] = parsed as {
+    n: number;
+    unit: string;
+  }[] as [
+    { n: number; unit: string },
+    { n: number; unit: string },
+    { n: number; unit: string },
+    { n: number; unit: string },
+  ];
+  const axis = (
+    one: { n: number; unit: string },
+    two: { n: number; unit: string },
+    size: number | undefined,
+  ): boolean => {
+    // A zero offset has no unit that matters; the other side decides.
+    const unit = one.n === 0 ? two.unit : one.unit;
+    if (two.n !== 0 && two.unit !== unit) return false;
+    const sum = one.n + two.n;
+    if (unit === '%') return sum >= 100;
+    return unit === 'px' && size !== undefined && sum >= size;
+  };
+  const laidOut = box !== undefined && hasLayout(box);
+  return (
+    axis(left, right, laidOut ? box.width : undefined) ||
+    axis(top, bottom, laidOut ? box.height : undefined)
+  );
+}
+
+function isClipped(style: CSSStyleDeclaration, box?: DOMRect): boolean {
   const rect = /^\s*rect\(([^)]*)\)\s*$/i.exec(style.clip);
   if (rect) {
     const nums = (rect[1] ?? '')
@@ -131,35 +186,66 @@ function isClipped(style: CSSStyleDeclaration): boolean {
       if (right - left <= 1 || bottom - top <= 1) return true;
     }
   }
-  const path = style.clipPath.replace(/\s+/g, '').toLowerCase();
-  const inset = /^inset\((\d+(?:\.\d+)?)(%|px)?/.exec(path);
-  if (inset) {
-    const amount = Number(inset[1]);
-    if (inset[2] === '%' && amount >= 50) return true;
-  }
-  return path === 'circle(0)' || path === 'circle(0px)';
+  const path = style.clipPath.trim().toLowerCase();
+  const inset = /^inset\(([^)]*)\)$/.exec(path);
+  if (inset && insetCollapses(inset[1] ?? '', box)) return true;
+  const compact = path.replace(/\s+/g, '');
+  return compact === 'circle(0)' || compact === 'circle(0px)';
 }
 
-/** Hidden to the eye without display:none: invisible, clipped, tiny or off the page. */
+function clipsOverflow(style: CSSStyleDeclaration): boolean {
+  return [style.overflow, style.overflowX, style.overflowY].some(
+    (v) => v !== '' && v !== 'visible',
+  );
+}
+
+const VISIBILITY_OPTIONS = {
+  opacityProperty: true,
+  visibilityProperty: true,
+  contentVisibilityAuto: true,
+};
+
+function isUnrendered(el: Element, options: object): boolean {
+  const probe = el as Element & {
+    checkVisibility?: (options?: object) => boolean;
+  };
+  if (typeof probe.checkVisibility !== 'function') return false;
+  if (!probe.checkVisibility(options)) return true;
+  // Firefox gives an unrendered element (closed details, content-visibility)
+  // an empty client rect list; happy-dom lists one rect.
+  return el.getClientRects().length === 0;
+}
+
+/** Hidden to the eye without display:none: invisible, clipped, tiny, collapsed by a parent or off the page. */
 function isVisuallyHidden(el: Element): boolean {
   const view = el.ownerDocument.defaultView;
   if (!view) return false;
-  for (let cur: Element | null = el; cur; cur = cur.parentElement) {
-    if (Number.parseFloat(view.getComputedStyle(cur).opacity) === 0) {
-      return true;
+  if (isUnrendered(el, VISIBILITY_OPTIONS)) return true;
+  for (
+    let cur: Element | null = el.parentElement;
+    cur;
+    cur = cur.parentElement
+  ) {
+    const parent = view.getComputedStyle(cur);
+    if (Number.parseFloat(parent.opacity) === 0) return true;
+    if (isClipped(parent)) return true;
+    if (clipsOverflow(parent)) {
+      if (isTinyPx(parent.width) || isTinyPx(parent.height)) return true;
+      if (isTinyBox(cur.getBoundingClientRect())) return true;
     }
   }
   const style = view.getComputedStyle(el);
-  if (isClipped(style)) return true;
-  if (isTinyPx(style.width) || isTinyPx(style.height)) return true;
-  // happy-dom does no layout and reports an all-zero box; only trust a box
-  // that carries some layout information.
+  if (Number.parseFloat(style.opacity) === 0) return true;
   const box = el.getBoundingClientRect();
-  const laidOut =
-    box.width !== 0 || box.height !== 0 || box.left !== 0 || box.top !== 0;
-  if (!laidOut) return false;
+  if (isClipped(style, box)) return true;
+  if (isTinyPx(style.width) || isTinyPx(style.height)) return true;
+  if (!hasLayout(box)) return false;
   if (box.width <= 1 || box.height <= 1) return true;
-  return box.right + view.scrollX < 0 || box.bottom + view.scrollY < 0;
+  if (box.bottom + view.scrollY < 0) return true;
+  // Firefox reports a negative scrollX on right-to-left pages.
+  const rtl =
+    view.getComputedStyle(el.ownerDocument.documentElement).direction === 'rtl';
+  return !rtl && box.right + view.scrollX < 0;
 }
 
 function isHidden(el: Element): boolean {
@@ -168,18 +254,35 @@ function isHidden(el: Element): boolean {
     if (isHiddenByAttribute(cur)) return true;
     if (checkStyle && isHiddenByStyle(cur)) return true;
   }
-  return isTextLike(el) && isVisuallyHidden(el);
+  if (isTextLike(el)) return isVisuallyHidden(el);
+  // Radios and checkboxes may be opacity:0, but not unrendered (closed details).
+  if (checkStyle) {
+    return isUnrendered(el, {
+      visibilityProperty: true,
+      contentVisibilityAuto: true,
+    });
+  }
+  return false;
 }
 
-/** A radio that is not a candidate but is checked, in the same browser group. */
+/** The form owner: the form attribute wins over the nearest ancestor form (the same as input.form in a browser). */
+function formOwner(el: Element): Element | null {
+  const id = el.getAttribute('form');
+  if (id !== null) {
+    const target = el.ownerDocument.getElementById(id);
+    return target?.localName === 'form' ? target : null;
+  }
+  return el.closest('form');
+}
+
+/** A radio that is not a candidate but is checked, in the same browser group (same form owner and name). */
 export function hasCheckedPeer(first: HTMLInputElement, name: string): boolean {
-  const form = first.closest('form');
-  const doc = first.ownerDocument;
-  return Array.from(doc.querySelectorAll('input')).some(
+  const owner = formOwner(first);
+  return Array.from(first.ownerDocument.querySelectorAll('input')).some(
     (other) =>
       inputType(other) === 'radio' &&
       other.getAttribute('name') === name &&
-      other.closest('form') === form &&
+      formOwner(other) === owner &&
       other.checked &&
       !isCandidate(other),
   );
@@ -399,6 +502,7 @@ export function scanForm(doc: Document): PageScan {
   const groups = new Map<string, HTMLInputElement[]>();
   const slots: Slot[] = [];
   const blocked = new Set<string>();
+  const owners = new Map<Element | null, number>();
 
   for (const el of candidates) {
     const control = controlOf(el);
@@ -408,7 +512,11 @@ export function scanForm(doc: Document): PageScan {
     }
     const input = el as HTMLInputElement;
     const name = el.getAttribute('name') ?? '';
-    const key = `${inputType(el)}:${name}`;
+    // Group by form owner as the browser does: a radio can sit inside one
+    // form and belong to another through its form attribute.
+    const owner = formOwner(input);
+    if (!owners.has(owner)) owners.set(owner, owners.size);
+    const key = `${owners.get(owner)}|${inputType(el)}:${name}`;
     if (blocked.has(key)) continue;
     const existing = name === '' ? undefined : groups.get(key);
     if (existing) {
