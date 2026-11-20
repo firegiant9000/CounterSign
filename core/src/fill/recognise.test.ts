@@ -36,9 +36,103 @@ describe('DEFAULT_TABLES', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('maps each autocomplete token to one key', () => {
-    const keys = [...DEFAULT_TABLES.profileAutocomplete.keys()];
-    expect(new Set(keys).size).toBe(keys.length);
+  it('pins the autocomplete table to the design', () => {
+    expect(DEFAULT_TABLES.profileAutocomplete.size).toBe(12);
+    expect([...DEFAULT_TABLES.profileAutocomplete]).toEqual([
+      ['name', 'full_name'],
+      ['given-name', 'first_name'],
+      ['family-name', 'last_name'],
+      ['email', 'email'],
+      ['tel', 'phone'],
+      ['tel-national', 'phone'],
+      ['address-line1', 'address_line1'],
+      ['address-line2', 'address_line2'],
+      ['address-level2', 'city'],
+      ['address-level1', 'region'],
+      ['postal-code', 'postal_code'],
+      ['country-name', 'country'],
+    ]);
+  });
+
+  it('pins the profile label phrases to the design', () => {
+    expect([...DEFAULT_TABLES.profilePhrases]).toEqual([
+      ['full_name', ['name', 'full name', 'your name', 'legal name']],
+      ['first_name', ['first name', 'given name']],
+      ['last_name', ['last name', 'surname', 'family name']],
+      ['email', ['email', 'email address', 'e mail']],
+      [
+        'phone',
+        ['phone', 'phone number', 'mobile', 'mobile number', 'telephone'],
+      ],
+      ['address_line1', ['address', 'street address', 'address line 1']],
+      ['address_line2', ['address line 2']],
+      ['city', ['city']],
+      ['region', ['state', 'province', 'region', 'state or province']],
+      ['postal_code', ['zip', 'zip code', 'postal code', 'postcode']],
+      ['country', ['country']],
+      ['linkedin', ['linkedin', 'linkedin url', 'linkedin profile']],
+      ['github', ['github', 'github url', 'github profile']],
+      [
+        'website',
+        [
+          'website',
+          'personal website',
+          'portfolio',
+          'portfolio url',
+          'other website',
+          'other website url',
+        ],
+      ],
+    ]);
+  });
+
+  it('pins the answer phrases to the design', () => {
+    expect([...DEFAULT_TABLES.answerPhrases]).toEqual([
+      [
+        'work_authorization',
+        [
+          'authorized to work',
+          'authorised to work',
+          'eligible to work',
+          'legally authorized',
+          'legally authorised',
+          'right to work',
+        ],
+      ],
+      [
+        'sponsorship',
+        [
+          'require sponsorship',
+          'need sponsorship',
+          'visa sponsorship',
+          'sponsorship for employment',
+          'immigration sponsorship',
+        ],
+      ],
+      [
+        'salary_range',
+        ['salary', 'compensation', 'expected pay', 'desired pay'],
+      ],
+      [
+        'earliest_start_date',
+        [
+          'start date',
+          'available to start',
+          'when can you start',
+          'earliest start',
+        ],
+      ],
+      [
+        'relocation',
+        [
+          'willing to relocate',
+          'open to relocating',
+          'open to relocation',
+          'able to relocate',
+        ],
+      ],
+      ['reason_for_leaving', ['reason for leaving', 'why are you leaving']],
+    ]);
   });
 });
 
