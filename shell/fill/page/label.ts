@@ -85,7 +85,12 @@ function containerText(
 ): string {
   for (let cur = start; cur && !isRoot(cur); cur = cur.parentElement) {
     if (holdsOther(cur, members, isCandidate)) return '';
-    if (left.has(cur) || !members.every((m) => cur.contains(m))) continue;
+    if (
+      Array.from(left).some((label) => label.contains(cur)) ||
+      !members.every((m) => cur.contains(m))
+    ) {
+      continue;
+    }
     const text = textOf(cur, left);
     if (text !== '') return text;
   }
@@ -142,7 +147,6 @@ export function groupLabel(
       const text = legend ? textOf(legend) : '';
       if (text !== '') return text;
     }
-    break;
   }
 
   const left = new Set<Element>();

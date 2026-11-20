@@ -106,9 +106,116 @@ describe('fieldLabel', () => {
     expect(fieldLabel(doc.getElementById('a')!, notHidden)).toBe('Phone');
     expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('');
   });
+
+  it('passes an empty li but never reaches a heading above another field', () => {
+    const doc = load(
+      '<div><h2>Contact</h2><ul>' +
+        '<li><div><input id="a"></div></li>' +
+        '<li><div><input id="b"></div></li>' +
+        '</ul></div>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('');
+    expect(fieldLabel(doc.getElementById('b')!, isField)).toBe('');
+  });
+
+  it('uses the nearest ancestor with text, not a larger one', () => {
+    const doc = load(
+      '<div>Outer words<div><span>Inner</span><div><input id="a"></div></div></div>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Inner');
+  });
+
+  it('passes an empty container to reach a qualifying one with text', () => {
+    const doc = load(
+      '<section>Outer words<div><div><input id="a"></div></div></section>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Outer words');
+  });
+
+  it('never uses a form as a container', () => {
+    const doc = load('<form>Heading<div><input id="a"></div></form>');
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('');
+  });
+
+  it('never uses the body as a container', () => {
+    const doc = load('Heading<div><input id="a"></div>');
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('');
+  });
+
+  it('label for beats a wrapping label', () => {
+    const doc = load(
+      '<label for="a">Outside</label><label>Inside<input id="a"></label>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Outside');
+  });
+
+  it('a wrapping label beats aria-label', () => {
+    const doc = load('<label>Inside<input id="a" aria-label="Aria"></label>');
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Inside');
+  });
+
+  it('an empty labelledby target falls through to the label for', () => {
+    const doc = load(
+      '<span id="e"></span><label for="a">Outside</label><input id="a" aria-labelledby="e">',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Outside');
+  });
+
+  it('an empty label falls through to aria-label', () => {
+    const doc = load(
+      '<label for="a"> </label><input id="a" aria-label="Aria">',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Aria');
+  });
+
+  it('leaves out button, textarea, script and style text in a wrapping label', () => {
+    const doc = load(
+      '<label>Name<button>Btn</button><textarea>Area</textarea><script>var s = 1;</script><style>.x{}</style><input id="a"></label>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Name');
+  });
+
+  it('leaves out button, textarea, script and style text in a container', () => {
+    const doc = load(
+      '<div>Name<button>Btn</button><script>var s = 1;</script><style>.x{}</style><input id="a"></div>',
+    );
+    expect(fieldLabel(doc.getElementById('a')!, isField)).toBe('Name');
+  });
 });
 
 describe('groupLabel', () => {
+  it('leaves out a member label that sits inside a nested element', () => {
+    const doc = load(
+      '<div><p>Pick one</p><label><span><input type="checkbox"> Yes</span></label></div>',
+    );
+    const members = [...doc.querySelectorAll('input')];
+    expect(groupLabel(members, isField)).toBe('Pick one');
+  });
+
+  it('leaves out a label for that wraps a member', () => {
+    const doc = load(
+      '<div><p>Pick one</p><label for="m"><span><input type="checkbox" id="m"> Yes</span></label></div>',
+    );
+    const members = [...doc.querySelectorAll('input')];
+    expect(groupLabel(members, isField)).toBe('Pick one');
+  });
+
+  it('uses only the legend, not the other text of the fieldset', () => {
+    const doc = load(
+      '<fieldset><legend>Preference</legend><p>Extra note</p><label><input type="radio" name="p">Yes</label></fieldset>',
+    );
+    const members = [...doc.querySelectorAll('input')];
+    expect(groupLabel(members, isField)).toBe('Preference');
+  });
+
+  it('keeps climbing group ancestors until one has a label', () => {
+    const doc = load(
+      '<div role="group" aria-label="Contact preference"><fieldset><label><input type="radio" name="p">Email</label><label><input type="radio" name="p">Post</label></fieldset></div>',
+    );
+    const members = [...doc.querySelectorAll('input')];
+    expect(groupLabel(members, isField)).toBe('Contact preference');
+  });
+
   it('uses the legend of a fieldset', () => {
     const doc = load(
       '<fieldset><legend>Work authorisation</legend><label><input type="radio" name="w">Yes</label><label><input type="radio" name="w">No</label></fieldset>',
