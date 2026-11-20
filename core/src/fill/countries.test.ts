@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   COUNTRY_NAMES,
   COUNTRY_TABLE,
+  EXPANDED_COUNTRY_TABLE,
+  EXPANDED_REGION_TABLE,
   REGION_TABLE,
   countryOf,
   placesNamed,
@@ -31,7 +33,12 @@ describe('COUNTRY_NAMES', () => {
   });
 
   it('stores every name and alias in normalised form', () => {
-    for (const row of [...COUNTRY_TABLE, ...REGION_TABLE]) {
+    for (const row of [
+      ...COUNTRY_TABLE,
+      ...REGION_TABLE,
+      ...EXPANDED_COUNTRY_TABLE,
+      ...EXPANDED_REGION_TABLE,
+    ]) {
       for (const name of row) {
         expect(name).toBe(normalizeLabel(name));
         expect(name).not.toBe('');
@@ -39,9 +46,24 @@ describe('COUNTRY_NAMES', () => {
     }
   });
 
-  it('never repeats a name or alias across the whole table', () => {
-    const all = [...COUNTRY_TABLE, ...REGION_TABLE].flat();
+  it('never repeats a name or alias across the whole table, derived forms included', () => {
+    const all = [...EXPANDED_COUNTRY_TABLE, ...EXPANDED_REGION_TABLE].flat();
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('derives the and-less form of every name and alias with "and"', () => {
+    const base = new Set([...COUNTRY_TABLE, ...REGION_TABLE].flat());
+    const expanded = new Set(
+      [...EXPANDED_COUNTRY_TABLE, ...EXPANDED_REGION_TABLE].flat(),
+    );
+    for (const name of base) {
+      if (!name.split(' ').includes('and')) continue;
+      const derived = name
+        .split(' ')
+        .filter((word) => word !== 'and')
+        .join(' ');
+      expect(expanded.has(derived)).toBe(true);
+    }
   });
 });
 
@@ -210,5 +232,82 @@ describe('placesNamed', () => {
   it('matches whole words only', () => {
     expect(placesNamed('do you use indiana software')).toEqual([]);
     expect(placesNamed('a business')).toEqual([]);
+  });
+
+  it.each([
+    ['guinea bissau', 'guinea bissau'],
+    ['democratic republic of the congo', 'democratic republic of the congo'],
+    ['united states of america', 'united states'],
+    ['republic of korea', 'south korea'],
+    ['dr congo', 'democratic republic of the congo'],
+    ['democratic republic of congo', 'democratic republic of the congo'],
+    ['korea democratic people s republic of', 'north korea'],
+    ['korea republic of', 'south korea'],
+    ['congo democratic republic of the', 'democratic republic of the congo'],
+    ['congo republic of the', 'congo'],
+  ])('names only one place in %s', (text, expected) => {
+    expect(placesNamed(text)).toEqual([expected]);
+  });
+
+  it('reads a european country as Europe, and the union as the union', () => {
+    expect(placesNamed(PREFIX + 'a european country')).toEqual(['europe']);
+    expect(placesNamed(PREFIX + 'the european union')).toEqual([
+      'european union',
+    ]);
+  });
+});
+
+describe('spellings without "and" and other added aliases', () => {
+  it.each([
+    ['trinidad tobago', 'trinidad and tobago'],
+    ['antigua barbuda', 'antigua and barbuda'],
+    ['saint kitts nevis', 'saint kitts and nevis'],
+    ['saint vincent the grenadines', 'saint vincent and the grenadines'],
+    ['sao tome principe', 'sao tome and principe'],
+    ['bosnia herzegovina', 'bosnia and herzegovina'],
+    ['st kitts and nevis', 'saint kitts and nevis'],
+    ['st kitts nevis', 'saint kitts and nevis'],
+    ['st lucia', 'saint lucia'],
+    ['st vincent and the grenadines', 'saint vincent and the grenadines'],
+    ['st vincent the grenadines', 'saint vincent and the grenadines'],
+    ['u a e', 'united arab emirates'],
+    ['drc', 'democratic republic of the congo'],
+    ['d r c', 'democratic republic of the congo'],
+    ['democratic republic of congo', 'democratic republic of the congo'],
+    ['dr congo', 'democratic republic of the congo'],
+    ['congo kinshasa', 'democratic republic of the congo'],
+    ['congo brazzaville', 'congo'],
+    ['kyrgyz republic', 'kyrgyzstan'],
+    ['slovak republic', 'slovakia'],
+    ['lao pdr', 'laos'],
+    ['lao people s democratic republic', 'laos'],
+    ['syrian arab republic', 'syria'],
+    ['são tomé and príncipe', 'sao tome and principe'],
+    ['korea democratic people s republic of', 'north korea'],
+    ['korea republic of', 'south korea'],
+    ['congo democratic republic of the', 'democratic republic of the congo'],
+    ['congo republic of the', 'congo'],
+    ['brunei darussalam', 'brunei'],
+    ['federated states of micronesia', 'micronesia'],
+    ['state of palestine', 'palestine'],
+    ['vatican', 'vatican city'],
+    ['republic of the congo', 'congo'],
+    ['democratic people s republic of korea', 'north korea'],
+  ])('reads %s as %s in both lookups', (text, expected) => {
+    expect(countryOf(text)).toBe(expected);
+    expect(placesNamed(PREFIX + text)).toEqual([expected]);
+  });
+
+  it('reads european as a region only', () => {
+    expect(countryOf('European')).toBeUndefined();
+  });
+
+  it('ignores a leading "the" when reading a country', () => {
+    expect(countryOf('The United States')).toBe('united states');
+    expect(countryOf('the UK')).toBe('united kingdom');
+    expect(countryOf('The Netherlands')).toBe('netherlands');
+    expect(countryOf('The Gambia')).toBe('gambia');
+    expect(countryOf('the')).toBeUndefined();
+    expect(countryOf('The European Union')).toBeUndefined();
   });
 });
