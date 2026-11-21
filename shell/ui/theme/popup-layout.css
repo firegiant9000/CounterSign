@@ -25,6 +25,25 @@
   margin: 0.5rem 0;
 }
 
+.popup-formlink,
+.popup-told,
+.popup-told-list,
+.popup-formlink-panel,
+.popup-formlink-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.popup-formlink {
+  padding: var(--space-1) 0;
+}
+
+.popup-formlink-list {
+  align-items: flex-start;
+}
+
 .popup-fill {
   display: flex;
   flex-direction: column;

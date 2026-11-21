@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { newApplicationFromFormOps } from './form-application';
-import { formUrlKey } from './form-link';
+import {
+  linkFormAndRecordOps,
+  newApplicationFromFormOps,
+} from './form-application';
+import { formUrlKey, linkFormOps } from './form-link';
 import type { FillResult } from './fill/result';
 import type { WriteOp } from './repository';
 import { emptySnapshot } from './schema';
-import type { Application, Job, Statement, StatusEvent } from './types';
+import type {
+  Application,
+  Job,
+  Snapshot,
+  Statement,
+  StatusEvent,
+} from './types';
 
 const T = '2026-01-01T00:00:00.000Z';
 const URL = 'https://jobs.lever.co/acme/1/apply';
@@ -140,5 +149,63 @@ describe('newApplicationFromFormOps', () => {
     expect(data.jobs).toHaveLength(0);
     expect(data.applications).toHaveLength(0);
     expect(data.statusEvents).toHaveLength(0);
+  });
+});
+
+describe('linkFormAndRecordOps', () => {
+  function snapshotWithApp(): Snapshot {
+    const data = emptySnapshot();
+    data.applications.push({
+      id: 'a1',
+      companyId: 'c1',
+      status: 'interested',
+      createdAt: T,
+      updatedAt: T,
+    } as Application);
+    return data;
+  }
+
+  it('keeps both formUrls and siteType on the last put of the application', () => {
+    const key = formUrlKey(URL) ?? URL;
+    const { ops, record } = linkFormAndRecordOps(
+      snapshotWithApp(),
+      'a1',
+      key,
+      held('lever'),
+      makeDeps(),
+    );
+    const apps = stores(ops, 'applications').filter(
+      (o) => (o as { record: Application }).record.id === 'a1',
+    );
+    expect(apps.length).toBeGreaterThan(1);
+    const last = (apps[apps.length - 1] as { record: Application }).record;
+    expect(last.formUrls).toContain(key);
+    expect(last.siteType).toBe('lever');
+    expect(record?.missing).toBe(false);
+  });
+
+  it('equals linkFormOps without a held result', () => {
+    const data = snapshotWithApp();
+    const { ops, record } = linkFormAndRecordOps(
+      data,
+      'a1',
+      'k',
+      undefined,
+      makeDeps(),
+    );
+    expect(ops).toEqual(linkFormOps(data, 'a1', 'k'));
+    expect(record).toBeUndefined();
+  });
+
+  it('reports a missing application and writes nothing', () => {
+    const { ops, record } = linkFormAndRecordOps(
+      emptySnapshot(),
+      'gone',
+      'k',
+      held(),
+      makeDeps(),
+    );
+    expect(ops).toEqual([]);
+    expect(record?.missing).toBe(true);
   });
 });
