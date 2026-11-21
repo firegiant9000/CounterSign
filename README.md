@@ -24,9 +24,21 @@ Each claim is checked by the gate (`npm run gate`), which CI also runs.
 
 Files are saved only through [`shell/files/download.ts`](shell/files/download.ts), which builds a local `blob:` URL. A lint rule in [`eslint.config.js`](eslint.config.js) rejects any other use of `downloads`, and [`guard/source-rules.test.ts`](guard/source-rules.test.ts) tests that rule.
 
-<!-- Screenshot pending (Task 20): take it from the synthetic demo data (Data page, "Load demo data"), save it as docs/screenshots/applications.png, then restore this line:
 ![The applications list, showing synthetic demo data](docs/screenshots/applications.png)
--->
+
+The applications list: search, status filters, and each application's status, next-action date and who acts next.
+
+## Screenshots
+
+All screenshots show the synthetic demo data (Data → Load demo data) in the built extension.
+
+![An application's detail page, showing synthetic demo data](docs/screenshots/application.png)
+
+An application's detail page: the next-action date and who acts next, the resume and cover letter recorded as sent (file name and hash only), and what you told the company, checked against your canonical answers.
+
+![The deadlines list, showing synthetic demo data](docs/screenshots/deadlines.png)
+
+Deadlines: open tasks, next-action dates, interview rounds, follow-ups and quiet applications on one list, dated rows first, with overdue rows marked.
 
 ## What it does today
 
@@ -91,17 +103,15 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign.
+After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign. The UI overhaul and form filling (see "Fill a form" above) are done.
 
-1. UI overhaul: a full visual redesign of every page of the dashboard and popup, in a direction chosen from real examples rather than a generic template look.
-2. Own form filling: on a click, fill the current application form from My details and your canonical answers, show what was filled for review, and never submit.
-3. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
-4. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
-5. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
-6. Resume profiles: several resume variants. Canonical answers stay global.
-7. Story bank: who heard which story.
-8. Application windows on target companies.
-9. A dated activity export.
+1. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
+2. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
+3. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
+4. Resume profiles: several resume variants. Canonical answers stay global.
+5. Story bank: who heard which story.
+6. Application windows on target companies.
+7. A dated activity export.
 
 None of these exists yet.
 
