@@ -1,5 +1,6 @@
 import { normalizeName } from './application-ops';
 import { isLocalDate, toLocalDate } from './dates';
+import { formUrlKey } from './form-link';
 import type { Application, Id, Job, LocalDate, Snapshot } from './types';
 import { canonicalizeUrl } from './url';
 
@@ -43,6 +44,14 @@ function safeCanonical(url: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+// Equal, or both the same posting once a form's apply segment is dropped.
+function urlsMatch(have: string | undefined, want: string): boolean {
+  if (have === undefined) return false;
+  if (have === want) return true;
+  const key = formUrlKey(want);
+  return key !== undefined && key === formUrlKey(have);
 }
 
 function applicationCanonicalUrl(
@@ -110,7 +119,7 @@ export function findApplicationMatch(
     const appTitle = nameKey(app.title);
     if (
       wantUrl !== undefined &&
-      url === wantUrl &&
+      urlsMatch(url, wantUrl) &&
       !contradicts(wantCompany, company, wantTitle, appTitle)
     ) {
       if (
@@ -169,7 +178,7 @@ export function repostFact(
     const jobTitle = nameKey(job.title);
     const sameUrl =
       wantUrl !== undefined &&
-      str(job.canonicalUrl) === wantUrl &&
+      urlsMatch(str(job.canonicalUrl), wantUrl) &&
       !contradicts(wantCompany, jobCompany, wantTitle, jobTitle);
     const sameName =
       wantCompany !== undefined &&
