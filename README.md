@@ -103,17 +103,15 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign.
+After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign. The UI overhaul and form filling (see "Fill a form" above) are done.
 
-1. UI overhaul: a full visual redesign of every page of the dashboard and popup, in a direction chosen from real examples rather than a generic template look.
-2. Own form filling: on a click, fill the current application form from My details and your canonical answers, show what was filled for review, and never submit.
-3. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
-4. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
-5. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
-6. Resume profiles: several resume variants. Canonical answers stay global.
-7. Story bank: who heard which story.
-8. Application windows on target companies.
-9. A dated activity export.
+1. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
+2. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
+3. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
+4. Resume profiles: several resume variants. Canonical answers stay global.
+5. Story bank: who heard which story.
+6. Application windows on target companies.
+7. A dated activity export.
 
 None of these exists yet.
 
