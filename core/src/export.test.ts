@@ -149,6 +149,35 @@ describe('parseExport', () => {
     expect(parsed.file.settings).toEqual(settings);
   });
 
+  it('round-trips fill statement fields and formUrls', () => {
+    const app = {
+      id: 'a1',
+      createdAt: T,
+      formUrls: ['https://jobs.example.com/acme/1'],
+    };
+    const statement = {
+      id: 's1',
+      createdAt: T,
+      applicationId: 'a1',
+      answerKey: 'sponsorship',
+      value: { type: 'yes_no' as const, value: false },
+      source: 'fill' as const,
+      question: 'Will you require sponsorship?',
+    };
+    const snap: Snapshot = {
+      ...emptySnapshot(),
+      applications: [app],
+      statements: [statement],
+    };
+    const parsed = parseExport(
+      JSON.stringify(buildExport(snap, {}, { now: () => T })),
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.file.data.applications).toEqual([app]);
+    expect(parsed.file.data.statements).toEqual([statement]);
+  });
+
   it('restores an export without the new fields', () => {
     const result = parseExport(fixtureText);
     expect(result.ok).toBe(true);
