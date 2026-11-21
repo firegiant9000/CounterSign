@@ -34,12 +34,12 @@ Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, pl
 
 - **Applications list** with search, filters, manual entry, and a next-action date and who acts next.
 - **Save a job.** After you click the toolbar button (or press Alt+Shift+S by default; you can rebind it in about:addons), the popup reads the current tab once and offers the job for saving. Nothing is read before the click.
-- **Fill a form.** In the popup, Fill writes your saved details and answers into the empty fields it recognises with certainty, then lists what it did not fill and why. It never changes a field that already has a value, and it never submits. Custom dropdowns and file uploads are listed for you to do yourself.
+- **Fill a form.** In the popup, Fill writes your saved details and answers into the empty fields it recognises with certainty, then lists what it did not fill and why. It never changes a field that already has a value, and it never submits. Custom dropdowns and file uploads are listed for you to do yourself. When the form is linked to an application, the answers it filled are recorded as what you told them, with the form's question, and you can tick the ones you pasted yourself and mark the application Applied.
 - **Duplicate and repost facts.** When a job matches an application you already have, the popup says so ("already applied" or "possible match"). It also states the fact when you saved the same posting earlier, without judging it.
 - **Automatic backup.** Countersign saves `Countersign/countersign-backup.json` to your downloads folder, and the dashboard shows how old the last backup is. The backup file holds all your data, including your details and contacts, as plain text, so keep your downloads folder out of cloud sync if that matters to you.
 - **What I told them.** Per application, record the answers you gave. A warning appears when one differs from your canonical answer.
 - **Quiet list** (`#/quiet`) of applications with no response for a set number of days (a setting). You can close several at once.
-- **Fill log.** On an application, record the application site type and how filling went. You enter it by hand.
+- **Fill log.** On an application, record the application site type and how filling went. The site type is set by a fill when empty; how filling went is still yours to enter.
 - **Contacts** (`#/contacts`) with a log of reaching out, replies and referrals. The popup and the application page ask "anyone here?" and let you record that you checked and nobody was there.
 - **Deadlines** (`#/deadlines`): open tasks, next-action dates and quiet applications on one list, dated rows first.
 - **My details** (`#/details`): 14 profile fields (name, first and last name, email, phone, address, links) and your canonical answers, each with a copy button. Copying uses a click only.
