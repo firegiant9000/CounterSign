@@ -304,7 +304,6 @@ export function Popup(): VNode {
   ): Promise<boolean> => {
     if (linkingRef.current) return Promise.resolve(false);
     linkingRef.current = true;
-    keepHeldRef.current = false;
     setLinking(true);
     setLinkError(undefined);
     const got: {
@@ -331,6 +330,9 @@ export function Popup(): VNode {
       .then(
         () => {
           linkingRef.current = false;
+          // Only a successful owner link ends the keep; a failed one leaves
+          // the held result offered for a retry.
+          keepHeldRef.current = false;
           setChosenId(got.id);
           setLinking(false);
           setRecordNotice(undefined);
@@ -388,6 +390,7 @@ export function Popup(): VNode {
     // Read when the fill completes, not at the click (FillSection is fixed).
     const id = linkedIdRef.current;
     if (id === undefined) {
+      keepHeldRef.current = false;
       setHeld(result);
       return;
     }
