@@ -64,6 +64,15 @@
   outline-offset: 2px;
 }
 
+/* A read-only field holds a saved record: full-strength text and no
+   underline, so it reads as filed, not as a faded hint or an empty line. */
+.cs-field
+  input[readonly]:not([type='checkbox']):not([type='radio']):not([type='file']),
+.cs-field textarea[readonly] {
+  border-bottom-color: transparent;
+  resize: none;
+}
+
 .cs-field input:disabled,
 .cs-field textarea:disabled,
 .cs-field select:disabled {
