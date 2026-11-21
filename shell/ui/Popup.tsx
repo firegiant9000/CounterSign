@@ -160,6 +160,20 @@ export function Popup(): VNode {
     controller.refresh();
   }, [data]);
 
+  // A match linked the form without the owner's click: drop the stale held
+  // fill rather than let a later Choose… record it. The owner's own link
+  // path records and clears held itself, and is excluded while in flight.
+  useEffect(() => {
+    if (
+      linkedIdRef.current !== undefined &&
+      heldRef.current !== undefined &&
+      !linkingRef.current
+    ) {
+      heldRef.current = undefined;
+      setHeld(undefined);
+    }
+  });
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
@@ -337,6 +351,7 @@ export function Popup(): VNode {
   const onFilled = (result: FillResult): void => {
     setRecordLine(undefined);
     setRecordNotice(undefined);
+    // Read when the fill completes, not at the click (FillSection is fixed).
     const id = linkedIdRef.current;
     if (id === undefined) {
       setHeld(result);
