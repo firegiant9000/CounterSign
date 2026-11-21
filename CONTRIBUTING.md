@@ -6,7 +6,7 @@ CounterSign is a local-only Firefox extension (Manifest V3). The repository is p
 
 1. Install Node 22.20.0 (the version in `.nvmrc`).
 2. Run `npm ci`. This installs the committed lockfile exactly and runs `wxt prepare`.
-3. Run `npm run dev` to start the extension in Firefox. Firefox 147 or later is required.
+3. Run `npm run dev` to start the extension in Firefox. Firefox 140 or later is required (the manifest's `strict_min_version`).
 
 Add dependencies with an exact version so the lockfile stays predictable:
 
@@ -27,6 +27,8 @@ npm install --save-exact --save-dev <package>
 6. `npm run lint:ext`: `web-ext lint` on the built output.
 
 CI runs the same gate on every pull request and on pushes to `main`.
+
+On Windows, run the gate from a path with an uppercase drive letter (`C:\...`). From a lowercase `c:\` path, Vitest loads twice and every test suite fails with "Vitest failed to find the current suite" or "Cannot read properties of undefined (reading 'config')".
 
 ## Warning budgets
 
@@ -53,7 +55,7 @@ CI runs the same gate on every pull request and on pushes to `main`.
 ## Screenshots
 
 - `npm run shots` builds screenshots of every page in day and night mode, plus the popup and a 900px-wide applications shot (`applications-900`), into `.shots/` (gitignored). Run the gate first, because the shots use the built extension.
-- It drives Firefox. If Firefox is not on the default path, set `SHOTS_FIREFOX` to the full path of `firefox.exe` (or your platform's binary).
+- It drives a release Firefox 140 or later. Always set `SHOTS_FIREFOX` to the full path of `firefox.exe` (or your platform's binary), even when Firefox is installed in the default place; the script does not look for it.
 - A pull request that changes the look attaches the screenshots of the pages it touches, day and night. The shots use synthetic data only, so check them for anything real before attaching.
 
 ## Secrets
