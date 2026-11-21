@@ -70,9 +70,11 @@ export function findApplicationsForForm(data: Snapshot, key: string): Id[] {
     .sort(newestFirst);
 
   const byForm = active.filter((a) => formUrlsOf(a).includes(key));
-  const byJob = active.filter(
-    (a) => typeof a.jobId === 'string' && jobUrls.get(a.jobId) === key,
-  );
+  const byJob = active.filter((a) => {
+    if (typeof a.jobId !== 'string') return false;
+    const url = jobUrls.get(a.jobId);
+    return url !== undefined && (formUrlKey(url) ?? url) === key;
+  });
   const byUrl = active.filter(
     (a) => typeof a.url === 'string' && formUrlKey(a.url) === key,
   );

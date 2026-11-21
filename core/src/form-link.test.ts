@@ -123,6 +123,19 @@ describe('findApplicationsForForm', () => {
     expect(findApplicationsForForm(data, KEY)).toEqual([]);
     expect(findApplicationsForForm(data, 'x')).toEqual([]);
   });
+
+  it('matches a job saved from the Lever apply page', () => {
+    const applyUrl = 'https://jobs.lever.co/acme/123/apply';
+    const data = snap({
+      jobs: [
+        { id: 'j1', createdAt: `2026-01-01${AT}`, canonicalUrl: applyUrl },
+      ],
+      applications: [app('a1', '02', { jobId: 'j1' })],
+    });
+    expect(
+      findApplicationsForForm(data, formUrlKey(applyUrl) as string),
+    ).toEqual(['a1']);
+  });
 });
 
 describe('linkFormOps', () => {
