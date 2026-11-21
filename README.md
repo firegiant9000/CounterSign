@@ -24,9 +24,21 @@ Each claim is checked by the gate (`npm run gate`), which CI also runs.
 
 Files are saved only through [`shell/files/download.ts`](shell/files/download.ts), which builds a local `blob:` URL. A lint rule in [`eslint.config.js`](eslint.config.js) rejects any other use of `downloads`, and [`guard/source-rules.test.ts`](guard/source-rules.test.ts) tests that rule.
 
-<!-- Screenshot pending (Task 20): take it from the synthetic demo data (Data page, "Load demo data"), save it as docs/screenshots/applications.png, then restore this line:
 ![The applications list, showing synthetic demo data](docs/screenshots/applications.png)
--->
+
+The applications list: search, status filters, and each application's status, next-action date and who acts next.
+
+## Screenshots
+
+All screenshots show the synthetic demo data (Data → Load demo data) in the built extension.
+
+![An application's detail page, showing synthetic demo data](docs/screenshots/application.png)
+
+An application's detail page: the next-action date and who acts next, the resume and cover letter recorded as sent (file name and hash only), and what you told the company, checked against your canonical answers.
+
+![The deadlines list, showing synthetic demo data](docs/screenshots/deadlines.png)
+
+Deadlines: open tasks, next-action dates, interview rounds, follow-ups and quiet applications on one list, dated rows first, with overdue rows marked.
 
 ## What it does today
 
