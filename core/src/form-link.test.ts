@@ -26,6 +26,15 @@ function app(id: string, day: string, extra: object = {}): Application {
 const KEY = 'https://example.com/jobs/1';
 
 describe('formUrlKey', () => {
+  it('ignores an address longer than the capture cap', () => {
+    const long = `https://example.com/${'a'.repeat(8_001 - 20)}`;
+    expect(long).toHaveLength(8_001);
+    expect(formUrlKey(long)).toBeUndefined();
+    expect(formUrlKey('https://example.com/jobs/1')).toBe(
+      'https://example.com/jobs/1',
+    );
+  });
+
   it('strips the Lever apply segment', () => {
     expect(formUrlKey('https://jobs.lever.co/acme/123/apply')).toBe(
       formUrlKey('https://jobs.lever.co/acme/123'),
