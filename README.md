@@ -4,7 +4,7 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
-> **Status:** v1.0.0. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+> **Status:** v1.0.0, plus the redesigned interface and form filling, which are on `main` and not yet tagged. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
 
 ## The three claims
 
@@ -136,7 +136,7 @@ These are the permissions the built manifest contains today. The build test ([`g
 | `storage`          | Saves settings (such as your status labels) in `storage.local`.                                |
 | `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.                          |
 | `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. |
-| `scripting`        | Runs the capture script on that tab.                                                           |
+| `scripting`        | Runs the capture script on that tab, and the fill script after you click Fill.                 |
 | `alarms`           | Runs a daily check for a due backup.                                                           |
 
 Copy buttons use `navigator.clipboard.writeText` from a click ([`shell/clipboard.ts`](shell/clipboard.ts)), so no `clipboardWrite` permission is needed.
