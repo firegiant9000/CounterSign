@@ -295,9 +295,16 @@ export function Popup(): VNode {
     linkingRef.current = true;
     setLinking(true);
     setLinkError(undefined);
-    const got: { id?: Id; name: string; record?: FillRecord } = { name: '' };
+    const got: {
+      id?: Id;
+      name: string;
+      record?: FillRecord;
+      held?: FillResult;
+    } = { name: '' };
     return app
       .apply((d) => {
+        // The held result the builder reads, captured in the same sync step.
+        got.held = heldRef.current;
         const built = build(d);
         got.id = built.id;
         got.name = built.name;
@@ -311,7 +318,11 @@ export function Popup(): VNode {
           setChosenId(got.id);
           setLinking(false);
           if (got.record !== undefined) {
-            setHeld(undefined);
+            // Clear only the result this link recorded; a Fill that finished
+            // during the write has replaced it and must survive.
+            if (got.held !== undefined && heldRef.current === got.held) {
+              setHeld(undefined);
+            }
             setRecordNotice(undefined);
             setRecordLine(
               got.record.recorded > 0
@@ -372,6 +383,8 @@ export function Popup(): VNode {
           const record = got.record;
           if (record === undefined) return;
           if (record.missing) {
+            heldRef.current = result;
+            setHeld(result);
             setChosenId(undefined);
             setRecordNotice(MISSING);
             return;
