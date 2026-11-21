@@ -160,6 +160,7 @@ export function Popup(): VNode {
     { match: Facts['match']; repost: string | undefined } | undefined
   >(undefined);
   const linkingRef = useRef(false);
+  const keepHeldRef = useRef(false);
   const linkedIdRef = useRef<Id | undefined>(undefined);
 
   useEffect(() => {
@@ -169,11 +170,15 @@ export function Popup(): VNode {
   // A match linked the form without the owner's click: drop the stale held
   // fill rather than let a later Choose… record it. The owner's own link
   // path records and clears held itself, and is excluded while in flight.
+  // Exception: onFilled holds a result on two recoverable paths (application
+  // gone, write rejected) where the popup still offers to record it; those
+  // keep it until the owner's next link (runLink resets this).
   useEffect(() => {
     if (
       linkedIdRef.current !== undefined &&
       heldRef.current !== undefined &&
-      !linkingRef.current
+      !linkingRef.current &&
+      !keepHeldRef.current
     ) {
       heldRef.current = undefined;
       setHeld(undefined);
@@ -299,6 +304,7 @@ export function Popup(): VNode {
   ): Promise<boolean> => {
     if (linkingRef.current) return Promise.resolve(false);
     linkingRef.current = true;
+    keepHeldRef.current = false;
     setLinking(true);
     setLinkError(undefined);
     const got: {
@@ -327,6 +333,7 @@ export function Popup(): VNode {
           linkingRef.current = false;
           setChosenId(got.id);
           setLinking(false);
+          setRecordNotice(undefined);
           setNewFacts(
             got.match !== undefined || got.repost !== undefined
               ? { match: got.match, repost: got.repost }
@@ -338,7 +345,6 @@ export function Popup(): VNode {
             if (got.held !== undefined && heldRef.current === got.held) {
               setHeld(undefined);
             }
-            setRecordNotice(undefined);
             setRecordLine(
               got.record.recorded > 0
                 ? {
@@ -398,12 +404,14 @@ export function Popup(): VNode {
           const record = got.record;
           if (record === undefined) return;
           if (record.missing) {
+            keepHeldRef.current = true;
             heldRef.current = result;
             setHeld(result);
             setChosenId(undefined);
             setRecordNotice(MISSING);
             return;
           }
+          keepHeldRef.current = false;
           setHeld(undefined);
           if (record.recorded > 0) {
             setRecordLine({
@@ -413,7 +421,12 @@ export function Popup(): VNode {
             });
           }
         },
-        (err: unknown) => setLinkError(messageOf(err)),
+        (err: unknown) => {
+          keepHeldRef.current = true;
+          heldRef.current = result;
+          setHeld(result);
+          setLinkError(messageOf(err));
+        },
       );
   };
   const linkNew = (names: {
