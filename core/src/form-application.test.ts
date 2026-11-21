@@ -50,6 +50,49 @@ function stores(ops: WriteOp[], store: string): WriteOp[] {
   return ops.filter((o) => o.kind === 'put' && o.store === store);
 }
 
+describe('newApplicationFromFormOps facts', () => {
+  const archivedJob: Job = {
+    id: 'oldjob',
+    source: 'paste',
+    title: 'Dev',
+    companyName: 'Acme',
+    canonicalUrl: 'https://jobs.lever.co/acme/1',
+    createdAt: '2025-12-01T00:00:00.000Z',
+  } as Job;
+
+  it('reports a duplicate and a repost of an earlier job at the form key', () => {
+    const data: Snapshot = {
+      ...emptySnapshot(),
+      jobs: [archivedJob],
+      applications: [
+        {
+          id: 'oldapp',
+          jobId: 'oldjob',
+          title: 'Dev',
+          createdAt: '2025-12-01T00:00:00.000Z',
+        } as Application,
+      ],
+    };
+    const built = newApplicationFromFormOps(
+      data,
+      { source: 'paste', url: URL, title: 'Dev', companyName: 'Acme' },
+      makeDeps(),
+    );
+    expect(built.match).toBe('already_applied');
+    expect(built.repost).toMatch(/^You saved this posting on /);
+  });
+
+  it('reports nothing for a new posting and never counts itself', () => {
+    const built = newApplicationFromFormOps(
+      emptySnapshot(),
+      { source: 'paste', url: URL, title: 'Dev', companyName: 'Acme' },
+      makeDeps(),
+    );
+    expect(built.match).toBeUndefined();
+    expect(built.repost).toBeUndefined();
+  });
+});
+
 describe('newApplicationFromFormOps', () => {
   it('makes one job and one linked interested application', () => {
     const { ops, applicationId, record } = newApplicationFromFormOps(
