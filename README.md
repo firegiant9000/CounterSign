@@ -4,7 +4,7 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
-> **Status:** v1.0.0. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+> **Status:** v1.0.0, plus the redesigned interface and form filling, which are on `main` and not yet tagged. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
 
 ## The three claims
 
@@ -91,17 +91,15 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign.
+After version 1, in this order. The first two items, the visual redesign and form filling on a click, are built and on `main`. The rest still aims at the biggest chore, which is typing the same information by hand.
 
-1. UI overhaul: a full visual redesign of every page of the dashboard and popup, in a direction chosen from real examples rather than a generic template look.
-2. Own form filling: on a click, fill the current application form from My details and your canonical answers, show what was filled for review, and never submit.
-3. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
-4. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
-5. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
-6. Resume profiles: several resume variants. Canonical answers stay global.
-7. Story bank: who heard which story.
-8. Application windows on target companies.
-9. A dated activity export.
+1. Less typing: a fill records "what I told them" on the application automatically and offers to mark it Applied.
+2. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission; it still never reads a tab or sends anything.
+3. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
+4. Resume profiles: several resume variants. Canonical answers stay global.
+5. Story bank: who heard which story.
+6. Application windows on target companies.
+7. A dated activity export.
 
 None of these exists yet.
 
@@ -126,7 +124,7 @@ These are the permissions the built manifest contains today. The build test ([`g
 | `storage`          | Saves settings (such as your status labels) in `storage.local`.                                |
 | `downloads`        | Saves export files and the pre-restore copy to your Downloads folder.                          |
 | `activeTab`        | Reads the current tab only after you click the toolbar button or press Alt+Shift+S by default. |
-| `scripting`        | Runs the capture script on that tab.                                                           |
+| `scripting`        | Runs the capture script on that tab, and the fill script after you click Fill.                 |
 | `alarms`           | Runs a daily check for a due backup.                                                           |
 
 Copy buttons use `navigator.clipboard.writeText` from a click ([`shell/clipboard.ts`](shell/clipboard.ts)), so no `clipboardWrite` permission is needed.
