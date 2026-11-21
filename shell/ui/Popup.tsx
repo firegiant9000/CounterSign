@@ -8,7 +8,15 @@ import {
   saveJobOps,
 } from '../../core/src/job-ops';
 import type { JobInput } from '../../core/src/job-ops';
+import { newApplicationFromFormOps } from '../../core/src/form-application';
+import {
+  findApplicationsForForm,
+  formUrlKey,
+  linkFormOps,
+} from '../../core/src/form-link';
 import { profileValues } from '../../core/src/profile';
+import type { WriteOp } from '../../core/src/repository';
+import type { Id, Snapshot } from '../../core/src/types';
 import { canonicalizeUrl } from '../../core/src/url';
 import { capturePage } from '../capture/inject';
 import type { CaptureOutcome } from '../capture/inject';
@@ -18,6 +26,7 @@ import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
 import { FillSection } from './FillSection';
+import { FormLink, pickerCandidates } from './FormLink';
 import { Button } from './components/Button';
 import { Fact } from './components/Fact';
 import { Field } from './components/Field';
@@ -115,6 +124,18 @@ export function Popup(): VNode {
   }
   const controller = controllerRef.current;
 
+  const [fillStatus, setFillStatus] = useState(() => controller.state().status);
+  useEffect(() => {
+    const unsubscribe = controller.subscribe((s) => setFillStatus(s.status));
+    setFillStatus(controller.state().status);
+    return unsubscribe;
+  }, [controller]);
+
+  // Set by Choose… and Create and link; see linkedId below.
+  const [chosenId, setChosenId] = useState<Id | undefined>(undefined);
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     controller.refresh();
   }, [data]);
@@ -207,6 +228,71 @@ export function Popup(): VNode {
     u !== undefined && /^https?:\/\//i.test(u.trim());
   const outcomeUrl = outcome.ok ? outcome.capture.url : outcome.url;
   const linkValue = pasteLink ?? (isHttp(outcomeUrl) ? outcomeUrl.trim() : '');
+
+  const formKey =
+    outcomeUrl === undefined
+      ? undefined
+      : formUrlKey(outcomeUrl, captured?.relCanonical);
+  // A chosen application that still exists wins; otherwise the first match.
+  // Task 8 records a fill to linkedId; Task 9 shows a panel for it.
+  const linkedId: Id | undefined =
+    chosenId !== undefined && data.applications.some((a) => a.id === chosenId)
+      ? chosenId
+      : formKey === undefined
+        ? undefined
+        : findApplicationsForForm(data, formKey)[0];
+
+  // One apply per write; Task 8 adds the held fill result to these builders.
+  const linkOps = (d: Snapshot, id: Id): WriteOp[] =>
+    linkFormOps(d, id, formKey ?? '');
+  const runLink = (
+    build: (d: Snapshot) => { ops: WriteOp[]; id: Id },
+  ): Promise<boolean> => {
+    setLinking(true);
+    setLinkError(undefined);
+    let id: Id | undefined;
+    return app
+      .apply((d) => {
+        const built = build(d);
+        id = built.id;
+        return built.ops;
+      })
+      .then(
+        () => {
+          setChosenId(id);
+          setLinking(false);
+          return true;
+        },
+        (err: unknown) => {
+          setLinkError(messageOf(err));
+          setLinking(false);
+          return false;
+        },
+      );
+  };
+  const linkExisting = (id: Id): Promise<boolean> =>
+    runLink((d) => ({ ops: linkOps(d, id), id }));
+  const linkNew = (names: {
+    companyName: string;
+    title: string;
+  }): Promise<boolean> =>
+    runLink((d) => {
+      const input: JobInput = {
+        source: captured
+          ? captured.source === 'jsonld'
+            ? 'jsonld'
+            : 'selection'
+          : 'paste',
+        url: isHttp(outcomeUrl) ? outcomeUrl.trim() : undefined,
+        relCanonical: captured?.relCanonical,
+        title: names.title,
+        companyName: names.companyName,
+        location: captured?.location,
+        text: captured?.text ?? '',
+      };
+      const built = newApplicationFromFormOps(d, input, deps);
+      return { ops: built.ops, id: built.applicationId };
+    });
 
   let body: VNode;
   if (captured) {
@@ -366,6 +452,19 @@ export function Popup(): VNode {
               ) : null}
             </div>
           </section>
+        ) : null}
+        {fillStatus === 'ready' && formKey !== undefined ? (
+          <FormLink
+            data={data}
+            linkedId={linkedId}
+            candidates={pickerCandidates(data)}
+            initialCompany={captured?.companyName}
+            initialTitle={captured?.title}
+            onLink={linkExisting}
+            onNew={linkNew}
+            busy={linking}
+            error={linkError}
+          />
         ) : null}
         <FillSection controller={controller} />
         <div class="popup-actions">
