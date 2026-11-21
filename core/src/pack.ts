@@ -24,6 +24,8 @@ export interface PackStatement {
   label: string;
   told: string;
   canonical?: string;
+  question?: string;
+  fromFill: boolean;
   result: MismatchResult;
 }
 
@@ -112,9 +114,12 @@ export function interviewPack(
         nonEmpty(statement.answerKey) ??
         'Unknown answer',
       told: formatAnswer(statement.value),
+      fromFill: statement.source === 'fill',
       result,
     };
     if (answer) item.canonical = formatAnswer(answer.value);
+    const question = nonEmpty(statement.question);
+    if (question !== undefined) item.question = question;
     if (result === 'mismatch') pack.unresolved += 1;
     pack.statements.push(item);
   }

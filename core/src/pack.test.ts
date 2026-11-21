@@ -174,6 +174,7 @@ describe('interviewPack', () => {
       label: 'Willing to relocate',
       told: 'No',
       canonical: 'Yes',
+      fromFill: false,
       result: 'mismatch',
     });
     // No label on the answer: falls back to its key.
@@ -202,6 +203,47 @@ describe('interviewPack', () => {
     expect(second?.label).toBe('Unknown answer');
     expect(second?.told).toBe('');
     expect(pack?.unresolved).toBe(0);
+  });
+
+  it('marks fill statements and carries their question', () => {
+    const data = snap({
+      applications: [{ id: 'a1', createdAt: T }],
+      statements: [
+        {
+          id: 's1',
+          createdAt: T,
+          applicationId: 'a1',
+          answerKey: 'sponsor',
+          value: { type: 'text', value: 'No' },
+          source: 'fill',
+          question: 'Will you require sponsorship?',
+        },
+        {
+          id: 's2',
+          createdAt: T,
+          applicationId: 'a1',
+          answerKey: 'sponsor',
+          value: { type: 'text', value: 'No' },
+        },
+        {
+          id: 's3',
+          createdAt: T,
+          applicationId: 'a1',
+          answerKey: 'sponsor',
+          value: { type: 'text', value: 'No' },
+          source: 'other',
+          question: 42,
+        },
+      ],
+    });
+    const pack = interviewPack(data, 'a1', {});
+    const [first, second, third] = pack?.statements ?? [];
+    expect(first?.fromFill).toBe(true);
+    expect(first?.question).toBe('Will you require sponsorship?');
+    expect(second?.fromFill).toBe(false);
+    expect(second && 'question' in second).toBe(false);
+    expect(third?.fromFill).toBe(false);
+    expect(third && 'question' in third).toBe(false);
   });
 
   it('lists rounds in order with resolved interviewers and kind labels', () => {
