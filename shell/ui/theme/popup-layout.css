@@ -26,6 +26,8 @@
 }
 
 .popup-formlink,
+.popup-told,
+.popup-told-list,
 .popup-formlink-panel,
 .popup-formlink-list {
   display: flex;

@@ -27,7 +27,9 @@ import type { FillController } from '../fill/controller';
 import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
+import { currentStatus, statusLabel } from '../../core/src/status';
 import { FillSection } from './FillSection';
+import { ToldPanel } from './ToldPanel';
 import {
   FormLink,
   applicationLabel,
@@ -590,6 +592,19 @@ export function Popup(): VNode {
           />
         ) : null}
         <FillSection controller={controller} onFilled={onFilled} />
+        {fillStatus === 'ready' && linkedId !== undefined ? (
+          <ToldPanel
+            key={linkedId}
+            data={data}
+            applicationId={linkedId}
+            statusLabel={statusLabel(
+              currentStatus(data.statusEvents, linkedId)?.status,
+              app.settings.statusLabels,
+            )}
+            deps={deps}
+            onApply={(build) => app.apply(build)}
+          />
+        ) : null}
         <div class="popup-actions">
           <Button variant="link" onClick={open}>
             Open dashboard
