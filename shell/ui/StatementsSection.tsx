@@ -242,6 +242,13 @@ export function StatementsSection(props: { applicationId: Id }): VNode {
                     <strong>{label ?? 'Unknown answer'}</strong>:{' '}
                     {told === '' ? '(empty)' : told}
                   </div>
+                  {typeof s.question === 'string' &&
+                  s.question.trim() !== '' ? (
+                    <div class="document-meta">They asked: {s.question}</div>
+                  ) : null}
+                  {s.source === 'fill' ? (
+                    <Fact tone="neutral">From a fill</Fact>
+                  ) : null}
                   {check === 'mismatch' ? (
                     <Fact tone="warning" role="status">
                       Differs from your answer: {canonical}{' '}

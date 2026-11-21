@@ -27,6 +27,8 @@ The repository interface (`core/src/repository.ts`) has three methods:
 
 To change data, a function in `core/` takes a snapshot and returns a list of operations. It does not write anything itself. The shell applies the list. Views filter the snapshot in memory; the data set is hundreds of records, so there are no secondary indexes.
 
+A fill's result is recorded by `core/src/fill-records.ts` in one write; nothing else about a fill is stored.
+
 Two details in the shell:
 
 - Writes are serialised and each is built from a fresh snapshot (`shell/ui/write-queue.ts`). Two quick clicks cannot overwrite each other with stale data.
@@ -40,6 +42,7 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 - A round (`Round`) belongs to an application and holds a kind, date, time, interviewer ids and four flat debrief fields. A story (`Story`) holds situation, task, action, result and tags. A weekly review (`WeeklyReview`) holds a week start, an outreach target and an application cap.
 - New optional fields: `Company.isTarget`, `Application.projectsShown`, `Contact.followUpOn`, `Contact.followUpApplicationId` and `ContactEvent.voidedAt`. A contact event is undone by setting `voidedAt`; voided events are hidden and never counted.
+- Optional fields for fills: `Statement.source` (`'fill'` when a fill recorded it), `Statement.question` (the form's question text) and `Application.formUrls` (the form pages linked to this application).
 - Weekly counts (`core/src/weekly.ts`) are derived on read from live contact events and status events whose date falls in Monday to Sunday. Nothing is stored except the plan.
 
 - `Company.anyoneHere` is `'checked_nobody'` when you have recorded that nobody you know works there. Contacts are otherwise linked by `companyId`.
