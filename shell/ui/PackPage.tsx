@@ -43,6 +43,8 @@ function StatementItem(props: { item: PackStatement }): VNode {
   return (
     <li>
       <strong>{item.label}</strong>: {item.told}
+      {item.question ? <div>They asked: {item.question}</div> : null}
+      {item.fromFill ? <Fact tone="neutral">From a fill</Fact> : null}
       {differs ? <div>Your canonical answer: {item.canonical}</div> : null}
       {item.result === 'mismatch' ? (
         <Fact tone="warning">Unresolved mismatch</Fact>
