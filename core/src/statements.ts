@@ -44,13 +44,14 @@ export function newStatement(
   return statement;
 }
 
-/** Saves the told value and clears any exception mark. */
+/** Saves the told value, clears any exception mark and drops the fill source. */
 export function putStatementOps(
   statement: Statement,
   value: AnswerValue | undefined,
 ): WriteOp[] {
   const record: Statement = { ...statement };
   delete record.exception;
+  delete record.source;
   if (value === undefined) delete record.value;
   else record.value = value;
   return [{ kind: 'put', store: 'statements', record }];

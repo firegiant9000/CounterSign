@@ -30,6 +30,7 @@ export interface Application extends BaseRecord {
   fillOutcome?: FillOutcome;
   fillNote?: string;
   projectsShown?: string;
+  formUrls?: string[];
 }
 export interface StatusEvent extends BaseRecord {
   applicationId?: Id;
@@ -86,6 +87,8 @@ export interface Statement extends BaseRecord {
   answerKey?: string;
   value?: AnswerValue;
   exception?: boolean;
+  source?: 'fill';
+  question?: string;
 }
 export interface Contact extends BaseRecord {
   companyId?: Id;

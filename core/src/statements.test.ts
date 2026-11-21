@@ -76,6 +76,40 @@ describe('putStatementOps', () => {
       .record;
     expect('value' in rec).toBe(false);
   });
+
+  it('drops source when the owner edits a fill statement', () => {
+    const fill: Statement = {
+      id: 's1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      applicationId: 'a1',
+      answerKey: 'salary_range',
+      value: { type: 'text', value: 'x' },
+      source: 'fill',
+      question: 'Expected salary?',
+    };
+    const rec = (
+      putStatementOps(fill, { type: 'text', value: 'y' })[0] as {
+        record: Statement;
+      }
+    ).record;
+    expect('source' in rec).toBe(false);
+    expect(rec.question).toBe('Expected salary?');
+    expect(rec.value).toEqual({ type: 'text', value: 'y' });
+  });
+
+  it('keeps question and still clears exception', () => {
+    const withQuestion: Statement = {
+      ...base,
+      question: 'Expected salary?',
+    };
+    const rec = (
+      putStatementOps(withQuestion, { type: 'text', value: 'new' })[0] as {
+        record: Statement;
+      }
+    ).record;
+    expect(rec.question).toBe('Expected salary?');
+    expect('exception' in rec).toBe(false);
+  });
 });
 
 describe('deleteStatementOps', () => {
