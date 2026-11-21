@@ -281,7 +281,7 @@ export function Popup(): VNode {
           <input
             type="text"
             value={linkValue}
-            disabled={facts !== undefined}
+            readOnly={facts !== undefined}
             onInput={(e) => setPasteLink(e.currentTarget.value)}
           />
         </Field>
@@ -289,7 +289,7 @@ export function Popup(): VNode {
           <input
             type="text"
             value={pasteTitle}
-            disabled={facts !== undefined}
+            readOnly={facts !== undefined}
             onInput={(e) => setPasteTitle(e.currentTarget.value)}
           />
         </Field>
@@ -297,7 +297,7 @@ export function Popup(): VNode {
           <input
             type="text"
             value={pasteCompany}
-            disabled={facts !== undefined}
+            readOnly={facts !== undefined}
             onInput={(e) => setPasteCompany(e.currentTarget.value)}
           />
         </Field>
@@ -305,7 +305,7 @@ export function Popup(): VNode {
           <textarea
             rows={6}
             value={pasteText}
-            disabled={facts !== undefined}
+            readOnly={facts !== undefined}
             onInput={(e) => setPasteText(e.currentTarget.value)}
           />
         </Field>

@@ -161,6 +161,16 @@ async function takeDashboardShot(
   await driver.executeScript('location.hash = arguments[0];', hash);
   await setViewport(driver, shot.width, shot.height);
   await driver.sleep(800);
+  // The paper grain is a fixed layer the size of the viewport. A full-page
+  // capture of a page taller than the viewport would show it stopping at the
+  // fold, which never happens while scrolling, so make the viewport as tall as
+  // the page first.
+  const pageHeight = await driver.executeScript<number>(
+    'return document.documentElement.scrollHeight;',
+  );
+  if (pageHeight > shot.height) {
+    await setViewport(driver, shot.width, pageHeight);
+  }
   return savePng(dir, shot.name, await driver.takeFullPageScreenshot());
 }
 
