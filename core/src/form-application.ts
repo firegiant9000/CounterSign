@@ -1,13 +1,42 @@
 import type { FillResult } from './fill/result';
 import { fillRecordOps, type FillRecord } from './fill-records';
-import { formUrlKey } from './form-link';
+import { formUrlKey, linkFormOps } from './form-link';
 import {
   createApplicationFromJobOps,
   saveJobOps,
   type JobInput,
 } from './job-ops';
 import type { WriteOp } from './repository';
-import type { Deps, Id, Job, Snapshot } from './types';
+import type { Application, Deps, Id, Job, Snapshot } from './types';
+
+/**
+ * Link an application to a form and, with a held fill result, record that fill
+ * on it, as one op list. Both writes put the whole application, so the record
+ * step runs on a snapshot that already carries the link; otherwise the later
+ * put would drop the earlier one's change.
+ */
+export function linkFormAndRecordOps(
+  data: Snapshot,
+  applicationId: Id,
+  key: string,
+  held: FillResult | undefined,
+  deps: Deps,
+): { ops: WriteOp[]; record?: FillRecord } {
+  const ops = linkFormOps(data, applicationId, key);
+  if (held === undefined) return { ops };
+  const replaced = new Map<Id, Application>();
+  for (const op of ops) {
+    if (op.kind === 'put' && op.store === 'applications') {
+      replaced.set(op.record.id, op.record);
+    }
+  }
+  const next: Snapshot = {
+    ...data,
+    applications: data.applications.map((a) => replaced.get(a.id) ?? a),
+  };
+  const record = fillRecordOps(next, held, applicationId, deps);
+  return { ops: [...ops, ...record.ops], record };
+}
 
 /**
  * A job, an application from it and, with a held fill result, the statements

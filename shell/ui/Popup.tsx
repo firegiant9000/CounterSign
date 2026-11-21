@@ -8,12 +8,14 @@ import {
   saveJobOps,
 } from '../../core/src/job-ops';
 import type { JobInput } from '../../core/src/job-ops';
-import { newApplicationFromFormOps } from '../../core/src/form-application';
+import type { FillResult } from '../../core/src/fill/result';
+import { fillRecordOps } from '../../core/src/fill-records';
+import type { FillRecord } from '../../core/src/fill-records';
 import {
-  findApplicationsForForm,
-  formUrlKey,
-  linkFormOps,
-} from '../../core/src/form-link';
+  linkFormAndRecordOps,
+  newApplicationFromFormOps,
+} from '../../core/src/form-application';
+import { findApplicationsForForm, formUrlKey } from '../../core/src/form-link';
 import { profileValues } from '../../core/src/profile';
 import type { WriteOp } from '../../core/src/repository';
 import type { Id, Snapshot } from '../../core/src/types';
@@ -26,7 +28,13 @@ import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
 import { FillSection } from './FillSection';
-import { FormLink, pickerCandidates } from './FormLink';
+import {
+  FormLink,
+  applicationLabel,
+  displayName,
+  pickerCandidates,
+} from './FormLink';
+import type { RecordLine } from './FormLink';
 import { Button } from './components/Button';
 import { Fact } from './components/Fact';
 import { Field } from './components/Field';
@@ -135,6 +143,18 @@ export function Popup(): VNode {
   const [chosenId, setChosenId] = useState<Id | undefined>(undefined);
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | undefined>(undefined);
+  // A fill result waiting for an application to record it on.
+  const [held, setHeld] = useState<FillResult | undefined>(undefined);
+  const heldRef = useRef<FillResult | undefined>(undefined);
+  heldRef.current = held;
+  const [recordLine, setRecordLine] = useState<RecordLine | undefined>(
+    undefined,
+  );
+  const [recordNotice, setRecordNotice] = useState<string | undefined>(
+    undefined,
+  );
+  const linkingRef = useRef(false);
+  const linkedIdRef = useRef<Id | undefined>(undefined);
 
   useEffect(() => {
     controller.refresh();
@@ -242,28 +262,55 @@ export function Popup(): VNode {
         ? undefined
         : findApplicationsForForm(data, formKey)[0];
 
-  // One apply per write; Task 8 adds the held fill result to these builders.
-  const linkOps = (d: Snapshot, id: Id): WriteOp[] =>
-    linkFormOps(d, id, formKey ?? '');
+  linkedIdRef.current = linkedId;
+
+  const MISSING = 'The application is no longer there. Choose another.';
+
+  // One apply per write, with the held fill result recorded in the same one.
   const runLink = (
-    build: (d: Snapshot) => { ops: WriteOp[]; id: Id },
+    build: (d: Snapshot) => {
+      ops: WriteOp[];
+      id: Id;
+      name: string;
+      record?: FillRecord;
+    },
   ): Promise<boolean> => {
+    if (linkingRef.current) return Promise.resolve(false);
+    linkingRef.current = true;
     setLinking(true);
     setLinkError(undefined);
-    let id: Id | undefined;
+    const got: { id?: Id; name: string; record?: FillRecord } = { name: '' };
     return app
       .apply((d) => {
         const built = build(d);
-        id = built.id;
+        got.id = built.id;
+        got.name = built.name;
+        got.record = built.record;
+        if (built.record?.missing) throw new Error(MISSING);
         return built.ops;
       })
       .then(
         () => {
-          setChosenId(id);
+          linkingRef.current = false;
+          setChosenId(got.id);
           setLinking(false);
+          if (got.record !== undefined) {
+            setHeld(undefined);
+            setRecordNotice(undefined);
+            setRecordLine(
+              got.record.recorded > 0
+                ? {
+                    recorded: got.record.recorded,
+                    alreadyOnForm: got.record.alreadyOnForm,
+                    name: got.name,
+                  }
+                : undefined,
+            );
+          }
           return true;
         },
         (err: unknown) => {
+          linkingRef.current = false;
           setLinkError(messageOf(err));
           setLinking(false);
           return false;
@@ -271,7 +318,59 @@ export function Popup(): VNode {
       );
   };
   const linkExisting = (id: Id): Promise<boolean> =>
-    runLink((d) => ({ ops: linkOps(d, id), id }));
+    runLink((d) => {
+      const built = linkFormAndRecordOps(
+        d,
+        id,
+        formKey ?? '',
+        heldRef.current,
+        deps,
+      );
+      return {
+        ops: built.ops,
+        id,
+        name: applicationLabel(d, id),
+        record: built.record,
+      };
+    });
+
+  const onFilled = (result: FillResult): void => {
+    setRecordLine(undefined);
+    setRecordNotice(undefined);
+    const id = linkedIdRef.current;
+    if (id === undefined) {
+      setHeld(result);
+      return;
+    }
+    const got: { name: string; record?: FillRecord } = { name: '' };
+    app
+      .apply((d) => {
+        const record = fillRecordOps(d, result, id, deps);
+        got.record = record;
+        got.name = applicationLabel(d, id);
+        return record.ops;
+      })
+      .then(
+        () => {
+          const record = got.record;
+          if (record === undefined) return;
+          if (record.missing) {
+            setChosenId(undefined);
+            setRecordNotice(MISSING);
+            return;
+          }
+          setHeld(undefined);
+          if (record.recorded > 0) {
+            setRecordLine({
+              recorded: record.recorded,
+              alreadyOnForm: record.alreadyOnForm,
+              name: got.name,
+            });
+          }
+        },
+        (err: unknown) => setLinkError(messageOf(err)),
+      );
+  };
   const linkNew = (names: {
     companyName: string;
     title: string;
@@ -290,8 +389,13 @@ export function Popup(): VNode {
         location: captured?.location,
         text: captured?.text ?? '',
       };
-      const built = newApplicationFromFormOps(d, input, deps);
-      return { ops: built.ops, id: built.applicationId };
+      const built = newApplicationFromFormOps(d, input, deps, heldRef.current);
+      return {
+        ops: built.ops,
+        id: built.applicationId,
+        name: displayName(names.companyName, names.title),
+        record: built.record,
+      };
     });
 
   let body: VNode;
@@ -464,9 +568,13 @@ export function Popup(): VNode {
             onNew={linkNew}
             busy={linking}
             error={linkError}
+            onClearError={() => setLinkError(undefined)}
+            heldNotice={held !== undefined && linkedId === undefined}
+            notice={recordNotice}
+            recordLine={recordLine}
           />
         ) : null}
-        <FillSection controller={controller} />
+        <FillSection controller={controller} onFilled={onFilled} />
         <div class="popup-actions">
           <Button variant="link" onClick={open}>
             Open dashboard

@@ -14,6 +14,35 @@ function nameOf(value: string | undefined, fallback: string): string {
   return value !== undefined && value.trim() !== '' ? value : fallback;
 }
 
+/** "Company · Title" with the fallbacks the link line uses. */
+export function displayName(
+  company: string | undefined,
+  title: string | undefined,
+): string {
+  return `${nameOf(company, 'Unknown company')} · ${nameOf(title, 'Untitled')}`;
+}
+
+/** The display name of an application in a snapshot. */
+export function applicationLabel(data: Snapshot, id: Id): string {
+  const row = applicationRows(data).find((r) => r.id === id);
+  return displayName(row?.companyName, row?.title);
+}
+
+export interface RecordLine {
+  recorded: number;
+  alreadyOnForm: number;
+  name: string;
+}
+
+function recordedText(line: RecordLine): string {
+  const answers = line.recorded === 1 ? '1 answer' : `${line.recorded} answers`;
+  const already =
+    line.alreadyOnForm > 0
+      ? ` (${line.alreadyOnForm} ${line.alreadyOnForm === 1 ? 'was' : 'were'} already on the form)`
+      : '';
+  return `Recorded ${answers} on ${line.name}${already}.`;
+}
+
 /**
  * Candidate application ids for the picker: active applications, newest
  * created first.
@@ -38,17 +67,28 @@ export function FormLink(props: {
   onNew: (input: { companyName: string; title: string }) => Promise<boolean>;
   busy: boolean;
   error?: string;
+  /** Called when the mode changes or Cancel is pressed. */
+  onClearError?: () => void;
+  /** A fill is held until an application is linked. */
+  heldNotice?: boolean;
+  notice?: string;
+  recordLine?: RecordLine;
 }): VNode {
   const [mode, setMode] = useState<Mode>('idle');
   const [query, setQuery] = useState('');
   const [company, setCompany] = useState<string | undefined>(undefined);
   const [title, setTitle] = useState<string | undefined>(undefined);
 
+  const changeMode = (next: Mode): void => {
+    props.onClearError?.();
+    setMode(next);
+  };
+
   const rows = applicationRows(props.data);
   const byId = new Map(rows.map((r) => [r.id, r] as const));
   const label = (id: Id): string => {
     const row = byId.get(id);
-    return `${nameOf(row?.companyName, 'Unknown company')} · ${nameOf(row?.title, 'Untitled')}`;
+    return displayName(row?.companyName, row?.title);
   };
 
   const done = (ok: boolean): void => {
@@ -88,7 +128,7 @@ export function FormLink(props: {
           ))}
         </div>
         <div class="popup-actions">
-          <Button variant="link" onClick={() => setMode('idle')}>
+          <Button variant="link" onClick={() => changeMode('idle')}>
             Cancel
           </Button>
         </div>
@@ -125,7 +165,7 @@ export function FormLink(props: {
           >
             Create and link
           </Button>
-          <Button variant="link" onClick={() => setMode('idle')}>
+          <Button variant="link" onClick={() => changeMode('idle')}>
             Cancel
           </Button>
         </div>
@@ -141,7 +181,7 @@ export function FormLink(props: {
           <div class="popup-formlink-head">
             <Text kind="name">Records to: {label(props.linkedId)}</Text>
             {mode === 'idle' ? (
-              <Button variant="link" onClick={() => setMode('choose')}>
+              <Button variant="link" onClick={() => changeMode('choose')}>
                 Change
               </Button>
             ) : null}
@@ -150,8 +190,8 @@ export function FormLink(props: {
           <div class="popup-formlink-head">
             <Text kind="name">Not linked to an application.</Text>
             <div class="popup-actions">
-              <Button onClick={() => setMode('choose')}>Choose…</Button>
-              <Button onClick={() => setMode('new')}>
+              <Button onClick={() => changeMode('choose')}>Choose…</Button>
+              <Button onClick={() => changeMode('new')}>
                 New application from this page
               </Button>
             </div>
@@ -161,6 +201,25 @@ export function FormLink(props: {
         <Text kind="name">Not linked to an application.</Text>
       )}
       {panel}
+      {props.recordLine ? (
+        <div class="popup-formlink-recorded">
+          <Text kind="name">{recordedText(props.recordLine)}</Text>
+          <Text kind="name">
+            Recorded from the fill. If you changed an answer on the page, edit
+            it here too.
+          </Text>
+        </div>
+      ) : null}
+      {props.heldNotice ? (
+        <Text kind="name">
+          Filled. Link an application to record what you told them.
+        </Text>
+      ) : null}
+      {props.notice ? (
+        <span class="field-error" role="alert">
+          {props.notice}
+        </span>
+      ) : null}
       {props.error ? (
         <span class="field-error" role="alert">
           {props.error}
