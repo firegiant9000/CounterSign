@@ -234,16 +234,27 @@ describe('interviewPack', () => {
           source: 'other',
           question: 42,
         },
+        {
+          id: 's4',
+          createdAt: T,
+          applicationId: 'a1',
+          answerKey: 'sponsor',
+          value: { type: 'text', value: 'No' },
+          source: 'fill',
+          question: '   ',
+        },
       ],
     });
     const pack = interviewPack(data, 'a1', {});
-    const [first, second, third] = pack?.statements ?? [];
+    const [first, second, third, fourth] = pack?.statements ?? [];
     expect(first?.fromFill).toBe(true);
     expect(first?.question).toBe('Will you require sponsorship?');
     expect(second?.fromFill).toBe(false);
     expect(second && 'question' in second).toBe(false);
     expect(third?.fromFill).toBe(false);
     expect(third && 'question' in third).toBe(false);
+    expect(fourth?.fromFill).toBe(true);
+    expect(fourth && 'question' in fourth).toBe(false);
   });
 
   it('lists rounds in order with resolved interviewers and kind labels', () => {

@@ -118,8 +118,12 @@ export function interviewPack(
       result,
     };
     if (answer) item.canonical = formatAnswer(answer.value);
-    const question = nonEmpty(statement.question);
-    if (question !== undefined) item.question = question;
+    if (
+      typeof statement.question === 'string' &&
+      statement.question.trim() !== ''
+    ) {
+      item.question = statement.question;
+    }
     if (result === 'mismatch') pack.unresolved += 1;
     pack.statements.push(item);
   }
