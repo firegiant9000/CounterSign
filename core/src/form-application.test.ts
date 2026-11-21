@@ -58,7 +58,7 @@ describe('newApplicationFromFormOps facts', () => {
     companyName: 'Acme',
     canonicalUrl: 'https://jobs.lever.co/acme/1',
     createdAt: '2025-12-01T00:00:00.000Z',
-  } as Job;
+  };
 
   it('reports a duplicate and a repost of an earlier job at the form key', () => {
     const data: Snapshot = {
@@ -70,7 +70,7 @@ describe('newApplicationFromFormOps facts', () => {
           jobId: 'oldjob',
           title: 'Dev',
           createdAt: '2025-12-01T00:00:00.000Z',
-        } as Application,
+        },
       ],
     };
     const built = newApplicationFromFormOps(
