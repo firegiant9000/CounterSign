@@ -288,6 +288,8 @@ export function buildDemoOps(
           currency: 'USD',
           period: 'year',
         },
+        source: 'fill',
+        question: 'What are your salary expectations?',
       },
     },
     {

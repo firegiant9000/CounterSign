@@ -319,6 +319,8 @@ describe('demo data', () => {
         currency: 'USD',
         period: 'year',
       },
+      source: 'fill',
+      question: 'What are your salary expectations?',
     });
     expect(
       snap.statements.find((s) => s.id === 'demo-statement-2'),
