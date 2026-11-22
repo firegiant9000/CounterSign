@@ -11,6 +11,8 @@ interface UrlLike {
 declare const URL: { new (url: string, base?: string): UrlLike };
 
 export const MAX_FORM_URLS = 20;
+// Matches the capture URL cap (shell/capture MAX_CAPTURE_URL); core cannot import it.
+export const MAX_FORM_URL = 8_000;
 
 // Hosts whose application form lives one path segment below the posting.
 const TRAILING_SEGMENTS: Readonly<Record<string, string>> = {
@@ -24,6 +26,7 @@ export function formUrlKey(
   url: string,
   relCanonical?: string,
 ): string | undefined {
+  if (url.length > MAX_FORM_URL) return undefined;
   try {
     const parsed = new URL(url.trim());
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {

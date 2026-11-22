@@ -1,3 +1,10 @@
+import { toLocalDate } from './dates';
+import {
+  findApplicationMatch,
+  repostFact,
+  type ApplicationMatch,
+  type JobCandidate,
+} from './duplicates';
 import type { FillResult } from './fill/result';
 import { fillRecordOps, type FillRecord } from './fill-records';
 import { formUrlKey, linkFormOps } from './form-link';
@@ -48,7 +55,13 @@ export function newApplicationFromFormOps(
   input: JobInput,
   deps: Deps,
   held?: FillResult,
-): { ops: WriteOp[]; applicationId: Id; record?: FillRecord } {
+): {
+  ops: WriteOp[];
+  applicationId: Id;
+  record?: FillRecord;
+  match?: ApplicationMatch['kind'];
+  repost?: string;
+} {
   const saved = saveJobOps(input, deps);
   const jobPut = saved.ops[0];
   if (jobPut?.kind !== 'put' || jobPut.store !== 'jobs') {
@@ -68,7 +81,26 @@ export function newApplicationFromFormOps(
   const ops: WriteOp[] = [...created.ops];
   ops.splice(companyIndex + 1, 0, jobOp);
 
-  if (held === undefined) return { ops, applicationId: created.applicationId };
+  // Facts only inform, as in Save job: computed on the data before this write,
+  // for a candidate stored the way the job is (form key as its canonical URL).
+  const candidate: JobCandidate = {};
+  if (job.canonicalUrl !== undefined) candidate.canonicalUrl = job.canonicalUrl;
+  if (job.companyName !== undefined) candidate.companyName = job.companyName;
+  if (job.title !== undefined) candidate.title = job.title;
+  const match = findApplicationMatch(data, candidate)?.kind;
+  const repost = repostFact(
+    data,
+    { ...candidate, excludeJobId: job.id },
+    toLocalDate(new Date(deps.now())),
+  )?.text;
+  const facts = {
+    ...(match !== undefined ? { match } : {}),
+    ...(repost !== undefined ? { repost } : {}),
+  };
+
+  if (held === undefined) {
+    return { ops, applicationId: created.applicationId, ...facts };
+  }
 
   const next: Snapshot = {
     ...data,
@@ -88,5 +120,5 @@ export function newApplicationFromFormOps(
   }
   const record = fillRecordOps(next, held, created.applicationId, deps);
   ops.push(...record.ops);
-  return { ops, applicationId: created.applicationId, record };
+  return { ops, applicationId: created.applicationId, record, ...facts };
 }
