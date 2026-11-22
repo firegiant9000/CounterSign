@@ -206,6 +206,62 @@ describe('findApplicationMatch', () => {
   });
 });
 
+describe('form apply-page addresses', () => {
+  const stored = 'https://jobs.lever.co/example/abc';
+  const data = snap({
+    jobs: [{ id: 'j1', createdAt: `2026-06-12${AT}`, canonicalUrl: stored }],
+    applications: [{ id: 'a1', createdAt: `2026-06-13${AT}`, jobId: 'j1' }],
+  });
+
+  it('findApplicationMatch matches the /apply address of a stored job', () => {
+    expect(
+      findApplicationMatch(data, { canonicalUrl: `${stored}/apply` }),
+    ).toEqual({ kind: 'already_applied', applicationId: 'a1' });
+    expect(
+      findApplicationMatch(data, {
+        canonicalUrl: 'https://jobs.lever.co/example/other/apply',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('matches the Ashby /application address of a stored job', () => {
+    const ashby = 'https://jobs.ashbyhq.com/example/abc';
+    const ashbyData = snap({
+      jobs: [{ id: 'j2', createdAt: `2026-06-12${AT}`, canonicalUrl: ashby }],
+      applications: [{ id: 'a2', createdAt: `2026-06-13${AT}`, jobId: 'j2' }],
+    });
+    expect(
+      findApplicationMatch(ashbyData, { canonicalUrl: `${ashby}/application` }),
+    ).toEqual({ kind: 'already_applied', applicationId: 'a2' });
+    expect(
+      repostFact(
+        ashbyData,
+        { canonicalUrl: `${ashby}/application` },
+        '2026-11-15',
+      )?.firstSavedOn,
+    ).toBe('2026-06-12');
+    expect(
+      findApplicationMatch(ashbyData, {
+        canonicalUrl: 'https://jobs.ashbyhq.com/example/zzz/application',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('repostFact matches the /apply address of a stored job', () => {
+    expect(
+      repostFact(data, { canonicalUrl: `${stored}/apply` }, '2026-11-15')
+        ?.firstSavedOn,
+    ).toBe('2026-06-12');
+    expect(
+      repostFact(
+        data,
+        { canonicalUrl: 'https://jobs.lever.co/example/other/apply' },
+        '2026-11-15',
+      ),
+    ).toBeUndefined();
+  });
+});
+
 describe('repostFact', () => {
   const job = (id: string, day: string, extra: Partial<Job> = {}): Job => ({
     id,

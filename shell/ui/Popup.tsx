@@ -8,7 +8,17 @@ import {
   saveJobOps,
 } from '../../core/src/job-ops';
 import type { JobInput } from '../../core/src/job-ops';
+import type { FillResult } from '../../core/src/fill/result';
+import { fillRecordOps } from '../../core/src/fill-records';
+import type { FillRecord } from '../../core/src/fill-records';
+import {
+  linkFormAndRecordOps,
+  newApplicationFromFormOps,
+} from '../../core/src/form-application';
+import { findApplicationsForForm, formUrlKey } from '../../core/src/form-link';
 import { profileValues } from '../../core/src/profile';
+import type { WriteOp } from '../../core/src/repository';
+import type { Id, Snapshot } from '../../core/src/types';
 import { canonicalizeUrl } from '../../core/src/url';
 import { capturePage } from '../capture/inject';
 import type { CaptureOutcome } from '../capture/inject';
@@ -17,7 +27,16 @@ import type { FillController } from '../fill/controller';
 import { openDashboard } from '../open-dashboard';
 import { useAppData } from './app-data';
 import { AnyoneHere } from './AnyoneHere';
+import { currentStatus, statusLabel } from '../../core/src/status';
 import { FillSection } from './FillSection';
+import { ToldPanel } from './ToldPanel';
+import {
+  FormLink,
+  applicationLabel,
+  displayName,
+  pickerCandidates,
+} from './FormLink';
+import type { RecordLine } from './FormLink';
 import { Button } from './components/Button';
 import { Fact } from './components/Fact';
 import { Field } from './components/Field';
@@ -115,9 +134,56 @@ export function Popup(): VNode {
   }
   const controller = controllerRef.current;
 
+  const [fillStatus, setFillStatus] = useState(() => controller.state().status);
+  useEffect(() => {
+    const unsubscribe = controller.subscribe((s) => setFillStatus(s.status));
+    setFillStatus(controller.state().status);
+    return unsubscribe;
+  }, [controller]);
+
+  // Set by Choose… and Create and link; see linkedId below.
+  const [chosenId, setChosenId] = useState<Id | undefined>(undefined);
+  const [linking, setLinking] = useState(false);
+  const [linkError, setLinkError] = useState<string | undefined>(undefined);
+  // A fill result waiting for an application to record it on.
+  const [held, setHeld] = useState<FillResult | undefined>(undefined);
+  const heldRef = useRef<FillResult | undefined>(undefined);
+  heldRef.current = held;
+  const [recordLine, setRecordLine] = useState<RecordLine | undefined>(
+    undefined,
+  );
+  const [recordNotice, setRecordNotice] = useState<string | undefined>(
+    undefined,
+  );
+  // Duplicate and repost facts for the application just made from this form.
+  const [newFacts, setNewFacts] = useState<
+    { match: Facts['match']; repost: string | undefined } | undefined
+  >(undefined);
+  const linkingRef = useRef(false);
+  const keepHeldRef = useRef(false);
+  const linkedIdRef = useRef<Id | undefined>(undefined);
+
   useEffect(() => {
     controller.refresh();
   }, [data]);
+
+  // A match linked the form without the owner's click: drop the stale held
+  // fill rather than let a later Choose… record it. The owner's own link
+  // path records and clears held itself, and is excluded while in flight.
+  // Exception: onFilled holds a result on two recoverable paths (application
+  // gone, write rejected) where the popup still offers to record it; those
+  // keep it until the owner's next link (runLink resets this).
+  useEffect(() => {
+    if (
+      linkedIdRef.current !== undefined &&
+      heldRef.current !== undefined &&
+      !linkingRef.current &&
+      !keepHeldRef.current
+    ) {
+      heldRef.current = undefined;
+      setHeld(undefined);
+    }
+  });
 
   useEffect(() => {
     if (started.current) return;
@@ -207,6 +273,193 @@ export function Popup(): VNode {
     u !== undefined && /^https?:\/\//i.test(u.trim());
   const outcomeUrl = outcome.ok ? outcome.capture.url : outcome.url;
   const linkValue = pasteLink ?? (isHttp(outcomeUrl) ? outcomeUrl.trim() : '');
+
+  const formKey =
+    outcomeUrl === undefined
+      ? undefined
+      : formUrlKey(outcomeUrl, captured?.relCanonical);
+  // A chosen application that still exists wins; otherwise the first match.
+  // Task 8 records a fill to linkedId; Task 9 shows a panel for it.
+  const linkedId: Id | undefined =
+    chosenId !== undefined && data.applications.some((a) => a.id === chosenId)
+      ? chosenId
+      : formKey === undefined
+        ? undefined
+        : findApplicationsForForm(data, formKey)[0];
+
+  linkedIdRef.current = linkedId;
+
+  const MISSING = 'The application is no longer there. Choose another.';
+
+  // One apply per write, with the held fill result recorded in the same one.
+  const runLink = (
+    build: (d: Snapshot) => {
+      ops: WriteOp[];
+      id: Id;
+      name: string;
+      record?: FillRecord;
+      match?: Facts['match'];
+      repost?: string;
+    },
+  ): Promise<boolean> => {
+    if (linkingRef.current) return Promise.resolve(false);
+    linkingRef.current = true;
+    setLinking(true);
+    setLinkError(undefined);
+    const got: {
+      id?: Id;
+      name: string;
+      record?: FillRecord;
+      held?: FillResult;
+      match?: Facts['match'];
+      repost?: string;
+    } = { name: '' };
+    return app
+      .apply((d) => {
+        // The held result the builder reads, captured in the same sync step.
+        got.held = heldRef.current;
+        const built = build(d);
+        got.id = built.id;
+        got.name = built.name;
+        got.record = built.record;
+        got.match = built.match;
+        got.repost = built.repost;
+        if (built.record?.missing) throw new Error(MISSING);
+        return built.ops;
+      })
+      .then(
+        () => {
+          linkingRef.current = false;
+          // Only a successful owner link ends the keep; a failed one leaves
+          // the held result offered for a retry.
+          keepHeldRef.current = false;
+          setChosenId(got.id);
+          setLinking(false);
+          setRecordNotice(undefined);
+          setNewFacts(
+            got.match !== undefined || got.repost !== undefined
+              ? { match: got.match, repost: got.repost }
+              : undefined,
+          );
+          if (got.record !== undefined) {
+            // Clear only the result this link recorded; a Fill that finished
+            // during the write has replaced it and must survive.
+            if (got.held !== undefined && heldRef.current === got.held) {
+              setHeld(undefined);
+            }
+            setRecordLine(
+              got.record.recorded > 0
+                ? {
+                    recorded: got.record.recorded,
+                    alreadyOnForm: got.record.alreadyOnForm,
+                    name: got.name,
+                  }
+                : undefined,
+            );
+          }
+          return true;
+        },
+        (err: unknown) => {
+          linkingRef.current = false;
+          setLinkError(messageOf(err));
+          setLinking(false);
+          return false;
+        },
+      );
+  };
+  const linkExisting = (id: Id): Promise<boolean> =>
+    runLink((d) => {
+      const built = linkFormAndRecordOps(
+        d,
+        id,
+        formKey ?? '',
+        heldRef.current,
+        deps,
+      );
+      return {
+        ops: built.ops,
+        id,
+        name: applicationLabel(d, id),
+        record: built.record,
+      };
+    });
+
+  const onFilled = (result: FillResult): void => {
+    setRecordLine(undefined);
+    setRecordNotice(undefined);
+    // Read when the fill completes, not at the click (FillSection is fixed).
+    const id = linkedIdRef.current;
+    if (id === undefined) {
+      keepHeldRef.current = false;
+      setHeld(result);
+      return;
+    }
+    const got: { name: string; record?: FillRecord } = { name: '' };
+    app
+      .apply((d) => {
+        const record = fillRecordOps(d, result, id, deps);
+        got.record = record;
+        got.name = applicationLabel(d, id);
+        return record.ops;
+      })
+      .then(
+        () => {
+          const record = got.record;
+          if (record === undefined) return;
+          if (record.missing) {
+            keepHeldRef.current = true;
+            heldRef.current = result;
+            setHeld(result);
+            setChosenId(undefined);
+            setRecordNotice(MISSING);
+            return;
+          }
+          keepHeldRef.current = false;
+          setHeld(undefined);
+          if (record.recorded > 0) {
+            setRecordLine({
+              recorded: record.recorded,
+              alreadyOnForm: record.alreadyOnForm,
+              name: got.name,
+            });
+          }
+        },
+        (err: unknown) => {
+          keepHeldRef.current = true;
+          heldRef.current = result;
+          setHeld(result);
+          setLinkError(messageOf(err));
+        },
+      );
+  };
+  const linkNew = (names: {
+    companyName: string;
+    title: string;
+  }): Promise<boolean> =>
+    runLink((d) => {
+      const input: JobInput = {
+        source: captured
+          ? captured.source === 'jsonld'
+            ? 'jsonld'
+            : 'selection'
+          : 'paste',
+        url: isHttp(outcomeUrl) ? outcomeUrl.trim() : undefined,
+        relCanonical: captured?.relCanonical,
+        title: names.title,
+        companyName: names.companyName,
+        location: captured?.location,
+        text: captured?.text ?? '',
+      };
+      const built = newApplicationFromFormOps(d, input, deps, heldRef.current);
+      return {
+        ops: built.ops,
+        id: built.applicationId,
+        name: displayName(names.companyName, names.title),
+        record: built.record,
+        match: built.match,
+        repost: built.repost,
+      };
+    });
 
   let body: VNode;
   if (captured) {
@@ -367,7 +620,48 @@ export function Popup(): VNode {
             </div>
           </section>
         ) : null}
-        <FillSection controller={controller} />
+        {fillStatus === 'ready' && formKey !== undefined ? (
+          <FormLink
+            data={data}
+            linkedId={linkedId}
+            candidates={pickerCandidates(data)}
+            initialCompany={captured?.companyName}
+            initialTitle={captured?.title}
+            onLink={linkExisting}
+            onNew={linkNew}
+            busy={linking}
+            error={linkError}
+            onClearError={() => setLinkError(undefined)}
+            heldNotice={held !== undefined && linkedId === undefined}
+            notice={recordNotice}
+            recordLine={recordLine}
+          />
+        ) : null}
+        {newFacts?.match === 'already_applied' ? (
+          <Fact tone="neutral">Already applied here.</Fact>
+        ) : null}
+        {newFacts?.match === 'possible_match' ? (
+          <Fact tone="neutral">
+            Possible match: an application for the same company and title.
+          </Fact>
+        ) : null}
+        {newFacts?.repost ? (
+          <Fact tone="neutral">{newFacts.repost}</Fact>
+        ) : null}
+        <FillSection controller={controller} onFilled={onFilled} />
+        {fillStatus === 'ready' && linkedId !== undefined ? (
+          <ToldPanel
+            key={linkedId}
+            data={data}
+            applicationId={linkedId}
+            statusLabel={statusLabel(
+              currentStatus(data.statusEvents, linkedId)?.status,
+              app.settings.statusLabels,
+            )}
+            deps={deps}
+            onApply={(build) => app.apply(build)}
+          />
+        ) : null}
         <div class="popup-actions">
           <Button variant="link" onClick={open}>
             Open dashboard
