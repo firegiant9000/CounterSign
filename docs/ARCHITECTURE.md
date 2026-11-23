@@ -64,7 +64,7 @@ An in-memory repository (`core/src/memory-repository.ts`) is used in tests. The 
 
 ## The privacy guard
 
-Four parts keep "no network, nothing reads or touches a page until you click, never submits" true. The local automatic backup check is the one thing that runs without a click.
+Four parts keep "no network, nothing reads or touches a page until you click, never submits" true. Two things run without a click: the local automatic backup check, and, if you turn reminders on, the daily reminder check. The event page runs the reminder check on start and every 30 minutes, shows at most one notification a day, and the notification shows counts only.
 
 1. **Lint rules** (`eslint.config.js`) ban network APIs in source and ban `downloads` outside `shell/files/download.ts`.
 2. **Built-output scan** (`guard/scan.ts`, run by `guard/build.test.ts`) looks for network tokens in every built `.js` and `.html` file. A small allowlist (`guard/allowlist.json`) explains known harmless matches, and a test fails if an entry goes stale.
@@ -103,3 +103,4 @@ The theme is a ledger and card catalogue on a desk, with light and dark versions
 8. **Restore validation is structural.** Dangling links are tolerated so you can always restore your own file.
 9. **The export file includes settings,** so a restore brings back your status labels.
 10. **The weekly backup is a due-check, not a seven-day alarm** (stage 2), because alarms do not survive a browser restart.
+11. **The daily reminder is a due-check every 30 minutes, not an exact alarm,** for the same reason as decision 10.
