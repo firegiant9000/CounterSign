@@ -141,6 +141,69 @@ describe('runReminderCheck', () => {
     expect(await runReminderCheck(deps)).toBe('busy');
     expect(calls).toEqual([]);
   });
+
+  it('shows once when two wakes arrive together', async () => {
+    const { deps, shown } = setup();
+    let held = false;
+    deps.tryLock = async (fn) => {
+      if (held) return false;
+      held = true;
+      try {
+        await fn();
+      } finally {
+        held = false;
+      }
+      return true;
+    };
+    const outcomes = await Promise.all([
+      runReminderCheck(deps),
+      runReminderCheck(deps),
+    ]);
+    expect([...outcomes].sort()).toEqual(['busy', 'shown']);
+    expect(shown).toHaveLength(1);
+  });
+
+  it('reads the date and the hour from a single now() call', async () => {
+    const { deps, calls } = setup();
+    let n = 0;
+    deps.now = () => {
+      n += 1;
+      return n === 1
+        ? new Date(2026, 2, 10, 7, 59)
+        : new Date(2026, 2, 10, 8, 1);
+    };
+    expect(await runReminderCheck(deps)).toBe('not_due');
+    expect(calls).toEqual([]);
+  });
+
+  describe('outer catch', () => {
+    it('returns failed when tryLock rejects', async () => {
+      const { deps, calls } = setup();
+      deps.tryLock = () => Promise.reject(new Error('boom'));
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).toEqual([]);
+    });
+
+    it('returns failed when hasPermission rejects', async () => {
+      const { deps, calls } = setup();
+      deps.hasPermission = () => Promise.reject(new Error('boom'));
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).not.toContain('snapshot');
+      expect(calls).not.toContain('show');
+    });
+
+    it('returns failed when area.set rejects', async () => {
+      const { deps, calls } = setup();
+      const { area } = deps;
+      deps.area = {
+        get: (key) => area.get(key),
+        set: () => Promise.reject(new Error('boom')),
+      };
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).not.toContain('snapshot');
+      expect(calls).not.toContain('show');
+    });
+  });
 });
 
 describe('ensureReminderAlarm', () => {

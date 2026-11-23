@@ -415,6 +415,13 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     );
     expect(found.some((m) => m.message === notifyMessage)).toBe(false);
   });
+  it('rejects tabs access in notify.ts', async () => {
+    const found = await syntaxMessages(
+      'browser.tabs.query({});',
+      'shell/notify.ts',
+    );
+    expect(found.some((m) => m.message === tabsMessage)).toBe(true);
+  });
   it('allows the permissions key in an object literal', async () => {
     const found = await syntaxMessages(
       "export default { permissions: ['storage'] };",

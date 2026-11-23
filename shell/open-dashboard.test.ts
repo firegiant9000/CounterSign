@@ -76,4 +76,28 @@ describe('openDashboard', () => {
     await openDashboard('deadlines');
     expect(mocks.tabsCreate).toHaveBeenCalledWith({ url: BASE });
   });
+
+  it.each(['javascript:alert(1)', 'https://evil.example/', '//evil'])(
+    'treats the hostile hash %s as no hash',
+    async (hash) => {
+      mocks.getContexts.mockResolvedValue(EXISTING);
+      await openDashboard(hash);
+      expect(mocks.tabsUpdate).toHaveBeenCalledTimes(1);
+      expect(mocks.tabsUpdate).toHaveBeenCalledWith(7, { active: true });
+      expect(mocks.windowsUpdate).toHaveBeenCalledWith(3, { focused: true });
+      expect(mocks.tabsCreate).not.toHaveBeenCalled();
+      mocks.getContexts.mockResolvedValue([]);
+      await openDashboard(hash);
+      expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
+      expect(mocks.tabsCreate).toHaveBeenCalledWith({ url: BASE });
+    },
+  );
+
+  it('keeps a #/../ hash as a fragment on the dashboard URL', async () => {
+    await openDashboard('#/../');
+    expect(mocks.tabsCreate).toHaveBeenCalledTimes(1);
+    const url = (mocks.tabsCreate.mock.calls[0]?.[0] as { url: string }).url;
+    expect(url.startsWith(BASE)).toBe(true);
+    expect(url.slice(BASE.length).startsWith('#')).toBe(true);
+  });
 });
