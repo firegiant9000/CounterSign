@@ -19,6 +19,7 @@ export default defineConfig({
       'scripting',
       'alarms',
     ],
+    optional_permissions: ['notifications'],
     action: { default_title: 'Countersign', default_icon: 'icon.svg' },
     commands: {
       _execute_action: { suggested_key: { default: 'Alt+Shift+S' } },

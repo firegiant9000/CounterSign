@@ -1,7 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { Settings } from '../../core/src/types';
 
-const SETTINGS_KEY = 'settings';
+export const SETTINGS_KEY = 'settings';
 
 export interface KeyValueArea {
   get(key: string): Promise<unknown>;
