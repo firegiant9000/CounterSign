@@ -5,7 +5,7 @@ import {
   reminderSettings,
   withReminders,
 } from './reminders';
-import type { ReminderKind } from './reminders';
+import type { ReminderKind, ReminderSettings } from './reminders';
 import type { Settings } from './types';
 
 const ALL_ON = { follow_up: true, next_action: true, task: true, round: true };
@@ -124,6 +124,39 @@ describe('withReminders', () => {
     const bad = { hour: 24 } as unknown as Parameters<typeof withReminders>[1];
     const next = withReminders({}, bad);
     expect(next.reminders).toEqual({ on: false, hour: 8, kinds: ALL_ON });
+  });
+
+  it('keeps the stored on value when the patch sets on to undefined', () => {
+    const current: Settings = {
+      reminders: { on: true, hour: 10, kinds: { task: false } },
+    };
+    const patch = { on: undefined } as Partial<ReminderSettings>;
+    const next = withReminders(current, patch);
+    expect(next.reminders).toEqual({
+      on: true,
+      hour: 10,
+      kinds: { ...ALL_ON, task: false },
+    });
+  });
+
+  it('keeps the stored hour when the patch sets hour to undefined', () => {
+    const current: Settings = {
+      reminders: { on: true, hour: 10, kinds: { task: false } },
+    };
+    const patch = { hour: undefined } as Partial<ReminderSettings>;
+    const next = withReminders(current, patch);
+    expect(next.reminders?.hour).toBe(10);
+  });
+
+  it('keeps a stored kind off when the patch sets it to undefined', () => {
+    const current: Settings = {
+      reminders: { on: true, hour: 10, kinds: { task: false } },
+    };
+    const patch = {
+      kinds: { task: undefined },
+    } as unknown as Partial<ReminderSettings>;
+    const next = withReminders(current, patch);
+    expect(next.reminders?.kinds).toEqual({ ...ALL_ON, task: false });
   });
 
   it('does not mutate current', () => {

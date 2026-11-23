@@ -50,18 +50,23 @@ export function reminderSettings(settings: Settings): ReminderSettings {
 
 /**
  * Returns a new settings object whose `reminders` is the normalized current values overlaid
- * with `patch`, then normalized again so the stored object is always well-formed. Other keys
- * of `current` are kept. `current` is not mutated.
+ * with `patch`, then normalized again so the stored object is always well-formed. A patch
+ * value that is undefined leaves the current value in place. Other keys of `current` are
+ * kept. `current` is not mutated.
  */
 export function withReminders(
   current: Settings,
   patch: Partial<ReminderSettings>,
 ): Settings {
   const base = reminderSettings(current);
+  const kinds = {} as Record<ReminderKind, boolean>;
+  for (const kind of REMINDER_KINDS) {
+    kinds[kind] = patch.kinds?.[kind] ?? base.kinds[kind];
+  }
   const merged = {
-    ...base,
-    ...patch,
-    kinds: { ...base.kinds, ...patch.kinds },
+    on: patch.on ?? base.on,
+    hour: patch.hour ?? base.hour,
+    kinds,
   };
   return { ...current, reminders: reminderSettings({ reminders: merged }) };
 }
