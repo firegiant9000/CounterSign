@@ -34,7 +34,13 @@ export function RemindersCard(): VNode {
   const current = reminderSettings(app.settings);
   const [refused, setRefused] = useState(false);
   const [lost, setLost] = useState(false);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+
+  // Once reminders are on (here or in another tab), a refusal message is stale.
+  useEffect(() => {
+    if (current.on) setRefused(false);
+  }, [current.on]);
 
   useEffect(() => {
     let alive = true;
@@ -62,31 +68,30 @@ export function RemindersCard(): VNode {
 
   // The permission request must start synchronously inside the user gesture,
   // so it is the first statement of each handler that can need it.
-  const onDailyChange = (checked: boolean): void => {
-    if (!checked) {
+  const onDailyChange = (box: HTMLInputElement): void => {
+    if (!box.checked) {
       void persist((cur) => withReminders(cur, { on: false }));
       return;
     }
     const granted = requestNotifications();
-    void granted.then(async (ok) => {
-      if (ok) {
-        setRefused(false);
-        await persist((cur) => withReminders(cur, { on: true }));
-      } else {
-        setRefused(true);
-      }
-    });
+    setPending(true);
+    setRefused(false);
+    void granted
+      .then(async (ok) => {
+        if (ok) {
+          await persist((cur) => withReminders(cur, { on: true }));
+        } else {
+          box.checked = false;
+          setRefused(true);
+        }
+      })
+      .finally(() => setPending(false));
   };
 
   const onAllow = (): void => {
     const granted = requestNotifications();
     void granted.then((ok) => {
-      if (ok) {
-        setLost(false);
-        setRefused(false);
-      } else {
-        setRefused(true);
-      }
+      if (ok) setLost(false);
     });
   };
 
@@ -97,12 +102,13 @@ export function RemindersCard(): VNode {
           <input
             type="checkbox"
             checked={current.on}
-            onChange={(e) => onDailyChange(e.currentTarget.checked)}
+            disabled={pending}
+            onChange={(e) => onDailyChange(e.currentTarget)}
           />{' '}
           Daily reminder
         </label>
         {refused ? <p class="field-error">{REFUSED}</p> : null}
-        {lost ? (
+        {lost && current.on ? (
           <p>
             {REMOVED}{' '}
             <Button variant="secondary" onClick={onAllow}>
