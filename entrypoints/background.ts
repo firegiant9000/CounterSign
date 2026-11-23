@@ -7,18 +7,19 @@ import {
   runBackupCheck,
 } from '../shell/backup';
 import { BACKUP_STATE_KEY } from '../shell/storage/backup-state';
-import { SETTINGS_KEY } from '../shell/storage/settings';
+import { SETTINGS_KEY, browserLocalArea } from '../shell/storage/settings';
 import { clearDaily, onDailyClicked } from '../shell/notify';
 import { openDashboard } from '../shell/open-dashboard';
 import {
   REMINDER_ALARM,
   browserReminderDeps,
-  ensureReminderAlarm,
   runReminderCheck,
+  syncReminderAlarm,
 } from '../shell/reminders';
 
 // Event page: runs the automatic backup check on startup, install, the daily alarm and backup-counter changes,
 // and the daily reminder check on startup, install, its own alarm and settings changes.
+// The 30-minute reminder alarm exists only while reminders are on; each reminder wake syncs it first.
 export default defineBackground(() => {
   // Holds no state between wakes: deps are built fresh on each call.
   const wake = async (): Promise<void> => {
@@ -32,9 +33,16 @@ export default defineBackground(() => {
 
   // Separate from wake(): a reminder failure must never disturb the backup check.
   const remind = async (): Promise<void> => {
+    // Own try/catch: a failed alarm update must not skip the check.
     try {
-      await ensureReminderAlarm(browser.alarms);
-      await runReminderCheck(browserReminderDeps());
+      await syncReminderAlarm(browser.alarms, browserLocalArea());
+    } catch (err) {
+      console.error('Countersign: reminder alarm update failed', err);
+    }
+    try {
+      const outcome = await runReminderCheck(browserReminderDeps());
+      if (outcome === 'failed')
+        console.error('Countersign: reminder check failed');
     } catch (err) {
       console.error('Countersign: reminder check failed', err);
     }

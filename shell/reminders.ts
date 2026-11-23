@@ -2,6 +2,7 @@ import { toLocalDate } from '../core/src/dates';
 import {
   readReminderState,
   reminderDue,
+  reminderSettings,
   reminderSummary,
 } from '../core/src/reminders';
 import type { Snapshot } from '../core/src/types';
@@ -70,6 +71,23 @@ export async function ensureReminderAlarm(alarms: AlarmApi): Promise<void> {
       periodInMinutes: 30,
       delayInMinutes: 1,
     });
+  }
+}
+
+export type ReminderAlarmApi = AlarmApi & {
+  clear(name: string): Promise<boolean> | Promise<void>;
+};
+
+/** The 30-minute alarm exists only while reminders are on. */
+export async function syncReminderAlarm(
+  alarms: ReminderAlarmApi,
+  area: KeyValueArea,
+): Promise<void> {
+  const settings = await loadSettings(area);
+  if (reminderSettings(settings).on) {
+    await ensureReminderAlarm(alarms);
+  } else {
+    await alarms.clear(REMINDER_ALARM);
   }
 }
 

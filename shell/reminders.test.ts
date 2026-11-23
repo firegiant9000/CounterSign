@@ -6,6 +6,8 @@ import {
   REMINDER_STATE_KEY,
   ensureReminderAlarm,
   runReminderCheck,
+  syncReminderAlarm,
+  type ReminderAlarmApi,
   type ReminderDeps,
 } from './reminders';
 import type { AlarmApi } from './backup';
@@ -229,6 +231,65 @@ describe('ensureReminderAlarm', () => {
   it('does not create the alarm when present', async () => {
     const { api, created } = alarms({ name: REMINDER_ALARM });
     await ensureReminderAlarm(api);
+    expect(created).toEqual([]);
+  });
+});
+
+describe('syncReminderAlarm', () => {
+  function sync(settings: unknown, existing?: unknown) {
+    const created: [string, unknown][] = [];
+    const cleared: string[] = [];
+    const api: ReminderAlarmApi = {
+      get: () => Promise.resolve(existing),
+      create: (name, info) => {
+        created.push([name, info]);
+      },
+      clear: (name) => {
+        cleared.push(name);
+        return Promise.resolve(true);
+      },
+    };
+    const area = {
+      get: (key: string) =>
+        Promise.resolve(key === 'settings' ? settings : undefined),
+      set: () => Promise.resolve(),
+    };
+    return { api, area, created, cleared };
+  }
+
+  it('creates the alarm once when reminders are on', async () => {
+    const { api, area, created, cleared } = sync({
+      reminders: { on: true, hour: 8 },
+    });
+    await syncReminderAlarm(api, area);
+    expect(created).toEqual([
+      [REMINDER_ALARM, { periodInMinutes: 30, delayInMinutes: 1 }],
+    ]);
+    expect(cleared).toEqual([]);
+  });
+
+  it('does not create it again when already present', async () => {
+    const { api, area, created } = sync(
+      { reminders: { on: true, hour: 8 } },
+      { name: REMINDER_ALARM },
+    );
+    await syncReminderAlarm(api, area);
+    expect(created).toEqual([]);
+  });
+
+  it('clears the alarm and does not create it when reminders are off', async () => {
+    const { api, area, created, cleared } = sync({
+      reminders: { on: false, hour: 8 },
+    });
+    await syncReminderAlarm(api, area);
+    expect(cleared).toEqual([REMINDER_ALARM]);
+    expect(created).toEqual([]);
+  });
+
+  it('treats malformed settings as off and clears the alarm', async () => {
+    const { api, area, created, cleared } = sync({ reminders: 'yes' });
+    await syncReminderAlarm(api, area);
+    expect(cleared).toEqual([REMINDER_ALARM]);
     expect(created).toEqual([]);
   });
 });
