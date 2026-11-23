@@ -2,11 +2,21 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_REMINDER_HOUR,
   REMINDER_KINDS,
+  reminderCounts,
   reminderSettings,
+  reminderSummary,
   withReminders,
 } from './reminders';
 import type { ReminderKind, ReminderSettings } from './reminders';
-import type { Settings } from './types';
+import { emptySnapshot } from './schema';
+import type {
+  Application,
+  Contact,
+  Round,
+  Settings,
+  Snapshot,
+  Task,
+} from './types';
 
 const ALL_ON = { follow_up: true, next_action: true, task: true, round: true };
 
@@ -167,5 +177,233 @@ describe('withReminders', () => {
     const before = JSON.stringify(current);
     withReminders(current, { on: false, hour: 10 });
     expect(JSON.stringify(current)).toBe(before);
+  });
+});
+
+const TODAY = '2026-03-10';
+const YESTERDAY = '2026-03-08';
+const TOMORROW = '2026-03-11';
+const LATER = '2026-03-12';
+
+function at(day: string): string {
+  return `${day}T12:00:00.000Z`;
+}
+
+function snap(parts: Partial<Snapshot>): Snapshot {
+  return {
+    ...emptySnapshot(),
+    companies: [
+      { id: 'c1', createdAt: at('2026-01-01'), name: 'Acme Widgets' },
+    ],
+    ...parts,
+  };
+}
+
+function task(id: string, extra: Partial<Task> = {}): Task {
+  return {
+    id,
+    createdAt: at('2026-03-01'),
+    title: `Secret task ${id}`,
+    ...extra,
+  };
+}
+
+function contact(id: string, followUpOn: string): Contact {
+  return {
+    id,
+    createdAt: at('2026-03-01'),
+    companyId: 'c1',
+    name: `Pat Person ${id}`,
+    followUpOn,
+  };
+}
+
+function app(id: string, extra: Partial<Application> = {}): Application {
+  return {
+    id,
+    createdAt: at('2026-01-01'),
+    companyId: 'c1',
+    title: `Role Title ${id}`,
+    ...extra,
+  };
+}
+
+function round(id: string, date: string): Round {
+  return {
+    id,
+    createdAt: at('2026-03-01'),
+    applicationId: 'a1',
+    kind: 'phone_screen',
+    date,
+  };
+}
+
+describe('reminderCounts', () => {
+  it('counts overdue and today, not later, undated or done rows', () => {
+    const data = snap({
+      applications: [app('a1')],
+      contacts: [contact('k1', YESTERDAY), contact('k2', LATER)],
+      tasks: [
+        task('t1', { dueOn: TODAY }),
+        task('t2'),
+        task('t3', { dueOn: TODAY, doneAt: at(TODAY) }),
+      ],
+      rounds: [round('r1', LATER)],
+    });
+    expect(reminderCounts(data, {}, TODAY)).toEqual({
+      follow_up: 1,
+      next_action: 0,
+      task: 1,
+      roundToday: 0,
+      roundTomorrow: 0,
+    });
+  });
+
+  it('counts interviews today and tomorrow separately', () => {
+    const data = snap({
+      applications: [app('a1')],
+      rounds: [
+        round('r1', TODAY),
+        round('r2', TOMORROW),
+        round('r3', TOMORROW),
+      ],
+    });
+    const counts = reminderCounts(data, {}, TODAY);
+    expect(counts.roundToday).toBe(1);
+    expect(counts.roundTomorrow).toBe(2);
+  });
+
+  it('never counts a quiet application', () => {
+    const data = snap({
+      applications: [app('a1')],
+      statusEvents: [
+        {
+          id: 'e1',
+          createdAt: at('2026-01-01'),
+          applicationId: 'a1',
+          status: 'applied',
+          occurredOn: '2026-01-01',
+        },
+      ],
+    });
+    expect(reminderSummary(data, {}, TODAY)).toBeUndefined();
+  });
+});
+
+describe('reminderSummary', () => {
+  it('words two kinds with and', () => {
+    const data = snap({
+      contacts: [contact('k1', TODAY), contact('k2', YESTERDAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+    });
+    expect(reminderSummary(data, {}, TODAY)).toEqual({
+      title: 'Countersign',
+      message: '2 follow-ups and 1 task due today.',
+    });
+  });
+
+  it('words four kinds with commas and a final and', () => {
+    const data = snap({
+      applications: [
+        app('a1', { nextActionDate: TODAY }),
+        app('a2', { nextActionDate: TODAY }),
+      ],
+      contacts: [contact('k1', TODAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+      rounds: [round('r1', TODAY)],
+    });
+    expect(reminderSummary(data, {}, TODAY)?.message).toBe(
+      '1 follow-up, 2 next actions, 1 task and 1 interview due today.',
+    );
+  });
+
+  it('adds tomorrow after today with a comma and and', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: TODAY })],
+      rounds: [round('r1', TOMORROW)],
+    });
+    expect(reminderSummary(data, {}, TODAY)?.message).toBe(
+      '1 next action due today, and 1 interview tomorrow.',
+    );
+  });
+
+  it('words tomorrow only, singular and plural', () => {
+    const one = snap({
+      applications: [app('a1')],
+      rounds: [round('r1', TOMORROW)],
+    });
+    expect(reminderSummary(one, {}, TODAY)?.message).toBe(
+      '1 interview tomorrow.',
+    );
+    const two = snap({
+      applications: [app('a1')],
+      rounds: [round('r1', TOMORROW), round('r2', TOMORROW)],
+    });
+    expect(reminderSummary(two, {}, TODAY)?.message).toBe(
+      '2 interviews tomorrow.',
+    );
+  });
+
+  it('is undefined when nothing is due', () => {
+    expect(reminderSummary(snap({}), {}, TODAY)).toBeUndefined();
+    const later = snap({ contacts: [contact('k1', LATER)] });
+    expect(reminderSummary(later, {}, TODAY)).toBeUndefined();
+  });
+
+  it('drops switched-off kinds, and round off drops both interview counts', () => {
+    const data = snap({
+      applications: [app('a1')],
+      contacts: [contact('k1', TODAY)],
+      rounds: [round('r1', TODAY), round('r2', TOMORROW)],
+    });
+    const settings: Settings = { reminders: { kinds: { round: false } } };
+    expect(reminderCounts(data, settings, TODAY)).toMatchObject({
+      roundToday: 0,
+      roundTomorrow: 0,
+      follow_up: 1,
+    });
+    expect(reminderSummary(data, settings, TODAY)?.message).toBe(
+      '1 follow-up due today.',
+    );
+  });
+
+  it('is undefined with every kind off', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: TODAY })],
+      contacts: [contact('k1', TODAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+      rounds: [round('r1', TODAY)],
+    });
+    const settings: Settings = {
+      reminders: {
+        kinds: {
+          follow_up: false,
+          next_action: false,
+          task: false,
+          round: false,
+        },
+      },
+    };
+    expect(reminderSummary(data, settings, TODAY)).toBeUndefined();
+  });
+
+  it('never contains a company, contact or task name', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: TODAY })],
+      contacts: [contact('k1', TODAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+      rounds: [round('r1', TOMORROW)],
+    });
+    const message = reminderSummary(data, {}, TODAY)?.message ?? '';
+    expect(message).not.toBe('');
+    for (const secret of [
+      'Acme',
+      'Pat Person',
+      'Secret task',
+      'Role Title',
+      '2026',
+    ]) {
+      expect(message).not.toContain(secret);
+    }
   });
 });

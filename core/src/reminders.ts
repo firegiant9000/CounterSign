@@ -1,4 +1,6 @@
-import type { ReminderKind, Settings } from './types';
+import { addDays, compareLocalDate } from './dates';
+import { deadlines } from './deadlines';
+import type { LocalDate, ReminderKind, Settings, Snapshot } from './types';
 
 export type { ReminderKind } from './types';
 
@@ -69,4 +71,86 @@ export function withReminders(
     kinds,
   };
   return { ...current, reminders: reminderSettings({ reminders: merged }) };
+}
+
+export interface ReminderCounts {
+  follow_up: number;
+  next_action: number;
+  task: number;
+  roundToday: number;
+  roundTomorrow: number;
+}
+
+/**
+ * Counts what the daily reminder is about. Follow-ups, next actions and tasks count when
+ * due today or overdue; interviews count when today or tomorrow. Kinds switched off count
+ * 0. Quiet and undated rows never count.
+ */
+export function reminderCounts(
+  data: Snapshot,
+  settings: Settings,
+  today: LocalDate,
+): ReminderCounts {
+  const { kinds } = reminderSettings(settings);
+  const tomorrow = addDays(today, 1);
+  const counts: ReminderCounts = {
+    follow_up: 0,
+    next_action: 0,
+    task: 0,
+    roundToday: 0,
+    roundTomorrow: 0,
+  };
+  for (const row of deadlines(data, settings, today)) {
+    const date = row.date;
+    if (date === undefined || row.kind === 'quiet') continue;
+    if (row.kind === 'round') {
+      if (!kinds.round) continue;
+      if (date === today) counts.roundToday += 1;
+      else if (tomorrow !== undefined && date === tomorrow) {
+        counts.roundTomorrow += 1;
+      }
+      continue;
+    }
+    if (!kinds[row.kind]) continue;
+    if (compareLocalDate(date, today) <= 0) counts[row.kind] += 1;
+  }
+  return counts;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function joinParts(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** The notification text: counts only, never a name, title or date. */
+export function reminderSummary(
+  data: Snapshot,
+  settings: Settings,
+  today: LocalDate,
+): { title: string; message: string } | undefined {
+  const c = reminderCounts(data, settings, today);
+  const todayParts: string[] = [];
+  if (c.follow_up > 0)
+    todayParts.push(plural(c.follow_up, 'follow-up', 'follow-ups'));
+  if (c.next_action > 0) {
+    todayParts.push(plural(c.next_action, 'next action', 'next actions'));
+  }
+  if (c.task > 0) todayParts.push(plural(c.task, 'task', 'tasks'));
+  if (c.roundToday > 0) {
+    todayParts.push(plural(c.roundToday, 'interview', 'interviews'));
+  }
+  const sentence: string[] = [];
+  if (todayParts.length > 0)
+    sentence.push(`${joinParts(todayParts)} due today`);
+  if (c.roundTomorrow > 0) {
+    sentence.push(
+      `${plural(c.roundTomorrow, 'interview', 'interviews')} tomorrow`,
+    );
+  }
+  if (sentence.length === 0) return undefined;
+  return { title: 'Countersign', message: `${sentence.join(', and ')}.` };
 }
