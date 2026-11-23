@@ -73,6 +73,17 @@ const tabsSyntax = [
   "MemberExpression[property.value='tabs']",
   "Property[key.name='tabs']",
 ].map((selector) => ({ selector, message: TABS_MESSAGE }));
+// Notifications and the permission prompt are confined to shell/notify.ts.
+// Only member access is banned: `permissions:` is also the manifest key and
+// the argument shape of permissions.request.
+const NOTIFICATIONS_MESSAGE =
+  'Use notifications and permissions only in shell/notify.ts.';
+const notificationsSyntax = [
+  "MemberExpression[property.name='notifications']",
+  "MemberExpression[property.value='notifications']",
+  "MemberExpression[property.name='permissions']",
+  "MemberExpression[property.value='permissions']",
+].map((selector) => ({ selector, message: NOTIFICATIONS_MESSAGE }));
 const SCRIPTING_MESSAGE =
   'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
 const scriptingSyntax = [
@@ -331,6 +342,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -349,6 +361,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -369,6 +382,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
         ...fillCallerSyntax,
@@ -385,10 +399,28 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
         ...fillCallerSyntax,
+        ...scriptingSyntax,
+        ...fillNameSyntax,
+      ],
+    },
+  },
+  // notify.ts alone may use notifications and permissions.
+  {
+    files: ['shell/notify.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...networkSyntax,
+        ...downloadSyntax,
+        ...navigationSyntax,
+        ...applyImportSyntax,
+        ...fillCallerSyntax,
+        ...tabsSyntax,
         ...scriptingSyntax,
         ...fillNameSyntax,
       ],
@@ -402,6 +434,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -416,6 +449,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -469,6 +503,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -493,6 +528,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -516,6 +552,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -571,6 +608,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -586,6 +624,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
@@ -604,6 +643,7 @@ export default defineConfig(
       'no-restricted-syntax': [
         'error',
         ...networkSyntax,
+        ...notificationsSyntax,
         ...downloadSyntax,
         ...navigationSyntax,
         ...applyImportSyntax,
