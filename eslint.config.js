@@ -392,9 +392,9 @@ export default defineConfig(
       ],
     },
   },
-  // open-dashboard.ts may use tabs, but not scripting.
+  // open-dashboard.ts (and its test, which mocks browser.tabs) may use tabs, but not scripting.
   {
-    files: ['shell/open-dashboard.ts'],
+    files: ['shell/open-dashboard.ts', 'shell/open-dashboard.test.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',

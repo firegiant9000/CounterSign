@@ -11,7 +11,7 @@ type GetContexts = (filter: {
   contextTypes: string[];
 }) => Promise<TabContext[]>;
 
-async function focusExisting(url: string): Promise<boolean> {
+async function focusExisting(url: string, hash: string): Promise<boolean> {
   const getContexts = (
     browser.runtime as unknown as { getContexts?: GetContexts }
   ).getContexts;
@@ -23,18 +23,23 @@ async function focusExisting(url: string): Promise<boolean> {
     (c) => c.tabId !== -1 && (c.documentUrl ?? '').split('#')[0] === url,
   );
   if (!found) return false;
-  await browser.tabs.update(found.tabId, { active: true });
+  await browser.tabs.update(
+    found.tabId,
+    hash ? { active: true, url: url + hash } : { active: true },
+  );
   if (found.windowId !== -1)
     await browser.windows.update(found.windowId, { focused: true });
   return true;
 }
 
-export async function openDashboard(): Promise<void> {
+// hash like '#/deadlines'; anything not starting with '#/' is treated as none.
+export async function openDashboard(hash?: string): Promise<void> {
   const url = browser.runtime.getURL('/dashboard.html');
+  const suffix = hash?.startsWith('#/') ? hash : '';
   try {
-    if (await focusExisting(url)) return;
+    if (await focusExisting(url, suffix)) return;
   } catch {
     // Lookup or focus failed (for example the tab closed meanwhile): open a new tab.
   }
-  await browser.tabs.create({ url });
+  await browser.tabs.create({ url: url + suffix });
 }
