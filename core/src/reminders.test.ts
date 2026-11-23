@@ -294,6 +294,63 @@ describe('reminderCounts', () => {
     });
     expect(reminderSummary(data, {}, TODAY)).toBeUndefined();
   });
+
+  it('counts an overdue task and an overdue next action', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: YESTERDAY })],
+      tasks: [task('t1', { dueOn: YESTERDAY })],
+    });
+    expect(reminderCounts(data, {}, TODAY)).toMatchObject({
+      task: 1,
+      next_action: 1,
+    });
+  });
+
+  it('switches off only the task count with kinds.task false', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: TODAY })],
+      contacts: [contact('k1', TODAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+      rounds: [round('r1', TODAY)],
+    });
+    const all = reminderCounts(data, {}, TODAY);
+    expect(all).toEqual({
+      follow_up: 1,
+      next_action: 1,
+      task: 1,
+      roundToday: 1,
+      roundTomorrow: 0,
+    });
+    const settings: Settings = { reminders: { kinds: { task: false } } };
+    expect(reminderCounts(data, settings, TODAY)).toEqual({
+      ...all,
+      task: 0,
+    });
+  });
+
+  it('switches off only the follow-up count with kinds.follow_up false', () => {
+    const data = snap({
+      applications: [app('a1', { nextActionDate: TODAY })],
+      contacts: [contact('k1', TODAY)],
+      tasks: [task('t1', { dueOn: TODAY })],
+      rounds: [round('r1', TODAY)],
+    });
+    const all = reminderCounts(data, {}, TODAY);
+    expect(all).toEqual({
+      follow_up: 1,
+      next_action: 1,
+      task: 1,
+      roundToday: 1,
+      roundTomorrow: 0,
+    });
+    const settings: Settings = {
+      reminders: { kinds: { follow_up: false } },
+    };
+    expect(reminderCounts(data, settings, TODAY)).toEqual({
+      ...all,
+      follow_up: 0,
+    });
+  });
 });
 
 describe('reminderSummary', () => {
@@ -412,6 +469,18 @@ describe('reminderSummary', () => {
       expect(message).not.toContain(secret);
     }
   });
+
+  it('pluralises tasks and interviews due today together', () => {
+    const data = snap({
+      applications: [app('a1')],
+      tasks: [task('t1', { dueOn: TODAY }), task('t2', { dueOn: TODAY })],
+      rounds: [round('r1', TODAY), round('r2', TODAY)],
+    });
+    expect(reminderSummary(data, {}, TODAY)).toEqual({
+      title: 'Countersign',
+      message: '2 tasks and 2 interviews due today.',
+    });
+  });
 });
 
 describe('readReminderState', () => {
@@ -421,6 +490,10 @@ describe('readReminderState', () => {
     });
     expect(readReminderState({ lastCheckedOn: 'soon' })).toEqual({});
     expect(readReminderState({ lastCheckedOn: 5 })).toEqual({});
+  });
+
+  it('drops a date that does not exist in the calendar', () => {
+    expect(readReminderState({ lastCheckedOn: '2026-02-30' })).toEqual({});
   });
 
   it('reads anything that is not a plain object as empty state', () => {
@@ -465,5 +538,11 @@ describe('reminderDue', () => {
     expect(reminderDue(lateCheck, on, '2026-11-23', 0)).toBe(false);
     // At 08:00 the check runs.
     expect(reminderDue(lateCheck, on, '2026-11-23', 8)).toBe(true);
+  });
+
+  it('falls back to the default hour 8 when the stored hour is 24', () => {
+    const badHour: Settings = { reminders: { on: true, hour: 24 } };
+    expect(reminderDue(empty, badHour, '2026-11-23', 8)).toBe(true);
+    expect(reminderDue(empty, badHour, '2026-11-23', 7)).toBe(false);
   });
 });
