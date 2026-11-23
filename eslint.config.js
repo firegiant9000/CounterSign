@@ -411,7 +411,7 @@ export default defineConfig(
   },
   // notify.ts alone may use notifications and permissions.
   {
-    files: ['shell/notify.ts'],
+    files: ['shell/notify.ts', 'shell/notify.test.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',

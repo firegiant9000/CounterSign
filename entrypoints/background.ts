@@ -40,12 +40,6 @@ export default defineBackground(() => {
     }
   };
 
-  // Registered synchronously so Firefox sees it on every event-page start.
-  onDailyClicked(() => {
-    void clearDaily();
-    void openDashboard('#/deadlines');
-  });
-
   browser.runtime.onStartup.addListener(() => {
     void wake();
     void remind();
@@ -66,4 +60,16 @@ export default defineBackground(() => {
 
   void wake();
   void remind();
+
+  // Registered synchronously, after the listeners above, so Firefox sees it on
+  // every event-page start. Each call is caught separately so the dashboard
+  // still opens if clearing the notification fails.
+  onDailyClicked(() => {
+    clearDaily().catch((err: unknown) => {
+      console.error('Countersign: clearing the reminder failed', err);
+    });
+    openDashboard('#/deadlines').catch((err: unknown) => {
+      console.error('Countersign: opening the dashboard failed', err);
+    });
+  });
 });

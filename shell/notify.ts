@@ -36,8 +36,28 @@ export async function clearDaily(): Promise<void> {
   await browser.notifications.clear(DAILY_ID);
 }
 
+// browser.notifications is undefined until the optional permission is granted,
+// so this must never throw: it attaches the click listener now if it can, and
+// again when the permission is added. Attaching is idempotent.
 export function onDailyClicked(handler: () => void): void {
-  browser.notifications.onClicked.addListener((id) => {
+  const onClicked = (id: string): void => {
     if (id === DAILY_ID) handler();
-  });
+  };
+  const attach = (): void => {
+    try {
+      const clicks = browser.notifications?.onClicked;
+      if (clicks && !clicks.hasListener(onClicked))
+        clicks.addListener(onClicked);
+    } catch {
+      // Nothing to attach to yet.
+    }
+  };
+  try {
+    attach();
+    browser.permissions.onAdded.addListener((added) => {
+      if (added.permissions?.includes('notifications')) attach();
+    });
+  } catch {
+    // Never let registration break the event page.
+  }
 }
