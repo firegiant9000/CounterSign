@@ -1,4 +1,4 @@
-import { addDays, compareLocalDate } from './dates';
+import { addDays, compareLocalDate, isLocalDate } from './dates';
 import { deadlines } from './deadlines';
 import type { LocalDate, ReminderKind, Settings, Snapshot } from './types';
 
@@ -153,4 +153,35 @@ export function reminderSummary(
   }
   if (sentence.length === 0) return undefined;
   return { title: 'Countersign', message: `${sentence.join(', and ')}.` };
+}
+
+/** What the reminder check remembers between runs. */
+export interface ReminderState {
+  lastCheckedOn?: LocalDate;
+}
+
+/** Keeps `lastCheckedOn` only when it is a real calendar date; anything else is no state. */
+export function readReminderState(raw: unknown): ReminderState {
+  if (!isRecord(raw)) return {};
+  const stored: unknown = raw.lastCheckedOn;
+  if (typeof stored === 'string' && isLocalDate(stored)) {
+    return { lastCheckedOn: stored };
+  }
+  return {};
+}
+
+/**
+ * The daily check is due when reminders are on, the hour has reached the set hour, and it has
+ * not already run today. A check on an earlier day does not block it.
+ */
+export function reminderDue(
+  state: ReminderState,
+  settings: Settings,
+  today: LocalDate,
+  hour: number,
+): boolean {
+  const reminders = reminderSettings(settings);
+  return (
+    reminders.on && hour >= reminders.hour && state.lastCheckedOn !== today
+  );
 }

@@ -3,11 +3,17 @@ import {
   DEFAULT_REMINDER_HOUR,
   REMINDER_KINDS,
   reminderCounts,
+  reminderDue,
   reminderSettings,
   reminderSummary,
+  readReminderState,
   withReminders,
 } from './reminders';
-import type { ReminderKind, ReminderSettings } from './reminders';
+import type {
+  ReminderKind,
+  ReminderSettings,
+  ReminderState,
+} from './reminders';
 import { emptySnapshot } from './schema';
 import type {
   Application,
@@ -405,5 +411,59 @@ describe('reminderSummary', () => {
     ]) {
       expect(message).not.toContain(secret);
     }
+  });
+});
+
+describe('readReminderState', () => {
+  it('keeps lastCheckedOn only when it is a calendar date', () => {
+    expect(readReminderState({ lastCheckedOn: '2026-11-22' })).toEqual({
+      lastCheckedOn: '2026-11-22',
+    });
+    expect(readReminderState({ lastCheckedOn: 'soon' })).toEqual({});
+    expect(readReminderState({ lastCheckedOn: 5 })).toEqual({});
+  });
+
+  it('reads anything that is not a plain object as empty state', () => {
+    expect(readReminderState([])).toEqual({});
+    expect(readReminderState(null)).toEqual({});
+    expect(readReminderState(undefined)).toEqual({});
+    expect(readReminderState('2026-11-22')).toEqual({});
+  });
+});
+
+describe('reminderDue', () => {
+  const on: Settings = { reminders: { on: true, hour: 8 } };
+  const empty: ReminderState = {};
+
+  it('is never due while reminders are off', () => {
+    const off: Settings = { reminders: { on: false, hour: 8 } };
+    expect(reminderDue(empty, off, '2026-11-23', 9)).toBe(false);
+    expect(reminderDue(empty, {}, '2026-11-23', 9)).toBe(false);
+  });
+
+  it('waits for the set hour', () => {
+    expect(reminderDue(empty, on, '2026-11-23', 7)).toBe(false);
+    expect(reminderDue(empty, on, '2026-11-23', 8)).toBe(true);
+  });
+
+  it('is not due again once it has run today', () => {
+    const today: ReminderState = { lastCheckedOn: '2026-11-23' };
+    expect(reminderDue(today, on, '2026-11-23', 9)).toBe(false);
+  });
+
+  it('is due after a check yesterday, but only from the set hour', () => {
+    const yesterday: ReminderState = { lastCheckedOn: '2026-11-22' };
+    expect(reminderDue(yesterday, on, '2026-11-23', 0)).toBe(false);
+    expect(reminderDue(yesterday, on, '2026-11-23', 9)).toBe(true);
+  });
+
+  it('runs once a day across midnight', () => {
+    // The check ran at 23:50 on 2026-11-22, so that day is recorded.
+    const lateCheck: ReminderState = { lastCheckedOn: '2026-11-22' };
+    expect(reminderDue(lateCheck, on, '2026-11-22', 23)).toBe(false);
+    // At 00:20 the date has changed, but the hour is before 8.
+    expect(reminderDue(lateCheck, on, '2026-11-23', 0)).toBe(false);
+    // At 08:00 the check runs.
+    expect(reminderDue(lateCheck, on, '2026-11-23', 8)).toBe(true);
   });
 });
