@@ -87,7 +87,9 @@ describe('built extension', () => {
   it('has no host access', () => {
     expect(manifest.host_permissions).toBeUndefined();
     expect(manifest.optional_host_permissions).toBeUndefined();
-    expect(manifest.optional_permissions).toBeUndefined();
+  });
+  it('has exactly one optional permission, notifications', () => {
+    expect(manifest.optional_permissions).toEqual(['notifications']);
   });
   it('declares no content scripts or web-accessible resources', () => {
     expect(manifest.content_scripts).toBeUndefined();

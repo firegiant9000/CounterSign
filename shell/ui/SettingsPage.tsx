@@ -12,6 +12,7 @@ import { useAppData } from './app-data';
 import { Button } from './components/Button';
 import { Field } from './components/Field';
 import { CardSection, IndexCard } from './components/IndexCard';
+import { RemindersCard } from './RemindersCard';
 
 const DAYS_ERROR = 'Enter a whole number of days from 1 to 365.';
 
@@ -126,6 +127,7 @@ export function SettingsPage(): VNode {
           {saved ? <p>Saved</p> : null}
         </IndexCard>
       </form>
+      <RemindersCard />
     </div>
   );
 }

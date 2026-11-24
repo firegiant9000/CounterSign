@@ -1,0 +1,295 @@
+import { describe, expect, it } from 'vitest';
+import { emptySnapshot } from '../core/src/schema';
+import type { Snapshot } from '../core/src/types';
+import {
+  REMINDER_ALARM,
+  REMINDER_STATE_KEY,
+  ensureReminderAlarm,
+  runReminderCheck,
+  syncReminderAlarm,
+  type ReminderAlarmApi,
+  type ReminderDeps,
+} from './reminders';
+import type { AlarmApi } from './backup';
+
+const TODAY = '2026-03-10';
+
+function dueSnapshot(): Snapshot {
+  return {
+    ...emptySnapshot(),
+    tasks: [
+      {
+        id: 't1',
+        createdAt: '2026-03-01T12:00:00.000Z',
+        title: 'Invented task',
+        dueOn: TODAY,
+      },
+    ],
+  };
+}
+
+function setup(
+  options: {
+    settings?: unknown;
+    hour?: number;
+    permission?: boolean;
+    snapshot?: () => Promise<Snapshot>;
+    busy?: boolean;
+    show?: () => Promise<void>;
+  } = {},
+) {
+  const map = new Map<string, unknown>();
+  map.set(
+    'settings',
+    'settings' in options
+      ? options.settings
+      : { reminders: { on: true, hour: 8 } },
+  );
+  const calls: string[] = [];
+  const shown: { title: string; message: string }[] = [];
+  const deps: ReminderDeps = {
+    area: {
+      get: (key) => Promise.resolve(map.get(key)),
+      set: (key, value) => {
+        calls.push(`set:${key}`);
+        map.set(key, value);
+        return Promise.resolve();
+      },
+    },
+    snapshot: () => {
+      calls.push('snapshot');
+      return (options.snapshot ?? (() => Promise.resolve(dueSnapshot())))();
+    },
+    now: () => new Date(2026, 2, 10, options.hour ?? 9, 0),
+    hasPermission: () => Promise.resolve(options.permission ?? true),
+    show: (title, message) => {
+      calls.push('show');
+      shown.push({ title, message });
+      return options.show ? options.show() : Promise.resolve();
+    },
+    tryLock: async (fn) => {
+      if (options.busy) return false;
+      await fn();
+      return true;
+    },
+  };
+  return { deps, map, calls, shown };
+}
+
+describe('runReminderCheck', () => {
+  it('is not due and writes nothing when reminders are off', async () => {
+    const { deps, calls } = setup({ settings: { reminders: { on: false } } });
+    expect(await runReminderCheck(deps)).toBe('not_due');
+    expect(calls).toEqual([]);
+  });
+
+  it('is not due before the set hour', async () => {
+    const { deps, calls } = setup({ hour: 7 });
+    expect(await runReminderCheck(deps)).toBe('not_due');
+    expect(calls).toEqual([]);
+  });
+
+  it('returns no_permission and writes nothing without permission', async () => {
+    const { deps, calls } = setup({ permission: false });
+    expect(await runReminderCheck(deps)).toBe('no_permission');
+    expect(calls).toEqual([]);
+  });
+
+  it('shows the core text once, with state written before the snapshot', async () => {
+    const { deps, map, calls, shown } = setup();
+    expect(await runReminderCheck(deps)).toBe('shown');
+    expect(calls).toEqual([`set:${REMINDER_STATE_KEY}`, 'snapshot', 'show']);
+    expect(shown).toEqual([
+      { title: 'Countersign', message: '1 task due today.' },
+    ]);
+    expect(map.get(REMINDER_STATE_KEY)).toEqual({ lastCheckedOn: TODAY });
+  });
+
+  it('is not due on a second run the same day', async () => {
+    const { deps, shown } = setup();
+    expect(await runReminderCheck(deps)).toBe('shown');
+    expect(await runReminderCheck(deps)).toBe('not_due');
+    expect(shown).toHaveLength(1);
+  });
+
+  it('records the day and stays quiet when nothing is due', async () => {
+    const { deps, map, calls } = setup({
+      snapshot: () => Promise.resolve(emptySnapshot()),
+    });
+    expect(await runReminderCheck(deps)).toBe('nothing_due');
+    expect(map.get(REMINDER_STATE_KEY)).toEqual({ lastCheckedOn: TODAY });
+    expect(calls).not.toContain('show');
+  });
+
+  it('returns failed, with state written, when the snapshot throws', async () => {
+    const { deps, map, calls } = setup({
+      snapshot: () => Promise.reject(new Error('boom')),
+    });
+    expect(await runReminderCheck(deps)).toBe('failed');
+    expect(map.get(REMINDER_STATE_KEY)).toEqual({ lastCheckedOn: TODAY });
+    expect(calls).not.toContain('show');
+  });
+
+  it('returns failed, with state written, when show throws', async () => {
+    const { deps, map } = setup({
+      show: () => Promise.reject(new Error('boom')),
+    });
+    expect(await runReminderCheck(deps)).toBe('failed');
+    expect(map.get(REMINDER_STATE_KEY)).toEqual({ lastCheckedOn: TODAY });
+  });
+
+  it('returns busy when the lock is held', async () => {
+    const { deps, calls } = setup({ busy: true });
+    expect(await runReminderCheck(deps)).toBe('busy');
+    expect(calls).toEqual([]);
+  });
+
+  it('shows once when two wakes arrive together', async () => {
+    const { deps, shown } = setup();
+    let held = false;
+    deps.tryLock = async (fn) => {
+      if (held) return false;
+      held = true;
+      try {
+        await fn();
+      } finally {
+        held = false;
+      }
+      return true;
+    };
+    const outcomes = await Promise.all([
+      runReminderCheck(deps),
+      runReminderCheck(deps),
+    ]);
+    expect([...outcomes].sort()).toEqual(['busy', 'shown']);
+    expect(shown).toHaveLength(1);
+  });
+
+  it('reads the date and the hour from a single now() call', async () => {
+    const { deps, calls } = setup();
+    let n = 0;
+    deps.now = () => {
+      n += 1;
+      return n === 1
+        ? new Date(2026, 2, 10, 7, 59)
+        : new Date(2026, 2, 10, 8, 1);
+    };
+    expect(await runReminderCheck(deps)).toBe('not_due');
+    expect(calls).toEqual([]);
+  });
+
+  describe('outer catch', () => {
+    it('returns failed when tryLock rejects', async () => {
+      const { deps, calls } = setup();
+      deps.tryLock = () => Promise.reject(new Error('boom'));
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).toEqual([]);
+    });
+
+    it('returns failed when hasPermission rejects', async () => {
+      const { deps, calls } = setup();
+      deps.hasPermission = () => Promise.reject(new Error('boom'));
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).not.toContain('snapshot');
+      expect(calls).not.toContain('show');
+    });
+
+    it('returns failed when area.set rejects', async () => {
+      const { deps, calls } = setup();
+      const { area } = deps;
+      deps.area = {
+        get: (key) => area.get(key),
+        set: () => Promise.reject(new Error('boom')),
+      };
+      expect(await runReminderCheck(deps)).toBe('failed');
+      expect(calls).not.toContain('snapshot');
+      expect(calls).not.toContain('show');
+    });
+  });
+});
+
+describe('ensureReminderAlarm', () => {
+  function alarms(existing: unknown) {
+    const created: [string, unknown][] = [];
+    const api: AlarmApi = {
+      get: () => Promise.resolve(existing),
+      create: (name, info) => {
+        created.push([name, info]);
+      },
+    };
+    return { api, created };
+  }
+
+  it('creates the alarm when missing', async () => {
+    const { api, created } = alarms(undefined);
+    await ensureReminderAlarm(api);
+    expect(created).toEqual([
+      [REMINDER_ALARM, { periodInMinutes: 30, delayInMinutes: 1 }],
+    ]);
+  });
+
+  it('does not create the alarm when present', async () => {
+    const { api, created } = alarms({ name: REMINDER_ALARM });
+    await ensureReminderAlarm(api);
+    expect(created).toEqual([]);
+  });
+});
+
+describe('syncReminderAlarm', () => {
+  function sync(settings: unknown, existing?: unknown) {
+    const created: [string, unknown][] = [];
+    const cleared: string[] = [];
+    const api: ReminderAlarmApi = {
+      get: () => Promise.resolve(existing),
+      create: (name, info) => {
+        created.push([name, info]);
+      },
+      clear: (name) => {
+        cleared.push(name);
+        return Promise.resolve(true);
+      },
+    };
+    const area = {
+      get: (key: string) =>
+        Promise.resolve(key === 'settings' ? settings : undefined),
+      set: () => Promise.resolve(),
+    };
+    return { api, area, created, cleared };
+  }
+
+  it('creates the alarm once when reminders are on', async () => {
+    const { api, area, created, cleared } = sync({
+      reminders: { on: true, hour: 8 },
+    });
+    await syncReminderAlarm(api, area);
+    expect(created).toEqual([
+      [REMINDER_ALARM, { periodInMinutes: 30, delayInMinutes: 1 }],
+    ]);
+    expect(cleared).toEqual([]);
+  });
+
+  it('does not create it again when already present', async () => {
+    const { api, area, created } = sync(
+      { reminders: { on: true, hour: 8 } },
+      { name: REMINDER_ALARM },
+    );
+    await syncReminderAlarm(api, area);
+    expect(created).toEqual([]);
+  });
+
+  it('clears the alarm and does not create it when reminders are off', async () => {
+    const { api, area, created, cleared } = sync({
+      reminders: { on: false, hour: 8 },
+    });
+    await syncReminderAlarm(api, area);
+    expect(cleared).toEqual([REMINDER_ALARM]);
+    expect(created).toEqual([]);
+  });
+
+  it('treats malformed settings as off and clears the alarm', async () => {
+    const { api, area, created, cleared } = sync({ reminders: 'yes' });
+    await syncReminderAlarm(api, area);
+    expect(cleared).toEqual([REMINDER_ALARM]);
+    expect(created).toEqual([]);
+  });
+});

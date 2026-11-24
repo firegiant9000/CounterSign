@@ -314,6 +314,8 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
   const navMessage = 'Countersign never navigates away or opens windows.';
   const tabsMessage =
     'Use tabs only in open-dashboard.ts, capture/inject.ts or fill/inject.ts.';
+  const notifyMessage =
+    'Use notifications and permissions only in shell/notify.ts.';
   const scriptingMessage =
     'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';
   const dashboard = 'shell/open-dashboard.ts';
@@ -389,6 +391,46 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
       expect(found.some((m) => m.message === tabsMessage)).toBe(false);
     },
   );
+  it.each([
+    "browser.notifications.create('x', {});",
+    "browser['notifications'].create('x', {});",
+    "browser.permissions.request({ permissions: ['notifications'] });",
+    "browser['permissions'].request({});",
+    "const { notifications } = browser; notifications.create('x', {});",
+    'const { permissions } = browser; permissions.request({});',
+  ])(
+    'rejects notifications and permissions access %s outside notify.ts',
+    async (code) => {
+      for (const file of [
+        'shell/ui/SettingsPage.tsx',
+        'entrypoints/background.ts',
+      ]) {
+        const found = await syntaxMessages(code, file);
+        expect(found.some((m) => m.message === notifyMessage)).toBe(true);
+      }
+    },
+  );
+  it('allows notifications and permissions access in notify.ts', async () => {
+    const found = await syntaxMessages(
+      "browser.notifications.create('x', {}); browser.permissions.request({ permissions: ['notifications'] });",
+      'shell/notify.ts',
+    );
+    expect(found.some((m) => m.message === notifyMessage)).toBe(false);
+  });
+  it('rejects tabs access in notify.ts', async () => {
+    const found = await syntaxMessages(
+      'browser.tabs.query({});',
+      'shell/notify.ts',
+    );
+    expect(found.some((m) => m.message === tabsMessage)).toBe(true);
+  });
+  it('allows the permissions key in an object literal', async () => {
+    const found = await syntaxMessages(
+      "export default { permissions: ['storage'] };",
+      'entrypoints/background.ts',
+    );
+    expect(found.some((m) => m.message === notifyMessage)).toBe(false);
+  });
   it.each([
     'browser.scripting.executeScript({});',
     "browser['scripting'].executeScript({});",
