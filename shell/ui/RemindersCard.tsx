@@ -1,5 +1,5 @@
 import type { VNode } from 'preact';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   REMINDER_KINDS,
   reminderSettings,
@@ -13,6 +13,7 @@ import { Field } from './components/Field';
 import { CardSection, IndexCard } from './components/IndexCard';
 
 const REFUSED = 'Firefox did not allow notifications, so reminders stay off.';
+const ALLOW_REFUSED = "Firefox didn't allow notifications.";
 const REMOVED =
   "Reminders are on, but Firefox's notification permission was removed.";
 
@@ -34,12 +35,20 @@ export function RemindersCard(): VNode {
   const current = reminderSettings(app.settings);
   const [refused, setRefused] = useState(false);
   const [lost, setLost] = useState(false);
+  const [allowRefused, setAllowRefused] = useState(false);
   const [pending, setPending] = useState(false);
+  const busy = useRef(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
-  // Once reminders are on (here or in another tab), a refusal message is stale.
+  // Once reminders are on (here or in another tab), a refusal message is
+  // stale; once they are off, the removed-permission notice is.
   useEffect(() => {
-    if (current.on) setRefused(false);
+    if (current.on) {
+      setRefused(false);
+    } else {
+      setLost(false);
+      setAllowRefused(false);
+    }
   }, [current.on]);
 
   useEffect(() => {
@@ -69,30 +78,51 @@ export function RemindersCard(): VNode {
   // The permission request must start synchronously inside the user gesture,
   // so it is the first statement of each handler that can need it.
   const onDailyChange = (box: HTMLInputElement): void => {
+    if (busy.current) {
+      // A request is in flight: undo this toggle so the DOM does not drift.
+      box.checked = !box.checked;
+      return;
+    }
     if (!box.checked) {
       void persist((cur) => withReminders(cur, { on: false }));
       return;
     }
     const granted = requestNotifications();
+    busy.current = true;
     setPending(true);
     setRefused(false);
     void granted
       .then(async (ok) => {
         if (ok) {
+          setLost(false);
+          setAllowRefused(false);
           await persist((cur) => withReminders(cur, { on: true }));
         } else {
           box.checked = false;
           setRefused(true);
         }
       })
-      .finally(() => setPending(false));
+      .finally(() => {
+        busy.current = false;
+        setPending(false);
+      });
   };
 
   const onAllow = (): void => {
+    if (busy.current) return;
     const granted = requestNotifications();
-    void granted.then((ok) => {
-      if (ok) setLost(false);
-    });
+    busy.current = true;
+    setPending(true);
+    setAllowRefused(false);
+    void granted
+      .then((ok) => {
+        if (ok) setLost(false);
+        else setAllowRefused(true);
+      })
+      .finally(() => {
+        busy.current = false;
+        setPending(false);
+      });
   };
 
   return (
@@ -102,18 +132,28 @@ export function RemindersCard(): VNode {
           <input
             type="checkbox"
             checked={current.on}
-            disabled={pending}
+            aria-disabled={pending}
             onChange={(e) => onDailyChange(e.currentTarget)}
           />{' '}
           Daily reminder
         </label>
-        {refused ? <p class="field-error">{REFUSED}</p> : null}
+        {refused ? (
+          <p class="field-error" role="alert">
+            {REFUSED}
+          </p>
+        ) : null}
         {lost && current.on ? (
-          <p>
+          <p role="status">
             {REMOVED}{' '}
             <Button variant="secondary" onClick={onAllow}>
               Allow notifications
             </Button>
+            {allowRefused ? (
+              <span class="field-error" role="alert">
+                {' '}
+                {ALLOW_REFUSED}
+              </span>
+            ) : null}
           </p>
         ) : null}
         <Field label="Hour">
@@ -155,7 +195,11 @@ export function RemindersCard(): VNode {
             </label>
           ))}
         </fieldset>
-        {error ? <span class="field-error">{error}</span> : null}
+        {error ? (
+          <span class="field-error" role="alert">
+            {error}
+          </span>
+        ) : null}
       </CardSection>
     </IndexCard>
   );
