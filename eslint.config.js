@@ -74,8 +74,8 @@ const tabsSyntax = [
   "Property[key.name='tabs']",
 ].map((selector) => ({ selector, message: TABS_MESSAGE }));
 // Notifications and the permission prompt are confined to shell/notify.ts.
-// Only member access is banned: `permissions:` is also the manifest key and
-// the argument shape of permissions.request.
+// Member access and destructuring are banned. Plain object-literal `permissions:`
+// keys stay allowed: that is the manifest key and the argument shape of permissions.request.
 const NOTIFICATIONS_MESSAGE =
   'Use notifications and permissions only in shell/notify.ts.';
 const notificationsSyntax = [
@@ -83,6 +83,8 @@ const notificationsSyntax = [
   "MemberExpression[property.value='notifications']",
   "MemberExpression[property.name='permissions']",
   "MemberExpression[property.value='permissions']",
+  "ObjectPattern > Property[key.name='notifications']",
+  "ObjectPattern > Property[key.name='permissions']",
 ].map((selector) => ({ selector, message: NOTIFICATIONS_MESSAGE }));
 const SCRIPTING_MESSAGE =
   'Inject only through shell/capture/inject.ts or shell/fill/inject.ts.';

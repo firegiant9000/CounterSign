@@ -396,6 +396,8 @@ describe('navigation and injection guard', { timeout: 60_000 }, () => {
     "browser['notifications'].create('x', {});",
     "browser.permissions.request({ permissions: ['notifications'] });",
     "browser['permissions'].request({});",
+    "const { notifications } = browser; notifications.create('x', {});",
+    'const { permissions } = browser; permissions.request({});',
   ])(
     'rejects notifications and permissions access %s outside notify.ts',
     async (code) => {
