@@ -169,7 +169,13 @@ export interface Deps {
   now(): IsoInstant;
   newId(): Id;
 }
+export type ReminderKind = 'follow_up' | 'next_action' | 'task' | 'round';
 export interface Settings {
   statusLabels?: Partial<Record<StatusKey, string>>;
   noResponseDays?: number;
+  reminders?: {
+    on?: boolean;
+    hour?: number;
+    kinds?: Partial<Record<ReminderKind, boolean>>;
+  };
 }
