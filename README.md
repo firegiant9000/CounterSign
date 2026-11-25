@@ -4,7 +4,7 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
-> **Status:** v1.1.0: the redesigned interface, form filling and fill records. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+> **Status:** v1.2.0: the redesigned interface, form filling, fill records and a daily reminder. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
 
 ## The three claims
 
@@ -54,6 +54,7 @@ Stage 1 is the dashboard. Stage 2 adds saving a job from the page you are on, pl
 - **Fill log.** On an application, record the application site type and how filling went. The site type is set by a fill when empty; how filling went is still yours to enter.
 - **Contacts** (`#/contacts`) with a log of reaching out, replies and referrals. The popup and the application page ask "anyone here?" and let you record that you checked and nobody was there.
 - **Deadlines** (`#/deadlines`): open tasks, next-action dates and quiet applications on one list, dated rows first.
+- **Daily reminder.** Off until you turn it on in Settings, which asks Firefox for the notification permission. Once a day, at or after the hour you pick, one notification counts what is due: follow-ups, next actions and tasks due today or overdue, and interviews today and tomorrow. It shows counts only, never names or dates, and nothing when nothing is due. Clicking it opens Deadlines.
 - **My details** (`#/details`): 14 profile fields (name, first and last name, email, phone, address, links) and your canonical answers, each with a copy button. Copying uses a click only.
 - **Application detail** with a status history. Entries can be backdated, and a mistaken status can be undone without deleting history.
 - **Resume and cover-letter records.** You attach a file to record which one you sent. Countersign stores the file name and a SHA-256 hash, not the file.
@@ -103,14 +104,13 @@ Any other value is not imported and appears under "Skipped" in the report.
 
 ## What is next
 
-After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign. The UI overhaul, form filling and fill records (see "Fill a form" above) are done.
+After version 1, in this order. Polish comes first: the biggest chore today is typing the same information by hand, into application forms and into Countersign. The UI overhaul, form filling, fill records (see "Fill a form" above) and the daily reminder are done.
 
-1. Reminders: local browser notifications for due follow-ups, next actions, deadlines and interviews. This adds the `notifications` permission, which is optional and asked for only when you turn reminders on. It still never reads a tab or sends anything.
-2. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
-3. Resume profiles: several resume variants. Canonical answers stay global.
-4. Story bank: who heard which story.
-5. Application windows on target companies.
-6. A dated activity export.
+1. Recruiter-email status button: clicked while an email is open, it suggests a status change. No mailbox login, no filing of email threads.
+2. Resume profiles: several resume variants. Canonical answers stay global.
+3. Story bank: who heard which story.
+4. Application windows on target companies.
+5. A dated activity export.
 
 None of these exists yet.
 
