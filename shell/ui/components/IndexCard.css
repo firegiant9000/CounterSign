@@ -43,7 +43,7 @@
   top: 0;
   bottom: 0;
   left: var(--space-5);
-  border-left: 3px double var(--margin);
+  border-left: 6px double var(--margin);
 }
 
 .cs-card::after {

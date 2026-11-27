@@ -3,6 +3,19 @@
   background: var(--sheet);
   border: 1px solid var(--rule);
   box-shadow: 0 2px 6px var(--ink-faded);
+  /* The red double margin line runs the full height of the sheet, label included. */
+  background-image: linear-gradient(
+    to right,
+    var(--sheet) 0,
+    var(--sheet) calc(var(--space-6) - 7px),
+    var(--margin) calc(var(--space-6) - 7px),
+    var(--margin) calc(var(--space-6) - 5px),
+    var(--sheet) calc(var(--space-6) - 5px),
+    var(--sheet) calc(var(--space-6) - 3px),
+    var(--margin) calc(var(--space-6) - 3px),
+    var(--margin) calc(var(--space-6) - 1px),
+    var(--sheet) calc(var(--space-6) - 1px)
+  );
 }
 
 .cs-card .cs-ledger {
@@ -11,7 +24,7 @@
 }
 
 .cs-ledger .cs-ledger-label {
-  padding: var(--space-2) var(--space-3) 0 var(--space-6);
+  padding: var(--space-2) var(--space-3) 0 calc(var(--space-6) + var(--space-2));
 }
 
 .cs-ledger .cs-ledger-label .cs-typed {
@@ -21,18 +34,6 @@
 .cs-ledger .cs-ledger-body {
   position: relative;
   overflow-x: auto;
-  background-image: linear-gradient(
-    to right,
-    var(--sheet) 0,
-    var(--sheet) calc(var(--space-6) - 5px),
-    var(--margin) calc(var(--space-6) - 5px),
-    var(--margin) calc(var(--space-6) - 4px),
-    var(--sheet) calc(var(--space-6) - 4px),
-    var(--sheet) calc(var(--space-6) - 2px),
-    var(--margin) calc(var(--space-6) - 2px),
-    var(--margin) calc(var(--space-6) - 1px),
-    var(--sheet) calc(var(--space-6) - 1px)
-  );
 }
 
 .cs-ledger table {
@@ -116,7 +117,6 @@
   }
 
   .cs-ledger .cs-ledger-body {
-    background: none;
     overflow: visible;
   }
 
