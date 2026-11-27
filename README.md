@@ -4,7 +4,7 @@ A local-only Firefox extension that records your job applications, what you sent
 
 [![CI](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml/badge.svg)](https://github.com/firegiant9000/CounterSign/actions/workflows/ci.yml)
 
-> **Status:** v1.2.0: the redesigned interface, form filling, fill records and a daily reminder. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
+> **Status:** v1.2.1: the redesigned interface, form filling, fill records and a daily reminder. It is not published to the Firefox add-on store; build it from source (see [Build and run](#build-and-run)). Firefox 140 or later only.
 
 ## The three claims
 
